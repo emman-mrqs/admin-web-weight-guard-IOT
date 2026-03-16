@@ -5,82 +5,97 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WeighGuard - User Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="/css/admin/adminUsers.css">
-
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
 
-    <!-- SIDEBAR -->
     <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
 
-
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col overflow-hidden relative">
-        <!-- HEADER -->
-        <header class="h-20 bg-[#0B0E14] border-b border-gray-800 flex items-center justify-between px-8 shrink-0">
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-950">
+        
+        <header class="h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 shrink-0 z-10 sticky top-0">
             <div>
-                <h1 class="text-2xl font-bold text-white">User Management</h1>
-                <p class="text-xs text-gray-500 font-medium">Control permissions and platform access</p>
+                <h1 class="text-2xl font-extrabold text-white tracking-tight">User Management</h1>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Control permissions and platform access</p>
             </div>
             <div class="flex items-center gap-4">
-                <!-- Assign Task Button -->
-                <button onclick="openAssignTaskModal()" class="bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-700 transition shadow-sm">
-                    <svg class="w-4 h-4 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    ASSIGN TASK
-                </button>
-                <!-- Add User Button -->
-                <button onclick="openModal('addUserModal')" class="bg-[#2DD4BF] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-300 transition shadow-lg shadow-teal-900/20">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"></path></svg>
+                <a href="/admin/task-dispatch" class="bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-700 transition shadow-sm">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    TASK DISPATCH
+                </a>
+                <button onclick="openModal('addUserModal')" class="bg-emerald-500 text-slate-900 px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 hover:bg-emerald-400 transition shadow-[0_0_15px_rgba(52,211,153,0.4)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
                     ADD NEW USER
                 </button>
-                <button class="relative p-2 text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    <span class="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-[#0B0E14]"></span>
+                <button class="relative p-2.5 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    <span class="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
                 </button>
             </div>
         </header>
 
-        <!-- DASHBOARD BODY -->
-        <div class="flex-1 overflow-hidden p-8 flex flex-col">
+        <div class="flex-1 overflow-hidden p-8 flex flex-col space-y-6">
             
-            <!-- SUMMARY STATS -->
-            <div id="summaryStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 shrink-0">
-                
-
+            <div id="summaryStats" class="grid grid-cols-4 gap-6 shrink-0">
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Users</p>
+                        <p id="summaryTotalUsers" class="text-2xl font-extrabold text-white leading-none">142</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Active Drivers</p>
+                        <p id="summaryActiveUsers" class="text-2xl font-extrabold text-white leading-none">114</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Unassigned</p>
+                        <p id="summaryUnassigned" class="text-2xl font-extrabold text-white leading-none">24</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
+                    <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Suspended</p>
+                        <p id="summarySuspendedUsers" class="text-2xl font-extrabold text-rose-400 leading-none">4</p>
+                    </div>
+                </div>
             </div>
 
-            <!-- TAB NAVIGATION -->
-            <div class="flex gap-6 border-b border-gray-800 mb-6 shrink-0">
-                <button id="tab-list" onclick="switchView('list')" class="px-4 py-2 text-sm font-bold tab-active transition-all">User List</button>
-                <button id="tab-map" onclick="switchView('map')" class="px-4 py-2 text-sm font-bold tab-inactive transition-all flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    Live Map View
-                </button>
-            </div>
-
-            <!-- VIEW CONTAINER -->
             <div class="flex-1 overflow-hidden relative">
-                
-                <!-- LIST VIEW (Default) -->
+    
                 <div id="listView" class="flex flex-col h-full absolute inset-0 transition-opacity duration-300">
-                    <!-- Filters -->
-                    <div class="flex flex-col md:flex-row gap-4 justify-between items-center mb-6 shrink-0">
-                        <div class="relative w-full md:w-96">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <div class="bg-slate-900 rounded-t-2xl border border-slate-800 border-b-0 shadow-lg p-5 px-6 flex flex-col md:flex-row gap-4 justify-between items-center shrink-0">
+                        <div class="relative w-full md:w-96 group">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                                <svg class="w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             </span>
-                            <input type="text" placeholder="Search by name or email..." class="w-full bg-[#111827] border border-gray-700 text-sm rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] text-gray-300 transition">
+                            <input type="text" placeholder="Search by name or email..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
                         </div>
-                        <div class="flex gap-2 w-full md:w-auto">
-                            <select class="bg-[#111827] border border-gray-700 text-xs font-bold text-gray-400 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] flex-1">
+                        <div class="flex gap-3 w-full md:w-auto">
+                            <select class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer flex-1">
                                 <option>All Assignments</option>
                                 <option>In Transit</option>
                                 <option>Idle</option>
                                 <option>Unassigned</option>
                             </select>
-                            <select class="bg-[#111827] border border-gray-700 text-xs font-bold text-gray-400 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] flex-1">
+                            <select class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer flex-1">
                                 <option>All Status</option>
                                 <option>Active</option>
                                 <option>Inactive</option>
@@ -89,138 +104,66 @@
                         </div>
                     </div>
 
-                    <!-- Table -->
-                    <div class="card-bg rounded-xl overflow-hidden flex-1">
+                    <div class="bg-slate-900 rounded-b-2xl border border-slate-800 shadow-lg flex flex-col overflow-hidden flex-1">
                         <div class="overflow-y-auto custom-scrollbar h-full">
-                            <table class="w-full text-left">
-                                <thead class="sticky top-0 bg-[#111827] z-10">
-                                    <tr class="text-gray-500 text-[10px] uppercase font-bold border-b border-gray-800">
+                            <table class="w-full text-left border-collapse whitespace-nowrap">
+                                <thead class="sticky top-0 bg-slate-900/90 backdrop-blur border-b border-slate-800 z-10">
+                                    <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
                                         <th class="px-6 py-4">User</th>
                                         <th class="px-6 py-4">Assignment</th>
                                         <th class="px-6 py-4">Status</th>
                                         <th class="px-6 py-4">Created At</th>
-                                        <th class="px-6 py-4">Action</th>
+                                        <th class="px-6 py-4 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody id="usersTableBody" class="divide-y divide-gray-800">
-                                    <!-- User rows will be populated here dynamically -->
+                                <tbody id="usersTableBody" class="divide-y divide-slate-800/50">
+                                    <tr class="hover:bg-slate-800/40 transition-colors group">
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700 text-slate-400 font-bold">
+                                                    ML
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-white text-sm">Marcus Lee</div>
+                                                    <div class="text-xs text-slate-500 mt-0.5">marcus@weighguard.io</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-bold text-slate-300">Trailer Truck</div>
+                                            <div class="font-mono text-[10px] text-slate-500 mt-0.5">RC-8802</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                ACTIVE
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-xs text-slate-400 font-medium">
+                                            Oct 12, 2025
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <button onclick="toggleModal('historyModal')" class="text-slate-500 hover:text-emerald-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="View History"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></button>
+                                                <button onclick="toggleModal('editUserModal')" class="text-slate-500 hover:text-blue-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Edit User"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                                                <button onclick="toggleModal('deleteUserModal')" class="text-slate-500 hover:text-rose-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Delete User"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                </div>
-
-                <!-- MAP VIEW (Hidden by Default) -->
-                <div id="mapView" class="hidden absolute inset-0 flex gap-6 h-full transition-opacity duration-300">
-                    <!-- Left: Active Assignments List -->
-                    <div class="w-1/4 card-bg rounded-xl overflow-hidden flex flex-col border border-gray-800">
-                        <div class="p-4 border-b border-gray-700 bg-[#111827]">
-                            <h3 class="text-white font-bold text-sm">Active Assignments</h3>
-                            <p class="text-xs text-gray-500">Select to view route</p>
-                        </div>
-                        <div id="assignmentsList" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
-                            <!-- Driver assignments will be populated dynamically -->
-                            <div class="p-4 text-center text-gray-500 text-xs">
-                                <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                                Loading assignments...
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Map and Task Details -->
-                    <div class="flex-1 flex flex-col gap-4">
-                        <!-- Map Container -->
-                        <div class="flex-1 card-bg rounded-xl overflow-hidden relative border border-gray-800">
-                            <div id="users-map" class="w-full h-full"></div>
-                            
-                            <!-- Map Legend -->
-                            <div class="absolute top-4 left-4 z-[40] bg-[#0B0E14]/90 backdrop-blur-md p-3 rounded-lg border border-gray-700 text-xs shadow-xl pointer-events-none">
-                                <p class="font-bold text-white mb-2">Route Legend</p>
-                                <div class="space-y-1.5">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-[#2DD4BF]"></span>
-                                        <span class="text-gray-400">Pickup Point</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
-                                        <span class="text-gray-400">Destination</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-6 h-0.5 bg-blue-500 rounded"></span>
-                                        <span class="text-gray-400">Route Path</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Refresh Button -->
-                            <button onclick="loadMapAssignments()" class="absolute top-4 right-4 z-[40] bg-[#0B0E14]/90 hover:bg-[#1F2937] backdrop-blur-md p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition shadow-xl" title="Refresh Assignments">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            </button>
-                        </div>
-
-                        <!-- Selected Task Route Details Panel -->
-                        <div id="selectedTaskDetails" class="hidden card-bg rounded-xl border border-gray-800 p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-3">
-                                    <div class="p-2 bg-[#2DD4BF]/10 rounded-lg">
-                                        <svg class="w-5 h-5 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                                    </div>
-                                    <div>
-                                        <p id="selectedDriverName" class="text-sm font-bold text-white">Driver Name</p>
-                                        <p id="selectedVehicle" class="text-[10px] text-gray-500">#RC-0000</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <!-- Edit Assignment Button -->
-                                    <button onclick="openEditAssignmentModal()" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50" title="Edit Assignment">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                    </button>
-                                    <!-- Delete Assignment Button -->
-                                    <button onclick="openDeleteAssignmentModal()" class="p-2 text-red-500 hover:text-red-400 transition bg-red-900/20 rounded-lg border border-red-500/30 hover:border-red-500/50" title="Delete Assignment">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
-                                    <!-- Close Button -->
-                                    <button onclick="hideTaskDetails()" class="text-gray-400 hover:text-white transition p-1.5 hover:bg-gray-700/50 rounded-lg" title="Close">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Trip Stats -->
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                                <div class="bg-gray-800/50 rounded-lg p-3">
-                                    <p class="text-[10px] text-gray-500 uppercase font-bold">Distance</p>
-                                    <p id="selectedDistance" class="text-sm font-bold text-white font-mono">-- km</p>
-                                </div>
-                                <div class="bg-gray-800/50 rounded-lg p-3">
-                                    <p class="text-[10px] text-gray-500 uppercase font-bold">Duration</p>
-                                    <p id="selectedDuration" class="text-sm font-bold text-white font-mono">-- min</p>
-                                </div>
-                                <div class="bg-gray-800/50 rounded-lg p-3">
-                                    <p class="text-[10px] text-gray-500 uppercase font-bold">Status</p>
-                                    <p id="selectedStatus" class="text-sm font-bold text-[#2DD4BF]">Active</p>
-                                </div>
-                                <div class="bg-gray-800/50 rounded-lg p-3">
-                                    <p class="text-[10px] text-gray-500 uppercase font-bold">Started</p>
-                                    <p id="selectedStartTime" class="text-sm font-bold text-white">--</p>
-                                </div>
-                            </div>
-
-                            <!-- Route Directions Toggle -->
-                            <div id="mapRouteDirections" class="hidden">
-                                <button type="button" onclick="toggleMapDirections()" class="w-full flex items-center justify-between bg-gray-800/50 hover:bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 transition group">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                                        <span class="text-sm font-bold text-white">Route Directions</span>
-                                        <span id="mapRouteSummary" class="text-[10px] text-gray-400"></span>
-                                    </div>
-                                    <svg id="mapDirectionsChevron" class="w-4 h-4 text-gray-400 transition transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                </button>
-                                <div id="mapDirectionsContent" class="hidden mt-2 bg-gray-800/30 border border-gray-700 rounded-lg overflow-hidden">
-                                    <div class="max-h-32 overflow-y-auto custom-scrollbar">
-                                        <ul id="mapDirectionsList" class="divide-y divide-gray-700/50 text-sm"></ul>
-                                    </div>
-                                </div>
+                        
+                        <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                            <p class="text-xs text-slate-500 font-medium" id="pagination-info">
+                                Showing <span class="text-white font-bold">1</span> to <span class="text-white font-bold">10</span> of <span class="text-white font-bold">142</span> entries
+                            </p>
+                            <div class="flex items-center gap-1.5" id="pagination-controls">
+                                <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                                <button class="w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">1</button>
+                                <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold">2</button>
+                                <button class="p-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
                             </div>
                         </div>
                     </div>
@@ -230,461 +173,216 @@
         </div>
     </main>
 
-    <!-- ASSIGN TASK MODAL -->
-<div id="assignTaskModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeAssignTaskModal()"></div>
-        
-        <!-- Modal Content -->
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-2xl rounded-xl shadow-2xl p-0 transform transition-all duration-300 modal-content-enter modal-content flex flex-col max-h-[90vh]">
-            
-            <!-- Header -->
-            <div class="flex justify-between items-center p-6 border-b border-gray-800">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <div class="p-2 bg-[#2DD4BF]/10 rounded-lg">
-                        <svg class="w-5 h-5 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    </div>
-                    Assign New Task
-                </h2>
-                <button onclick="closeAssignTaskModal()" class="text-gray-400 hover:text-white transition p-2 hover:bg-gray-800 rounded-lg">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+    <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeAllModals()"></div>
+
+    <div id="addUserModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                </div>
+                <h2 class="text-xl font-extrabold text-white tracking-tight">Add New User</h2>
             </div>
-
-            <!-- Scrollable Content Area -->
-            <div class="overflow-y-auto flex-1 p-6 custom-scrollbar">
-                <form id="assignTaskForm" class="space-y-5" onsubmit="event.preventDefault();">
-                    
-                    <!-- Error/Success Messages -->
-                    <p id="taskFormError" class="text-red-500 text-sm"></p>
-                    <p id="taskFormSuccess" class="text-green-500 text-sm"></p>
-                    
-                    <!-- Driver & Vehicle Section -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Select Driver</label>
-                            <div class="relative">
-                                <select id="taskDriverSelect" class="w-full bg-[#1F2937] border border-gray-700 text-white text-sm rounded-lg pl-3 pr-8 py-3 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] appearance-none transition-colors">
-                                    <option value="">Loading drivers...</option>
-                                </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Vehicle Number</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-mono">#RC-</span>
-                                <input type="text" id="taskVehicleSelect" placeholder="0000" maxlength="4" class="w-full bg-[#1F2937] border border-gray-700 text-white text-sm rounded-lg pl-12 pr-3 py-3 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] font-mono transition-colors">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-gray-800 my-2"></div>
-
-                    <!-- Map Interaction Header -->
-                    <div class="flex justify-between items-end">
-                        <label class="block text-xs font-bold text-gray-400 uppercase">Route Details</label>
-                        <span class="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded">Click inputs to set mode</span>
-                    </div>
-
-                    <!-- Location Inputs Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Pickup Input -->
-                        <div class="relative group">
-                            <label class="block text-[10px] font-bold text-[#2DD4BF] uppercase mb-1 ml-1 flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-[#2DD4BF]"></span> Pickup Location (A)
-                            </label>
-                            <input type="text" id="pickupInput" onclick="setTaskMode('pickup')" readonly
-                                class="w-full bg-[#1F2937] border border-[#2DD4BF] text-white text-sm rounded-lg pl-9 pr-3 py-3 focus:outline-none cursor-pointer transition-all shadow-[0_0_10px_rgba(45,212,191,0.1)] hover:bg-gray-800" 
-                                placeholder="Click on map to set...">
-                            <!-- Icon inside input -->
-                            <div class="absolute left-3 top-[34px] text-[#2DD4BF]">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            </div>
-                        </div>
-
-                        <!-- Destination Input -->
-                        <div class="relative group">
-                            <label class="block text-[10px] font-bold text-red-400 uppercase mb-1 ml-1 flex items-center gap-1">
-                                <span class="w-2 h-2 rounded-full bg-red-400"></span> Destination (B)
-                            </label>
-                            <input type="text" id="destInput" onclick="setTaskMode('dest')" readonly
-                                class="w-full bg-[#1F2937] border border-gray-700 text-white text-sm rounded-lg pl-9 pr-3 py-3 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 cursor-pointer transition-all hover:bg-gray-800" 
-                                placeholder="Click on map to set...">
-                            <!-- Icon inside input -->
-                            <div class="absolute left-3 top-[34px] text-red-400">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TRIP STATS DISPLAY (Hidden by default) -->
-                    <div id="tripStats" class="hidden relative overflow-hidden bg-gray-800/50 border border-gray-700 rounded-xl p-4 flex flex-col sm:flex-row justify-around items-center gap-4 animate-fadeIn">
-                         <!-- Glow Effect -->
-                        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#2DD4BF] to-transparent opacity-50"></div>
-                        
-                        <!-- Time -->
-                        <div class="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
-                            <div class="p-2.5 rounded-lg bg-blue-500/10 text-blue-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Est. Duration</p>
-                                <p id="timeVal" class="text-lg font-bold text-white font-mono">-- min</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Divider (Desktop) -->
-                        <div class="hidden sm:block h-8 w-px bg-gray-700"></div>
-                        
-                        <!-- Distance -->
-                        <div class="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
-                            <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Distance</p>
-                                <p id="distVal" class="text-lg font-bold text-white font-mono">-- km</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- MAP CONTAINER -->
-                    <div class="relative w-full h-72 bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-inner group">
-                        
-                        <!-- The Map -->
-                        <div id="taskMap" class="w-full h-full z-10"></div>
-                        
-                        <!-- Floating Mode Indicator -->
-                        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-[400] bg-[#111827]/90 backdrop-blur border border-gray-600 px-4 py-1.5 rounded-full shadow-lg flex items-center gap-2 transition-all duration-300">
-                            <span id="modeDot" class="w-2 h-2 rounded-full bg-[#2DD4BF] animate-pulse"></span>
-                            <span id="modeText" class="text-xs font-bold text-gray-200">Set Pickup Point</span>
-                        </div>
-
-                        <!-- Reset Map Button -->
-                        <button type="button" onclick="resetTaskMap()" class="absolute bottom-3 right-3 z-[400] bg-white text-gray-900 p-2 rounded-lg shadow-lg hover:bg-gray-100 transition" title="Clear Map">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        </button>
-                    </div>
-
-                    <!-- ROUTE DIRECTIONS PANEL (Hidden by default) -->
-                    <div id="routeDirections" class="hidden">
-                        <button type="button" onclick="toggleDirections()" id="directionsToggleBtn" class="w-full flex items-center justify-between bg-gray-800/50 hover:bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 transition group">
-                            <div class="flex items-center gap-3">
-                                <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                                </div>
-                                <div class="text-left">
-                                    <p class="text-sm font-bold text-white">Route Directions</p>
-                                    <p id="routeSummaryText" class="text-[10px] text-gray-400">Click to view turn-by-turn guide</p>
-                                </div>
-                            </div>
-                            <svg id="directionsChevron" class="w-5 h-5 text-gray-400 group-hover:text-white transition transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </button>
-                        
-                        <!-- Collapsible Directions List -->
-                        <div id="directionsContent" class="hidden mt-2 bg-gray-800/30 border border-gray-700 rounded-xl overflow-hidden">
-                            <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                <ul id="directionsList" class="divide-y divide-gray-700/50">
-                                    <!-- Directions will be populated here -->
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                </form>
-            </div>
-
-            <!-- Footer Actions -->
-            <div class="p-6 border-t border-gray-800 bg-[#111827] rounded-b-xl flex gap-3">
-                <button type="button" onclick="closeAssignTaskModal()" class="flex-1 px-4 py-3 border border-gray-600 text-gray-300 font-bold rounded-xl hover:bg-gray-800 hover:text-white transition">
-                    Cancel
-                </button>
-                <button type="button" onclick="dispatchTask()" class="flex-1 px-4 py-3 bg-[#2DD4BF] text-black font-bold rounded-xl hover:bg-teal-300 transition shadow-lg shadow-teal-900/20 flex justify-center items-center gap-2">
-                    <span>Dispatch Driver</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
-                </button>
-            </div>
+            <button onclick="closeModal('addUserModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
-    </div>
-
-    <!-- ADD USER MODAL -->
-    <div id="addUserModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('addUserModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-lg rounded-xl shadow-2xl p-6 transform transition-all duration-300 modal-content-enter modal-content">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
-                    Add New User
-                </h2>
-                <button onclick="closeModal('addUserModal')" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <form id="addUserForm"  class="space-y-4">
-                <p id="formError" class="text-red-500 text-sm"></p>
-                <p id="formSuccess" class="text-green-500 text-sm"></p>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">First Name</label>
-                        <input type="text" name="firstName" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="John">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
-                        <input type="text" name="lastName" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="Doe">
-                    </div>
+        <form id="addUserForm" class="p-8 space-y-6">
+            <p id="formError" class="text-rose-500 text-sm hidden"></p>
+            <p id="formSuccess" class="text-emerald-500 text-sm hidden"></p>
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">First Name</label>
+                    <input type="text" name="firstName" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="John">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Last Name</label>
+                    <input type="text" name="lastName" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="Doe">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
                         </span>
-                        <input type="email" name="email" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="john.doe@weighguard.io">
+                        <input type="email" name="email" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="john.doe@weighguard.io">
                     </div>
                 </div>
-                <!-- Password Fields Added -->
-                <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 grid grid-cols-2 gap-6 border-t border-slate-800 pt-6">
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
                         <div class="relative">
-                            <input type="password" id="addPassword" name="password" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 pr-10 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="••••••••">
-                            <button type="button" onclick="togglePasswordVisibility('addPassword', 'toggleAddPasswordIcon')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-[#2DD4BF] transition">
-                                <svg id="toggleAddPasswordIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                </svg>
+                            <input type="password" id="addPassword" name="password" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="••••••••">
+                            <button type="button" onclick="togglePasswordVisibility('addPassword', 'toggleAddPasswordIcon')" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-500 hover:text-emerald-400 transition">
+                                <svg id="toggleAddPasswordIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                             </button>
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Confirm Password</label>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm Password</label>
                         <div class="relative">
-                            <input type="password" id="addConfirmPassword" name="confirmPassword" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 pr-10 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="••••••••">
-                            <button type="button" onclick="togglePasswordVisibility('addConfirmPassword', 'toggleAddConfirmPasswordIcon')" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-[#2DD4BF] transition">
-                                <svg id="toggleAddConfirmPasswordIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                </svg>
+                            <input type="password" id="addConfirmPassword" name="confirmPassword" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="••••••••">
+                            <button type="button" onclick="togglePasswordVisibility('addConfirmPassword', 'toggleAddConfirmPasswordIcon')" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-500 hover:text-emerald-400 transition">
+                                <svg id="toggleAddConfirmPasswordIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                             </button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Generate Random Password -->
-                <div class="flex items-center justify-between py-2">
-                    <span class="text-xs text-gray-500">Need a secure password?</span>
-                    <button type="button" onclick="generateRandomPassword()" class="text-xs font-bold text-[#2DD4BF] border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 px-3 py-1.5 rounded hover:bg-[#2DD4BF]/20 transition flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                        Generate Random Password
-                    </button>
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Need a secure password?</span>
+                <button type="button" onclick="generateRandomPassword()" class="text-xs font-bold text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Generate Random
+                </button>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex gap-4 mt-2">
+                <button type="button" onclick="closeModal('addUserModal')" class="w-1/3 py-3.5 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 hover:text-white transition">Cancel</button>
+                <button type="submit" class="w-2/3 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-extrabold transition shadow-[0_0_15px_rgba(52,211,153,0.4)] tracking-wide uppercase text-xs">
+                    Create User Account
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="editUserModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 </div>
+                <h2 class="text-xl font-extrabold text-white tracking-tight">Edit User Details</h2>
+            </div>
+            <button onclick="closeModal('editUserModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
         
-                <div class="flex gap-3 pt-4 border-t border-gray-700 mt-4">
-                    <button type="button" onclick="closeModal('addUserModal')" class="flex-1 px-4 py-2.5 border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 hover:text-white transition">Cancel</button>
-                    <button type="submit"
-                        class="flex-1 px-4 py-2.5 bg-[#2DD4BF] text-black font-bold rounded-lg hover:bg-teal-300 transition shadow-lg shadow-teal-900/20">
-                        Create User
+        <form id="editUserForm" class="p-8 space-y-6">
+            <p id="editFormError" class="text-rose-500 text-sm hidden"></p>
+            <p id="editFormSuccess" class="text-emerald-500 text-sm hidden"></p>
+            <input type="hidden" id="editUserId" name="user_id">
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">First Name</label>
+                    <input type="text" id="editFirstName" name="firstName" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Last Name</label>
+                    <input type="text" id="editLastName" name="lastName" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address (Read Only)</label>
+                    <input type="email" id="editEmail" name="email" class="w-full bg-slate-900 border border-slate-800 text-slate-500 text-sm rounded-xl px-4 py-3.5 cursor-not-allowed shadow-inner font-mono" readonly>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6 border-t border-slate-800 pt-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
+                    <div class="relative">
+                        <select id="editStatus" name="status" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                            <option value="active">Active Account</option>
+                            <option value="inactive">Inactive (Suspended)</option>
+                            <option value="pending">Pending Approval</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Vehicle Assignment</label>
+                    <div class="relative">
+                        <select id="editVehicle" name="vehicle" class="w-full bg-slate-950 border border-slate-700 text-slate-300 text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                            <option value="">Unassigned</option>
+                            <option value="RC-8802">Trailer Truck - RC-8802</option>
+                            <option value="RC-0034">Reefer Truck - RC-0034</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="py-2 border-t border-slate-800 mt-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Security Action</span>
+                    <button type="button" class="text-xs font-bold text-blue-400 border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 rounded-lg hover:bg-blue-500/20 transition">
+                        Send Password Reset Link
                     </button>
                 </div>
-            </form>
-        </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex gap-4 mt-2">
+                <button type="button" onclick="closeModal('editUserModal')" class="w-1/3 py-3.5 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 hover:text-white transition">Cancel</button>
+                <button type="submit" class="w-2/3 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold transition shadow-[0_0_15px_rgba(37,99,235,0.4)] tracking-wide uppercase text-xs">
+                    Save Changes
+                </button>
+            </div>
+        </form>
     </div>
 
-    <!-- EDIT USER MODAL (Newly Added) -->
-    <div id="editUserModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('editUserModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-lg rounded-xl shadow-2xl p-6 transform transition-all duration-300 modal-content-enter modal-content">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                    Edit User Details
+    <div id="historyModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-extrabold text-white flex items-center gap-2 tracking-tight">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </div>
+                    Activity Log
                 </h2>
-                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+                <p class="text-xs text-slate-400 mt-1 ml-10">Detailed history of user activity and assignments.</p>
             </div>
-            
-            <form id="editUserForm" class="space-y-4">
-                <p id="editFormError" class="text-red-500 text-sm"></p>
-                <p id="editFormSuccess" class="text-green-500 text-sm"></p>
-                <!-- Hidden User ID -->
-                <input type="hidden" id="editUserId" name="user_id">
-                <!-- Personal Info -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">First Name</label>
-                        <input type="text" id="editFirstName" name="firstName" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="First Name">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
-                        <input type="text" id="editLastName" name="lastName" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="Last Name">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address - read only</label>
-                    <input type="email" id="editEmail" name="email" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition" placeholder="Email" readonly>
-                </div>
-
-                <!-- Access & Assignment -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
-                        <select id="editStatus" name="status" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive (Suspended)</option>
-                            <option value="pending">Pending</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Reassign Vehicle</label>
-                        <select id="editVehicle" name="vehicle" class="w-full bg-[#0B0E14] border border-gray-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition">
-                            <option value="">Unassign Vehicle</option>
-                            <option value="RC-8802">#RC-8802</option>
-                            <option value="RC-0034">#RC-0034</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Security Action -->
-                <div class="py-3 border-t border-gray-700/50 mt-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-400 font-medium">Password Reset</span>
-                        <button type="button" class="text-xs font-bold text-[#2DD4BF] border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 px-3 py-1.5 rounded hover:bg-[#2DD4BF]/20 transition">
-                            Send Reset Link
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Footer Buttons -->
-                <div class="flex gap-3 pt-2 border-t border-gray-700">
-                    <button type="button" onclick="closeModal('editUserModal')" class="flex-1 px-4 py-2.5 border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 hover:text-white transition">Cancel</button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-900/20">Save Changes</button>
-                </div>
-            </form>
+            <button onclick="closeModal('historyModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        
+        <div class="max-h-[50vh] overflow-auto custom-scrollbar">
+            <table class="w-full text-left whitespace-nowrap">
+                <thead class="sticky top-0 bg-slate-900/90 backdrop-blur border-b border-slate-800 z-10">
+                    <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
+                        <th class="px-6 py-4">Timestamp</th>
+                        <th class="px-6 py-4">Action</th>
+                        <th class="px-6 py-4">Details</th>
+                        <th class="px-6 py-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/50 bg-slate-900">
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="px-6 py-4 text-xs text-white">May 12, 08:30 AM</td>
+                        <td class="px-6 py-4 text-xs text-slate-300 font-bold">Assignment Started</td>
+                        <td class="px-6 py-4 text-xs text-slate-400 font-mono">RC-8802 (Warehouse A -> Zone B)</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">ACTIVE</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- HISTORY MODAL (Cargo Integrity Focused) -->
-    <div id="historyModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('historyModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-3xl rounded-xl shadow-2xl p-0 transform transition-all duration-300 modal-content-enter modal-content overflow-hidden m-4">
-            <div class="p-6 border-b border-gray-700 flex justify-between items-center bg-[#0B0E14]">
-                <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                        Cargo Integrity Log
-                    </h2>
-                    <p class="text-xs text-gray-500 mt-1">Detailed history of weight monitoring and cargo loss incidents.</p>
-                </div>
-                <button onclick="closeModal('historyModal')" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+    <div id="deleteUserModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300">
+        <div class="p-6 text-center space-y-4">
+            <div class="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto text-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </div>
+            <h2 class="text-xl font-bold text-white tracking-tight">Delete User Account?</h2>
             
-            <!-- Table Container with Horizontal Scroll -->
-            <div class="p-0 max-h-[400px] overflow-auto custom-scrollbar">
-                <table class="w-full text-left min-w-[700px]">
-                    <thead class="sticky top-0 bg-[#1F2937] text-gray-400 text-[10px] uppercase font-bold border-b border-gray-700 z-10">
-                        <tr>
-                            <th class="px-6 py-3 whitespace-nowrap">Timestamp</th>
-                            <th class="px-6 py-3 whitespace-nowrap">Route Segment</th>
-                            <th class="px-6 py-3 whitespace-nowrap">Initial Load</th>
-                            <th class="px-6 py-3 whitespace-nowrap">Final Load</th>
-                            <th class="px-6 py-3 whitespace-nowrap">Loss Details</th>
-                            <th class="px-6 py-3 whitespace-nowrap">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-800 bg-[#111827]">
-                        <!-- Trip 1: Clean -->
-                        <tr class="hover:bg-gray-800/50 transition">
-                            <td class="px-6 py-4 text-xs text-white whitespace-nowrap">May 12, 08:30 AM</td>
-                            <td class="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">Warehouse A <span class="text-gray-600">→</span> Zone B</td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-300 whitespace-nowrap">1200 kg</td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-300 whitespace-nowrap">1200 kg</td>
-                            <td class="px-6 py-4 text-xs text-gray-500 italic whitespace-nowrap">No weight change</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 rounded bg-green-900/20 text-green-500 text-[10px] font-bold border border-green-900/50">SECURE</span>
-                            </td>
-                        </tr>
-                        <!-- Trip 2: Incident -->
-                        <tr class="hover:bg-gray-800/50 transition border-l-2 border-red-500 bg-red-900/5">
-                            <td class="px-6 py-4 text-xs text-white whitespace-nowrap">May 11, 02:15 PM</td>
-                            <td class="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">Zone B <span class="text-gray-600">→</span> Port 4</td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-300 whitespace-nowrap">1200 kg</td>
-                            <td class="px-6 py-4 text-xs font-mono text-white font-bold whitespace-nowrap">1185 kg</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-xs text-red-400 font-bold">-15 kg Detected</div>
-                                <div class="text-[10px] text-gray-500">at GPS 34.05, -118.24</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 rounded bg-red-900/20 text-red-500 text-[10px] font-bold border border-red-900/50">LOSS ALERT</span>
-                            </td>
-                        </tr>
-                        <!-- Trip 3: Clean -->
-                        <tr class="hover:bg-gray-800/50 transition">
-                            <td class="px-6 py-4 text-xs text-white whitespace-nowrap">May 10, 10:00 AM</td>
-                            <td class="px-6 py-4 text-xs text-gray-400 whitespace-nowrap">Warehouse C <span class="text-gray-600">→</span> Zone A</td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-300 whitespace-nowrap">950 kg</td>
-                            <td class="px-6 py-4 text-xs font-mono text-gray-300 whitespace-nowrap">950 kg</td>
-                            <td class="px-6 py-4 text-xs text-gray-500 italic whitespace-nowrap">No weight change</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 rounded bg-green-900/20 text-green-500 text-[10px] font-bold border border-green-900/50">SECURE</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="p-4 border-t border-gray-700 bg-[#0B0E14] flex justify-end">
-                <button type="button" onclick="closeModal('historyModal')" class="px-4 py-2 bg-gray-800 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition border border-gray-700">Close Log</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- DELETE USER CONFIRMATION MODAL -->
-    <div id="deleteUserModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('deleteUserModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-md rounded-xl shadow-2xl p-6 transform transition-all duration-300 modal-content-enter modal-content">
-            <!-- Modal Header -->
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <div class="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </div>
-                    Delete User
-                </h2>
-                <button onclick="closeModal('deleteUserModal')" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-
-            <!-- Hidden User ID -->
             <input type="hidden" id="deleteUserId">
 
-            <!-- Warning Message -->
-            <div class="bg-red-900/10 border border-red-500/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-gray-300 mb-2">Are you sure you want to delete this user?</p>
-                <p class="text-sm font-bold text-white" id="deleteUserName">User Name</p>
-                <p class="text-xs text-gray-500 mt-2">This action cannot be undone. All user data, including assignment history and activity logs, will be permanently removed.</p>
+            <div class="bg-rose-950/20 border border-rose-500/20 rounded-xl p-4 mb-2 text-left">
+                <p class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Target User</p>
+                <p class="text-sm font-bold text-white mb-2" id="deleteUserName">User Name Here</p>
+                <p class="text-[10px] text-slate-500 leading-relaxed">This action cannot be undone. All user data, assignment history, and login access will be permanently wiped.</p>
             </div>
 
-            <!-- Error/Success Messages -->
-            <p id="deleteFormError" class="text-red-500 text-sm mb-4"></p>
-            <p id="deleteFormSuccess" class="text-green-500 text-sm mb-4"></p>
+            <p id="deleteFormError" class="text-rose-500 text-xs hidden"></p>
+            <p id="deleteFormSuccess" class="text-emerald-500 text-xs hidden"></p>
 
-            <!-- Footer Buttons -->
-            <div class="flex gap-3">
-                <button type="button" onclick="closeModal('deleteUserModal')" class="flex-1 px-4 py-2.5 border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 hover:text-white transition">Cancel</button>
-                <button type="button" onclick="confirmDeleteUser()" class="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 transition shadow-lg shadow-red-900/20 flex items-center justify-center gap-2">
+            <div class="pt-4 flex gap-3">
+                <button type="button" onclick="closeModal('deleteUserModal')" class="flex-1 px-4 py-3 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 transition">Cancel</button>
+                <button type="button" onclick="confirmDeleteUser()" class="flex-1 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition shadow-[0_0_15px_rgba(225,29,72,0.4)] flex justify-center items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     Delete User
                 </button>
@@ -692,175 +390,6 @@
         </div>
     </div>
 
-    <!-- DELETE ASSIGNMENT CONFIRMATION MODAL -->
-    <div id="deleteAssignmentModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal('deleteAssignmentModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-md rounded-xl shadow-2xl p-6 transform transition-all duration-300 modal-content-enter modal-content">
-            <!-- Modal Header -->
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <div class="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </div>
-                    Cancel Assignment
-                </h2>
-                <button onclick="closeModal('deleteAssignmentModal')" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-
-            <!-- Hidden Assignment ID -->
-            <input type="hidden" id="deleteAssignmentId">
-
-            <!-- Warning Message -->
-            <div class="bg-red-900/10 border border-red-500/30 rounded-lg p-4 mb-6">
-                <p class="text-sm text-gray-300 mb-2">Are you sure you want to cancel this assignment?</p>
-                <p class="text-sm font-bold text-white" id="deleteAssignmentDriverName">Driver Name</p>
-                <p class="text-xs text-gray-400 mt-1" id="deleteAssignmentVehicle">Vehicle Info</p>
-                <p class="text-xs text-gray-500 mt-2">This will remove the driver's current task and set them back to available status.</p>
-            </div>
-
-            <!-- Error/Success Messages -->
-            <p id="deleteAssignmentError" class="text-red-500 text-sm mb-4"></p>
-            <p id="deleteAssignmentSuccess" class="text-green-500 text-sm mb-4"></p>
-
-            <!-- Footer Buttons -->
-            <div class="flex gap-3">
-                <button type="button" onclick="closeModal('deleteAssignmentModal')" class="flex-1 px-4 py-2.5 border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 hover:text-white transition">Keep Assignment</button>
-                <button type="button" onclick="confirmDeleteAssignment()" class="flex-1 px-4 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 transition shadow-lg shadow-red-900/20 flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    Cancel Assignment
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- EDIT ASSIGNMENT MODAL -->
-    <div id="editAssignmentModal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-enter transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal('editAssignmentModal')"></div>
-        <div class="relative bg-[#111827] border border-gray-700 w-full max-w-2xl rounded-xl shadow-2xl p-0 transform transition-all duration-300 modal-content-enter modal-content flex flex-col max-h-[90vh]">
-            
-            <!-- Header -->
-            <div class="flex justify-between items-center p-6 border-b border-gray-800">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <div class="p-2 bg-blue-900/30 rounded-lg">
-                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                    </div>
-                    Edit Assignment
-                </h2>
-                <button onclick="closeModal('editAssignmentModal')" class="text-gray-400 hover:text-white transition p-2 hover:bg-gray-800 rounded-lg">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-
-            <!-- Scrollable Content -->
-            <div class="overflow-y-auto flex-1 p-6 custom-scrollbar">
-                <form id="editAssignmentForm" class="space-y-5" onsubmit="event.preventDefault();">
-                    
-                    <!-- Hidden Assignment ID -->
-                    <input type="hidden" id="editAssignmentId">
-                    
-                    <!-- Error/Success Messages -->
-                    <p id="editAssignmentError" class="text-red-500 text-sm"></p>
-                    <p id="editAssignmentSuccess" class="text-green-500 text-sm"></p>
-
-                    <!-- Driver Info (Read-only) -->
-                    <div class="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
-                        <p class="text-[10px] text-gray-500 uppercase font-bold mb-1">Driver</p>
-                        <p id="editAssignmentDriver" class="text-sm font-bold text-white">Driver Name</p>
-                    </div>
-
-                    <!-- Vehicle Number Input -->
-                    <div>
-                        <label class="block text-xs text-gray-400 font-bold mb-2">Vehicle Number</label>
-                        <div class="flex">
-                            <span class="inline-flex items-center px-4 bg-gray-700 border border-r-0 border-gray-600 rounded-l-lg text-gray-300 text-sm font-bold">RC-</span>
-                            <input type="text" id="editAssignmentVehicle" placeholder="0001" maxlength="4"
-                                class="flex-1 bg-[#1F2937] border border-gray-700 text-sm rounded-r-lg px-4 py-3 focus:outline-none focus:border-blue-400 text-white font-mono">
-                        </div>
-                    </div>
-
-                    <!-- Status Selection -->
-                    <div>
-                        <label class="block text-xs text-gray-400 font-bold mb-2">Assignment Status</label>
-                        <select id="editAssignmentStatus" class="w-full bg-[#1F2937] border border-gray-700 text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-blue-400 text-white">
-                            <option value="active">Active (In Transit)</option>
-                            <option value="pending">Pending</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
-
-                    <!-- Map for editing pickup/destination -->
-                    <div>
-                        <label class="block text-xs text-gray-400 font-bold mb-2">Route (Click map to update locations)</label>
-                        
-                        <!-- Mode Indicator -->
-                        <div class="flex items-center gap-2 mb-2">
-                            <span id="editModeDot" class="w-2 h-2 rounded-full bg-[#2DD4BF] animate-pulse"></span>
-                            <span id="editModeText" class="text-xs font-bold text-[#2DD4BF]">Set Pickup Point</span>
-                        </div>
-
-                        <!-- Coordinate Inputs -->
-                        <div class="grid grid-cols-2 gap-4 mb-3">
-                            <div class="relative" id="editPickupInputWrapper">
-                                <input type="text" id="editPickupInput" placeholder="Click map for pickup..." readonly
-                                    onclick="setEditMapMode('pickup')"
-                                    class="w-full bg-[#1F2937] border border-gray-700 text-sm rounded-lg pl-10 pr-4 py-3 focus:outline-none text-white cursor-pointer">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#2DD4BF]"></span>
-                            </div>
-                            <div class="relative" id="editDestInputWrapper">
-                                <input type="text" id="editDestInput" placeholder="Click map for destination..." readonly
-                                    onclick="setEditMapMode('dest')"
-                                    class="w-full bg-[#1F2937] border border-gray-700 text-sm rounded-lg pl-10 pr-4 py-3 focus:outline-none text-white cursor-pointer">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-red-500"></span>
-                            </div>
-                        </div>
-
-                        <!-- Trip Stats (shown after route calculated) -->
-                        <div id="editTripStats" class="hidden mb-3 grid grid-cols-2 gap-3">
-                            <div class="bg-gray-800/50 rounded-lg p-3 flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase">Duration</p>
-                                    <p id="editTimeVal" class="text-sm font-bold text-white">--</p>
-                                </div>
-                            </div>
-                            <div class="bg-gray-800/50 rounded-lg p-3 flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-green-900/30 flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-gray-500 uppercase">Distance</p>
-                                    <p id="editDistVal" class="text-sm font-bold text-white">--</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Map Container -->
-                        <div id="editAssignmentMap" class="w-full h-64 rounded-lg border border-gray-700 overflow-hidden"></div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Footer -->
-            <div class="p-6 border-t border-gray-800 flex gap-3">
-                <button type="button" onclick="closeModal('editAssignmentModal')" class="flex-1 px-4 py-2.5 border border-gray-600 text-gray-300 font-bold rounded-lg hover:bg-gray-800 hover:text-white transition">Cancel</button>
-                <button type="button" onclick="saveAssignmentChanges()" class="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                    Save Changes
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Leaflet & App JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Routing Machine for route calculation -->
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
     <script src="/js/admin/adminUsers.js"></script>
 
 </body>

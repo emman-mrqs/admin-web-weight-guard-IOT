@@ -156,13 +156,16 @@ async function loadIncidents() {
         let url = '/admin/incidents/fetch?';
         if (filterType) url += `type=${filterType}&`;
         if (filterStatus) url += `status=${filterStatus}&`;
-        if (currentView === 'active') url += 'status=open&';
 
         const response = await fetch(url);
         const data = await response.json();
 
         if (data.success) {
-            allIncidents = data.incidents;
+            let incidents = data.incidents || [];
+            if (currentView === 'active' && !filterStatus) {
+                incidents = incidents.filter(i => ['open', 'acknowledged', 'investigating'].includes(i.status));
+            }
+            allIncidents = incidents;
             renderIncidentTable();
             renderAlertCards();
             renderIncidentMarkers();
@@ -606,19 +609,19 @@ function setupEventListeners() {
     // View toggle
     document.getElementById('btnActiveView')?.addEventListener('click', () => {
         currentView = 'active';
-        document.getElementById('btnActiveView').classList.add('bg-[#1E293B]', 'text-white');
-        document.getElementById('btnActiveView').classList.remove('text-gray-500');
-        document.getElementById('btnHistoryView').classList.remove('bg-[#1E293B]', 'text-white');
-        document.getElementById('btnHistoryView').classList.add('text-gray-500');
+        document.getElementById('btnActiveView').classList.add('bg-slate-800', 'text-white');
+        document.getElementById('btnActiveView').classList.remove('text-slate-500');
+        document.getElementById('btnHistoryView').classList.remove('bg-slate-800', 'text-white');
+        document.getElementById('btnHistoryView').classList.add('text-slate-500');
         loadIncidents();
     });
 
     document.getElementById('btnHistoryView')?.addEventListener('click', () => {
         currentView = 'history';
-        document.getElementById('btnHistoryView').classList.add('bg-[#1E293B]', 'text-white');
-        document.getElementById('btnHistoryView').classList.remove('text-gray-500');
-        document.getElementById('btnActiveView').classList.remove('bg-[#1E293B]', 'text-white');
-        document.getElementById('btnActiveView').classList.add('text-gray-500');
+        document.getElementById('btnHistoryView').classList.add('bg-slate-800', 'text-white');
+        document.getElementById('btnHistoryView').classList.remove('text-slate-500');
+        document.getElementById('btnActiveView').classList.remove('bg-slate-800', 'text-white');
+        document.getElementById('btnActiveView').classList.add('text-slate-500');
         document.getElementById('filterStatus').value = '';
         loadIncidents();
     });

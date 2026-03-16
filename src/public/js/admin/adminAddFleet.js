@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    /* ==========================================================================
+       1. DOM ELEMENTS & UI SETUP
+       ========================================================================== */
     const container = document.getElementById('showroom-canvas');
     const modelNameEl = document.getElementById('model-name');
     const modelClassEl = document.getElementById('model-class');
@@ -6,13 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const capacitySlider = document.getElementById('capacity-slider');
     const capacityDisplay = document.getElementById('capacity-display');
 
+    // Update capacity text when slider moves
     capacitySlider.addEventListener('input', (e) => {
         capacityDisplay.textContent = parseInt(e.target.value).toLocaleString() + ' kg';
     });
 
-    // --- THREE.JS SETUP ---
+
+    /* ==========================================================================
+       2. THREE.JS SCENE INITIALIZATION
+       ========================================================================== */
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x020617, 0.015);
+    scene.fog = new THREE.FogExp2(0x020617, 0.015); // Adds deep blue fog fading into background
 
     const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(12, 8, -12); 
@@ -29,11 +37,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; 
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent camera from going below ground
     controls.target.set(-2, 0, 0); 
 
-    // --- LIGHTING ---
-// --- STUDIO LIGHTING (Upgraded for solid models) ---
+
+    /* ==========================================================================
+       3. LIGHTING & ENVIRONMENT
+       ========================================================================== */
+    // --- STUDIO LIGHTING (Upgraded for solid models) ---
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5); 
     hemiLight.position.set(0, 20, 0);
     scene.add(hemiLight);
@@ -43,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     mainLight.castShadow = true;
     scene.add(mainLight);
 
-    const backLight = new THREE.DirectionalLight(0x34d399, 1.0); 
+    const backLight = new THREE.DirectionalLight(0x34d399, 1.0); // Emerald green back-glow
     backLight.position.set(-10, 10, -10);
     scene.add(backLight);
 
@@ -52,11 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
     gridHelper.position.set(-2, -0.5, 0); 
     scene.add(gridHelper);
 
-    // --- GLTF LOADER LOGIC ---
-    const loader = new THREE.GLTFLoader();
 
-    let currentTruckObj = null;
-
+    /* ==========================================================================
+       4. 3D MODEL CONFIGURATION
+       ========================================================================== */
     // Define your models (You can add more .glb files to this array later)
     const models = [
         { 
@@ -88,14 +98,23 @@ document.addEventListener('DOMContentLoaded', () => {
             filePath: '/uploads/trucks/SmallTruck.glb' 
         },
     ];
+    
+    let currentTruckObj = null;
     let currentIndex = 0;
 
+
+    /* ==========================================================================
+       5. GLTF LOADER LOGIC
+       ========================================================================== */
+    const loader = new THREE.GLTFLoader();
+
     function loadModel(index) {
+        // Remove previous truck before loading the new one
         if (currentTruckObj) scene.remove(currentTruckObj);
 
         const modelData = models[index];
         
-        // Update UI
+        // Update UI Text
         modelNameEl.textContent = modelData.name;
         modelClassEl.textContent = modelData.class;
         typeInput.value = modelData.id;
@@ -114,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // 2. Auto-Scale & Center the model
+                // Auto-Scale & Center the model
                 // This ensures the truck isn't 100x too big or 100x too small
                 const box = new THREE.Box3().setFromObject(currentTruckObj);
                 const size = box.getSize(new THREE.Vector3());
@@ -124,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const scale = 8 / maxDim;
                 currentTruckObj.scale.set(scale, scale, scale);
 
-                // 3. Position it nicely on the left side of the screen over the grid
+                // Position it nicely on the left side of the screen over the grid
                 currentTruckObj.position.set(-2, -0.5, 0);
                 
                 // Adjust Y position so the tires perfectly touch the ground grid
@@ -140,21 +159,30 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+
+    /* ==========================================================================
+       6. UI EVENT LISTENERS
+       ========================================================================== */
     // Controls for the bottom selector
     document.getElementById('next-model').addEventListener('click', () => {
         currentIndex = (currentIndex + 1) % models.length;
         loadModel(currentIndex);
     });
+    
     document.getElementById('prev-model').addEventListener('click', () => {
         currentIndex = (currentIndex - 1 + models.length) % models.length;
         loadModel(currentIndex);
     });
 
-    // Initialize first model
+    // Initialize first model on load
     loadModel(0);
 
-    // --- ANIMATION LOOP ---
+
+    /* ==========================================================================
+       7. ANIMATION LOOP & RESIZE HANDLER
+       ========================================================================== */
     let time = 0;
+    
     function animate() {
         requestAnimationFrame(animate);
         
@@ -169,9 +197,10 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.update();
         renderer.render(scene, camera);
     }
+    
     animate();
 
-    // Handle Window Resize
+    // Handle Window Resize to keep aspect ratio perfect
     window.addEventListener('resize', () => {
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();

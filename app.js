@@ -1,49 +1,39 @@
-//Import NPM
+//=============== Import Npms ===============
 import express from "express";                    
 import bodyParser from "body-parser";
 import { createServer } from "http";
-import { WebSocketServer } from "ws";
 
+// =========== Import Controllers =============
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+
+//======================== Import Routes =========================
+import adminRoutes from "./src/routes/admin/adminRoutes.js";
+import locationRoutes from "./src/routes/api/locationRoutes.js";
+import driverRoutes from "./src/routes/api/driverRoutes.js";
+import incidentRoutes from "./src/routes/api/incidentRoutes.js";
+import { setWsConnections } from "./src/controller/api/locationController.js";
+import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
+import { initTrackingWebSocket } from "./src/realtime/trackingWebSocket.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 3000;
 
+ // Only if you're behind nginx/Heroku/etc.
+ if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
+// Import Middleware
+// this is where you would import any custom middleware, e.g. for authentication, logging, etc.
+
+// Express session Middleware 
+// This is where you would set up express-session if you were using it for authentication/session management. 
+
 // Create HTTP server for both Express and WebSocket
 const server = createServer(app);
-
-// WebSocket Server Setup for real-time GPS tracking
-const wss = new WebSocketServer({ server, path: '/ws/tracking' });
-
-// Store active WebSocket connections
-const wsConnections = new Map();
-let connectionIdCounter = 0;
-
-wss.on('connection', (ws, req) => {
-    const connectionId = ++connectionIdCounter;
-    wsConnections.set(connectionId, ws);
-    
-    console.log(`[WebSocket] Client ${connectionId} connected. Total: ${wsConnections.size}`);
-    
-    // Send welcome message
-    ws.send(JSON.stringify({ 
-        type: 'connected', 
-        message: 'Real-time GPS tracking connected',
-        connectionId 
-    }));
-    
-    ws.on('close', () => {
-        wsConnections.delete(connectionId);
-        console.log(`[WebSocket] Client ${connectionId} disconnected. Total: ${wsConnections.size}`);
-    });
-    
-    ws.on('error', (error) => {
-        console.error(`[WebSocket] Error on client ${connectionId}:`, error);
-        wsConnections.delete(connectionId);
-    });
-});
+const { wsConnections } = initTrackingWebSocket(server);
 
 // Tell Express where the View folder 
 app.set("views", join(__dirname, "src", "views")); // Views Folder
@@ -56,36 +46,18 @@ app.use(express.static(join(__dirname, "src", "public")));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-
-// Attach user to views
-// app.use(attachUserToViews);
-
-//Import Routes
-import adminRoutes from "./src/routes/admin/adminRoutes.js";
-import locationRoutes from "./src/routes/api/locationRoutes.js";
-import driverRoutes from "./src/routes/api/driverRoutes.js";
-import incidentRoutes from "./src/routes/api/incidentRoutes.js";
-import { setWsConnections } from "./src/controller/api/locationController.js";
-import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
-
 // Pass WebSocket connections to controllers
 setWsConnections(wsConnections);
 setIncidentWsConnections(wsConnections);
 
-//Auth Routes (simplified to direct routes)
+// ================ Declare Routes ===============
 app.use("/", adminRoutes);
-
-// API Routes for GPS tracking (Arduino devices)
 app.use("/api", locationRoutes);
-
-// API Routes for Weight & Incident tracking (Arduino devices)
 app.use("/api", incidentRoutes);
-
-// API Routes for Driver Mobile App
 app.use("/api/driver", driverRoutes);
 
 
 server.listen(port, () => {
-    console.log(`Backend server is running on http://localhost:${port}`);
-    console.log(`WebSocket tracking available at ws://localhost:${port}/ws/tracking`);
+    console.log(`Server running on port ${port}`);
+    console.log(`WebSocket tracking available at server ${port}/ws/tracking`);
 });

@@ -6,167 +6,161 @@
     <title>WeighGuard - Admin Settings</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/admin/adminSettings.css">
-
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
 
-    <!-- Sidebar -->
-    <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
+    <%- include('../partials/adminHeaderSidebar', { currentPage: currentPage }) %>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col overflow-hidden relative">
-        <!-- HEADER -->
-        <header class="h-20 bg-[#0B0E14] border-b border-gray-800 flex items-center justify-between px-8 shrink-0">
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-950">
+        
+        <header class="h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 shrink-0 z-10 sticky top-0">
             <div>
                 <h1 class="text-2xl font-bold text-white">System Settings</h1>
-                <p class="text-xs text-gray-500 font-medium">Manage admin credentials and platform security</p>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Manage admin credentials and platform security</p>
             </div>
-            <!-- Notification Badge (Simulated) -->
-            <div id="notification-area" class="hidden transition-opacity duration-500 bg-[#2DD4BF]/10 border border-[#2DD4BF] text-[#2DD4BF] px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            
+            <div id="notification-area" class="hidden transition-opacity duration-500 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                 <span id="notification-text">Action Successful</span>
             </div>
         </header>
 
-        <!-- SETTINGS BODY -->
-        <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
-            
-            <!-- ADMIN PROFILE CARD (Read Only) -->
-            <div class="card-bg rounded-xl p-6 border-l-4 border-[#2DD4BF]">
-                <div class="flex items-start justify-between">
-                    <div class="flex gap-4">
-                        <div class="w-16 h-16 rounded-full bg-teal-600 flex items-center justify-center text-xl font-bold text-white shadow-lg">AU</div>
+        <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            <div class="w-full space-y-6">
+                
+                <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 border-l-4 border-l-emerald-500 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div class="flex items-center gap-5">
+                        <div class="w-16 h-16 rounded-full bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-xl font-bold text-emerald-400">
+                            AU
+                        </div>
                         <div>
-                            <h2 class="text-xl font-bold text-white">Super Administrator</h2>
-                            <p class="text-sm text-gray-400 mt-1">Role ID: <span class="font-mono text-gray-300">#AD-001-ROOT</span></p>
-                            <div class="mt-2 flex gap-2">
-                                <span class="px-2 py-0.5 rounded bg-blue-900/30 text-blue-400 text-[10px] font-bold uppercase border border-blue-900/50">Full Access</span>
-                                <span class="px-2 py-0.5 rounded bg-purple-900/30 text-purple-400 text-[10px] font-bold uppercase border border-purple-900/50">Database Write</span>
+                            <h2 class="text-lg font-bold text-white">Super Administrator</h2>
+                            <p class="text-xs text-slate-400 mt-1">Role ID: <span class="font-mono text-slate-300">#AD-001-ROOT</span></p>
+                            <div class="mt-2.5 flex gap-2">
+                                <span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase border border-blue-500/20">Full Access</span>
+                                <span class="px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase border border-emerald-500/20">2FA Enabled</span>
                             </div>
                         </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[10px] font-bold text-gray-500 uppercase">Account Created</p>
-                        <p class="text-sm text-white font-medium">Oct 12, 2023</p>
-                        <p class="text-[10px] font-bold text-gray-500 uppercase mt-2">Last Login</p>
-                        <p class="text-sm text-white font-medium">Today, 09:41 AM</p>
+                    
+                    <div class="flex gap-8 bg-slate-950/50 p-4 rounded-lg border border-slate-800/50 w-full md:w-auto">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Account Created</p>
+                            <p class="text-sm text-white font-medium">Oct 12, 2023</p>
+                        </div>
+                        <div class="w-px bg-slate-800"></div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Last Login</p>
+                            <p class="text-sm text-emerald-400 font-medium">Today, 09:41 AM</p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                <!-- CHANGE EMAIL SECTION -->
-                <div class="card-bg rounded-xl p-6">
+                <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex gap-4 items-start">
+                    <svg class="w-5 h-5 text-blue-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div>
+                        <h4 class="text-blue-400 font-bold text-sm">Strict Security Protocol Enabled</h4>
+                        <p class="text-slate-400 text-xs mt-1 leading-relaxed">
+                            This is an Admin-only area. All credential changes require <strong>Two-Factor Verification</strong> via the developer-registered email (<span class="font-mono text-slate-300">admin@weighguard.io</span>).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-xl p-6 border border-slate-800">
                     <div class="flex items-center gap-3 mb-6">
-                        <div class="p-2 bg-gray-800 rounded-lg text-[#2DD4BF]">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        <div class="p-2 bg-slate-800 rounded-lg text-emerald-400 border border-slate-700">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                         </div>
-                        <h3 class="text-lg font-bold text-white">Update Email Address</h3>
+                        <h3 class="text-base font-bold text-white">Update Email Address</h3>
                     </div>
                     
-                    <form onsubmit="initiateSecurityCheck(event, 'email')" class="space-y-4">
+                    <form onsubmit="initiateSecurityCheck(event, 'email')" class="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Current Registered Email (Read-Only)</label>
-                            <input type="email" value="admin@weighguard.io" disabled class="w-full bg-[#0B0E14] border border-gray-700 text-gray-500 text-sm rounded-lg px-4 py-2.5 cursor-not-allowed">
+                            <label class="block text-xs font-bold text-slate-400 mb-2">Current Email (Read-Only)</label>
+                            <input type="email" value="admin@weighguard.io" disabled class="w-full bg-slate-950 border border-slate-800 text-slate-500 text-sm rounded-lg px-4 py-2.5 cursor-not-allowed">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">New Email Address</label>
-                            <input type="email" id="new-email-input" placeholder="Enter new admin email" required class="w-full bg-[#111827] border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition">
+                            <label class="block text-xs font-bold text-slate-400 mb-2">New Email Address</label>
+                            <input type="email" id="new-email-input" placeholder="Enter new admin email" required class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition">
                         </div>
-                        <div class="pt-2">
-                            <button type="submit" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm font-bold py-3 rounded-lg transition border border-gray-700 hover:border-gray-600">
-                                Verify & Update Email
+                        <div>
+                            <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold py-2.5 rounded-lg transition border border-slate-700 hover:border-slate-600">
+                                Verify & Update
                             </button>
                         </div>
                     </form>
                 </div>
 
-                <!-- CHANGE PASSWORD SECTION -->
-                <div class="card-bg rounded-xl p-6">
+                <div class="bg-slate-900 rounded-xl p-6 border border-slate-800">
                     <div class="flex items-center gap-3 mb-6">
-                        <div class="p-2 bg-gray-800 rounded-lg text-[#2DD4BF]">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        <div class="p-2 bg-slate-800 rounded-lg text-blue-400 border border-slate-700">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         </div>
-                        <h3 class="text-lg font-bold text-white">Change Password</h3>
+                        <h3 class="text-base font-bold text-white">Change Password</h3>
                     </div>
 
-                    <form onsubmit="initiateSecurityCheck(event, 'password')" class="space-y-4">
+                    <form onsubmit="initiateSecurityCheck(event, 'password')" class="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">New Password</label>
-                            <input type="password" id="new-pass-input" placeholder="••••••••" required class="w-full bg-[#111827] border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition">
+                            <label class="block text-xs font-bold text-slate-400 mb-2">New Password</label>
+                            <input type="password" id="new-pass-input" placeholder="••••••••" required class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Confirm Password</label>
-                            <input type="password" placeholder="••••••••" required class="w-full bg-[#111827] border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-1 focus:ring-[#2DD4BF] transition">
+                            <label class="block text-xs font-bold text-slate-400 mb-2">Confirm Password</label>
+                            <input type="password" placeholder="••••••••" required class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
                         </div>
-                        <div class="pt-2">
-                            <button type="submit" class="w-full bg-[#2DD4BF] hover:bg-teal-300 text-black text-sm font-bold py-3 rounded-lg transition shadow-lg shadow-teal-900/20">
-                                Verify & Change Password
+                        <div>
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded-lg transition">
+                                Update Password
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
-            
-            <!-- INFO ALERT -->
-            <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4 flex gap-4 items-start">
-                <svg class="w-6 h-6 text-blue-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div>
-                    <h4 class="text-blue-400 font-bold text-sm">Security Protocol Enabled</h4>
-                    <p class="text-gray-400 text-xs mt-1 leading-relaxed">
-                        This is an Admin-only area. All credential changes require <strong>Two-Factor Verification</strong> via the developer-registered email (<span class="font-mono text-gray-300">admin@weighguard.io</span>). You cannot change credentials without access to this inbox.
-                    </p>
-                </div>
+
             </div>
         </div>
     </main>
 
-    <!-- SECURITY VERIFICATION MODAL (Hidden by default) -->
     <div id="security-modal" class="fixed inset-0 z-50 hidden opacity-0 pointer-events-none transition-opacity duration-300">
-        <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal()"></div>
         
-        <!-- Modal Content -->
-        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#111827] border border-gray-700 w-full max-w-md rounded-2xl p-8 shadow-2xl">
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900 border border-slate-700 w-full max-w-md rounded-xl p-8 shadow-2xl">
             <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-[#2DD4BF]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-[#2DD4BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <div class="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+                    <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h3 class="text-xl font-bold text-white">Security Verification</h3>
-                <p class="text-gray-400 text-sm mt-2">
+                <h3 class="text-lg font-bold text-white">Security Verification</h3>
+                <p class="text-slate-400 text-sm mt-2">
                     A 6-digit code has been sent to <br>
-                    <span class="text-white font-mono font-bold">admin@weighguard.io</span>
+                    <span class="text-white font-mono font-medium">admin@weighguard.io</span>
                 </p>
             </div>
 
             <div class="space-y-6">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2 text-center">Enter Verification Code</label>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 text-center">Enter Verification Code</label>
                     <div class="flex justify-center gap-2" id="otp-inputs">
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
-                        <span class="text-gray-500 text-2xl self-center">-</span>
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
-                        <input type="text" maxlength="1" class="otp-field w-12 h-12 text-center bg-[#0B0E14] border border-gray-600 rounded-lg text-white text-xl font-bold focus:border-[#2DD4BF] focus:outline-none transition">
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
+                        <span class="text-slate-600 text-2xl self-center mx-1">-</span>
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
+                        <input type="text" maxlength="1" class="otp-field w-12 h-14 text-center bg-slate-950 border border-slate-700 rounded-lg text-white text-xl font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition">
                     </div>
                 </div>
 
                 <div class="flex gap-3">
-                    <button onclick="closeModal()" class="flex-1 py-3 bg-transparent border border-gray-700 text-gray-400 font-bold rounded-lg hover:text-white hover:border-gray-500 transition">Cancel</button>
-                    <button onclick="verifyAndSave()" class="flex-1 py-3 bg-[#2DD4BF] text-black font-bold rounded-lg hover:bg-teal-300 transition">Verify & Save</button>
+                    <button onclick="closeModal()" class="flex-1 py-2.5 bg-slate-800 border border-slate-700 text-slate-300 text-sm font-bold rounded-lg hover:bg-slate-700 hover:text-white transition">Cancel</button>
+                    <button onclick="verifyAndSave()" class="flex-1 py-2.5 bg-emerald-500 text-slate-900 text-sm font-bold rounded-lg hover:bg-emerald-400 transition">Verify & Save</button>
                 </div>
                 
-                <p class="text-center text-xs text-gray-500">
-                    Didn't receive code? <button class="text-[#2DD4BF] hover:underline" onclick="resendCode()">Resend</button> (Wait 30s)
+                <p class="text-center text-xs text-slate-500 mt-2">
+                    Didn't receive code? <button class="text-emerald-400 hover:underline transition ml-1" onclick="resendCode()">Resend</button> <span class="text-slate-600 ml-1">(Wait 30s)</span>
                 </p>
             </div>
         </div>
     </div>
 
- 
     <script src="/js/admin/adminSettings.js"></script>
 </body>
 </html>

@@ -5,105 +5,126 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WeighGuard - Incident & Alert Logs</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet CSS for OpenStreetMap -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="/css/admin/adminIncidents.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
 
-    <!-- Sidebar -->
     <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
 
-
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col overflow-hidden">
-        <!-- HEADER -->
-        <header class="h-20 bg-[#0B0E14] border-b border-gray-800 flex items-center justify-between px-8 shrink-0">
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-950">
+        
+        <header class="h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 shrink-0 z-10 sticky top-0">
             <div>
-                <h1 class="text-2xl font-bold text-white">Incident & Alert Logs</h1>
-                <p class="text-xs text-gray-500 font-medium">Monitoring cargo weight and detecting theft/loss in real-time</p>
+                <h1 class="text-2xl font-extrabold text-white tracking-tight">Incident & Alert Logs</h1>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Monitoring cargo weight and detecting theft/loss in real-time</p>
             </div>
             <div class="flex items-center gap-6">
-                <div class="flex bg-[#111827] rounded-lg p-1 border border-gray-800">
-                    <button id="btnActiveView" class="px-4 py-1.5 text-xs font-bold bg-[#1E293B] text-white rounded-md shadow-sm">ACTIVE</button>
-                    <button id="btnHistoryView" class="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-300 transition">HISTORY</button>
+                <div class="flex bg-slate-950 rounded-xl p-1.5 border border-slate-800 shadow-inner">
+                    <button id="btnActiveView" class="px-5 py-2 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition">ACTIVE</button>
+                    <button id="btnHistoryView" class="px-5 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 rounded-lg transition">HISTORY</button>
                 </div>
-                <button id="btnRefresh" class="relative p-2 text-gray-400 hover:text-white transition" title="Refresh Data">
+                <button id="btnRefresh" class="bg-slate-800 border border-slate-700 text-slate-300 p-2.5 rounded-xl hover:bg-slate-700 hover:text-white transition shadow-sm" title="Refresh Data">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
-                <div class="relative">
-                    <span id="activeIncidentCount" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">0</span>
-                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <div class="relative bg-slate-800 border border-slate-700 p-2.5 rounded-xl">
+                    <span id="activeIncidentCount" class="absolute -top-2 -right-2 w-5 h-5 bg-rose-500 border-2 border-slate-900 rounded-full text-[10px] font-bold text-white flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.8)]">0</span>
+                    <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                 </div>
             </div>
         </header>
 
-        <!-- DASHBOARD BODY -->
-        <div class="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
             
-            <!-- STATS CARDS -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Critical</p>
-                    <p id="statCritical" class="text-2xl font-bold text-red-500">0</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
+                    <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Critical</p>
+                        <p id="statCritical" class="text-2xl font-extrabold text-rose-400 leading-none">0</p>
+                    </div>
                 </div>
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Warnings</p>
-                    <p id="statWarning" class="text-2xl font-bold text-orange-500">0</p>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Warnings</p>
+                        <p id="statWarning" class="text-2xl font-extrabold text-amber-400 leading-none">0</p>
+                    </div>
                 </div>
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Open</p>
-                    <p id="statOpen" class="text-2xl font-bold text-blue-400">0</p>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Open Incidents</p>
+                        <p id="statOpen" class="text-2xl font-extrabold text-blue-400 leading-none">0</p>
+                    </div>
                 </div>
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last 24h</p>
-                    <p id="statRecent" class="text-2xl font-bold text-white">0</p>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Last 24h</p>
+                        <p id="statRecent" class="text-2xl font-extrabold text-white leading-none">0</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- MAP VIEW -->
-            <div class="card-bg rounded-xl overflow-hidden p-1 relative">
-                <div id="incidentMap"></div>
-                <!-- Map Overlay UI -->
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden p-1.5 relative h-[350px] shrink-0">
+                <div id="incidentMap" class="w-full h-full rounded-xl z-0"></div>
+                
                 <div class="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
-                    <div class="bg-[#111827]/90 backdrop-blur border border-gray-800 px-3 py-2 rounded-lg shadow-xl">
-                        <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                    <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-2.5 rounded-xl shadow-xl">
+                        <p class="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_5px_rgba(244,63,94,0.8)]"></span>
                             Live Incident Tracking
                         </p>
                     </div>
                 </div>
-                <!-- Map Legend -->
-                <div class="absolute bottom-6 left-6 z-[1000] bg-[#111827]/90 backdrop-blur border border-gray-800 px-3 py-2 rounded-lg shadow-xl">
-                    <div class="flex items-center gap-4 text-[10px]">
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> Critical</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Warning</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Info</span>
+                
+                <div class="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-3 rounded-xl shadow-xl">
+                    <div class="flex items-center gap-4 text-xs font-bold tracking-wide">
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.8)]"></span> Critical</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(251,191,36,0.8)]"></span> Warning</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></span> Info</span>
                     </div>
                 </div>
             </div>
 
-            <!-- LIVE ALERTS OVERVIEW -->
-            <div id="alertCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Dynamic alert cards will be inserted here -->
-                <div class="card-bg p-6 rounded-xl flex items-center justify-center min-h-[200px]">
-                    <p class="text-gray-500 text-sm">Loading incidents...</p>
+            <div id="alertCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0">
+                <div class="bg-slate-900 border border-slate-800 shadow-lg p-6 rounded-2xl flex items-center justify-center col-span-3 min-h-[200px]">
+                    <div class="flex flex-col items-center">
+                        <svg class="w-8 h-8 mb-3 text-slate-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Loading incidents...</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- LOG TABLE -->
-            <div class="card-bg rounded-xl overflow-hidden">
-                <div class="p-6 border-b border-gray-800 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-white">Full Incident Log</h3>
-                    <div class="flex gap-4">
-                        <select id="filterType" class="bg-[#0B0E14] border border-gray-800 text-xs font-bold text-gray-400 rounded px-3 py-1.5 focus:outline-none focus:border-[#2DD4BF]">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden flex flex-col">
+                <div class="p-5 px-6 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50">
+                    <h3 class="text-lg font-extrabold text-white tracking-tight">Full Incident Log</h3>
+                    <div class="flex gap-3 w-full md:w-auto">
+                        <select id="filterType" class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer shadow-inner flex-1">
                             <option value="">All Types</option>
                             <option value="cargo_loss">Cargo Loss</option>
                             <option value="overload">Overload</option>
                             <option value="route_deviation">Route Deviation</option>
                             <option value="unauthorized_stop">Unauthorized Stop</option>
                         </select>
-                        <select id="filterStatus" class="bg-[#0B0E14] border border-gray-800 text-xs font-bold text-gray-400 rounded px-3 py-1.5 focus:outline-none focus:border-[#2DD4BF]">
+                        <select id="filterStatus" class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer shadow-inner flex-1">
                             <option value="">All Status</option>
                             <option value="open">Open</option>
                             <option value="acknowledged">Acknowledged</option>
@@ -111,28 +132,28 @@
                             <option value="resolved">Resolved</option>
                             <option value="false_alarm">False Alarm</option>
                         </select>
-                        <button id="btnExport" class="text-xs text-[#2DD4BF] font-bold flex items-center gap-2 hover:underline">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <button id="btnExport" class="bg-slate-800 text-emerald-400 border border-slate-700 px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 hover:bg-slate-700 transition shadow-sm uppercase tracking-widest shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             EXPORT LOG
                         </button>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="text-gray-500 text-[10px] uppercase font-bold bg-[#111827]/50 border-b border-gray-800">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead class="bg-slate-900/90 backdrop-blur">
+                            <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold border-b border-slate-800">
                                 <th class="px-6 py-4">Timestamp</th>
                                 <th class="px-6 py-4">Vehicle / Driver</th>
                                 <th class="px-6 py-4">Incident Type</th>
                                 <th class="px-6 py-4">Severity</th>
                                 <th class="px-6 py-4">Status</th>
                                 <th class="px-6 py-4">Weight Impact</th>
-                                <th class="px-6 py-4">Actions</th>
+                                <th class="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="incidentTableBody" class="divide-y divide-gray-800">
+                        <tbody id="incidentTableBody" class="divide-y divide-slate-800/50">
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading incidents...</td>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-500 text-xs">Loading incidents...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -141,79 +162,78 @@
         </div>
     </main>
 
-    <!-- INCIDENT DETAIL MODAL -->
-    <div id="incidentDetailModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-[#111827] rounded-xl border border-gray-800 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div class="p-6 border-b border-gray-800 flex justify-between items-center shrink-0">
-                <div>
-                    <h3 id="modalTitle" class="text-xl font-bold text-white">Incident Details</h3>
-                    <p id="modalSubtitle" class="text-xs text-gray-500"></p>
+    <div id="incidentDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            
+            <div class="px-8 py-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 shrink-0">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 id="modalTitle" class="text-xl font-extrabold text-white tracking-tight">Incident Details</h3>
+                        <p id="modalSubtitle" class="text-xs text-slate-400 font-mono mt-0.5"></p>
+                    </div>
                 </div>
-                <button id="btnCloseModal" class="text-gray-400 hover:text-white transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <button id="btnCloseModal" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-6 space-y-6">
-                <!-- Incident Info Grid -->
+
+            <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="bg-[#0B0E14] p-4 rounded-lg">
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Type</p>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Type</p>
                         <p id="modalType" class="text-sm font-bold text-white">-</p>
                     </div>
-                    <div class="bg-[#0B0E14] p-4 rounded-lg">
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Severity</p>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Severity</p>
                         <p id="modalSeverity" class="text-sm font-bold">-</p>
                     </div>
-                    <div class="bg-[#0B0E14] p-4 rounded-lg">
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Initial Weight</p>
-                        <p id="modalInitialWeight" class="text-sm font-bold text-white">-</p>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Initial Weight</p>
+                        <p id="modalInitialWeight" class="text-sm font-bold text-white font-mono">-</p>
                     </div>
-                    <div class="bg-[#0B0E14] p-4 rounded-lg">
-                        <p class="text-[10px] text-gray-500 uppercase mb-1">Weight Lost</p>
-                        <p id="modalWeightDiff" class="text-sm font-bold text-red-500">-</p>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Weight Lost</p>
+                        <p id="modalWeightDiff" class="text-sm font-bold text-rose-500 font-mono">-</p>
                     </div>
                 </div>
                 
-                <!-- Description -->
-                <div class="bg-[#0B0E14] p-4 rounded-lg">
-                    <p class="text-[10px] text-gray-500 uppercase mb-2">Description</p>
-                    <p id="modalDescription" class="text-sm text-gray-300">-</p>
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2">Description</p>
+                    <p id="modalDescription" class="text-sm text-slate-300 leading-relaxed">-</p>
                 </div>
 
-                <!-- Incident Location Map -->
-                <div class="bg-[#0B0E14] p-4 rounded-lg">
-                    <p class="text-[10px] text-gray-500 uppercase mb-2">Incident Location</p>
-                    <div id="modalMap" class="h-[250px] rounded-lg"></div>
-                </div>
-
-                <!-- Weight Timeline Chart -->
-                <div class="bg-[#0B0E14] p-4 rounded-lg">
-                    <p class="text-[10px] text-gray-500 uppercase mb-2">Weight Timeline</p>
-                    <div id="weightChartContainer" class="h-[200px] flex items-center justify-center">
-                        <canvas id="weightChart"></canvas>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Incident Location</p>
+                        <div id="modalMap" class="flex-1 min-h-[250px] rounded-lg border border-slate-700/50 z-0"></div>
+                    </div>
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Weight Timeline</p>
+                        <div id="weightChartContainer" class="flex-1 min-h-[250px] flex items-center justify-center">
+                            <canvas id="weightChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Status Update -->
-                <div class="bg-[#0B0E14] p-4 rounded-lg">
-                    <p class="text-[10px] text-gray-500 uppercase mb-2">Update Status</p>
-                    <div class="flex gap-2 flex-wrap">
-                        <button data-status="acknowledged" class="status-btn px-4 py-2 bg-blue-600/20 border border-blue-600 text-blue-400 text-xs font-bold rounded hover:bg-blue-600/40 transition">Acknowledge</button>
-                        <button data-status="investigating" class="status-btn px-4 py-2 bg-orange-600/20 border border-orange-600 text-orange-400 text-xs font-bold rounded hover:bg-orange-600/40 transition">Investigating</button>
-                        <button data-status="resolved" class="status-btn px-4 py-2 bg-green-600/20 border border-green-600 text-green-400 text-xs font-bold rounded hover:bg-green-600/40 transition">Resolved</button>
-                        <button data-status="false_alarm" class="status-btn px-4 py-2 bg-gray-600/20 border border-gray-600 text-gray-400 text-xs font-bold rounded hover:bg-gray-600/40 transition">False Alarm</button>
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Update Resolution Status</p>
+                    <div class="flex gap-3 flex-wrap mb-4">
+                        <button data-status="acknowledged" class="status-btn px-5 py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold rounded-lg hover:bg-blue-500/20 hover:border-blue-500 transition shadow-sm uppercase tracking-wide">Acknowledge</button>
+                        <button data-status="investigating" class="status-btn px-5 py-2.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold rounded-lg hover:bg-amber-500/20 hover:border-amber-500 transition shadow-sm uppercase tracking-wide">Investigate</button>
+                        <button data-status="resolved" class="status-btn px-5 py-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-500/20 hover:border-emerald-500 transition shadow-sm uppercase tracking-wide">Resolve</button>
+                        <button data-status="false_alarm" class="status-btn px-5 py-2.5 bg-slate-800 border border-slate-600 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-700 transition shadow-sm uppercase tracking-wide">False Alarm</button>
                     </div>
-                    <div class="mt-3">
-                        <textarea id="resolutionNotes" class="w-full bg-[#111827] border border-gray-700 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#2DD4BF]" rows="2" placeholder="Resolution notes (optional)..."></textarea>
-                    </div>
+                    <textarea id="resolutionNotes" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-inner transition" rows="2" placeholder="Add resolution notes or investigation details..."></textarea>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Chart.js for weight timeline -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/js/admin/adminIncidents.js"></script>
 </body>
