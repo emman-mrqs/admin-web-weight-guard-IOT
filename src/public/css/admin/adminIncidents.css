@@ -1,0 +1,78 @@
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0E14;
+            color: #E2E8F0;
+        }
+        .sidebar-item-active {
+            background-color: #1E293B;
+            border-left: 4px solid #2DD4BF;
+        }
+        .card-bg {
+            background-color: #111827;
+            border: 1px solid #1F2937;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 10px;
+        }
+        .severity-critical { border-left: 4px solid #EF4444; }
+        .severity-warning { border-left: 4px solid #F59E0B; }
+        .severity-info { border-left: 4px solid #3B82F6; }
+        
+        /* Dark mode map styling - using CARTO dark tiles, no filter needed */
+        #incidentMap {
+            height: 400px;
+            width: 100%;
+            border-radius: 0.75rem;
+            z-index: 10;
+        }
+        #modalMap {
+            height: 250px;
+            width: 100%;
+            border-radius: 0.5rem;
+            z-index: 10;
+        }
+        .leaflet-container {
+            background: #0B0E14;
+        }
+        .leaflet-popup-content-wrapper {
+            background: #1F2937;
+            color: #E2E8F0;
+            border-radius: 0.5rem;
+        }
+        .leaflet-popup-tip {
+            background: #1F2937;
+        }
+        .leaflet-popup-content {
+            margin: 8px 12px;
+        }
+        
+        /* Status button active state */
+        .status-btn.active {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        
+        /* Table row hover */
+        tbody tr:hover {
+            background-color: rgba(31, 41, 55, 0.5);
+        }
+        
+        /* Animation for new incidents */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .new-incident {
+            animation: slideIn 0.3s ease-out;
+        }

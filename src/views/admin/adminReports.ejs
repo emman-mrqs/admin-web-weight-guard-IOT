@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeighGuard - Reports & Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/css/admin/adminReports.css">
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <!-- HEADER -->
+        <header class="h-20 bg-[#0B0E14] border-b border-gray-800 flex items-center justify-between px-8 shrink-0">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Reports & Analytics</h1>
+                <p class="text-xs text-gray-500 font-medium">Deep dive into fleet performance and cargo safety</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex bg-[#111827] rounded-lg p-1 border border-gray-800">
+                    <button class="px-4 py-1.5 text-xs font-bold bg-[#1E293B] text-white rounded-md">WEEKLY</button>
+                    <button class="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-300 transition">MONTHLY</button>
+                </div>
+                <button class="bg-[#2DD4BF] text-black px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-teal-300 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    EXPORT PDF
+                </button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD BODY -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+            
+            <!-- ANALYTICS GRID -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Main Trend Chart -->
+                <div class="lg:col-span-2 card-bg p-6 rounded-xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-white">Cargo Weight Trends</h3>
+                            <p class="text-xs text-gray-500">Total weight transported vs efficiency target</p>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-bold">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-[#2DD4BF]"></span>
+                                <span class="text-gray-400">Actual Weight</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-gray-600"></span>
+                                <span class="text-gray-400">Target</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-80">
+                        <canvas id="weightTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Distribution Chart -->
+                <div class="card-bg p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-6">Incident Distribution</h3>
+                    <div class="h-64 relative">
+                        <canvas id="incidentDistributionChart"></canvas>
+                    </div>
+                    <div class="mt-6 space-y-3">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400">Cargo Loss</span>
+                            <span class="text-red-500 font-bold">12%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-1 rounded-full">
+                            <div class="bg-red-500 h-full w-[12%] rounded-full"></div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400">Overload Warning</span>
+                            <span class="text-orange-400 font-bold">34%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-1 rounded-full">
+                            <div class="bg-orange-400 h-full w-[34%] rounded-full"></div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400">Normal Operation</span>
+                            <span class="text-[#2DD4BF] font-bold">54%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-1 rounded-full">
+                            <div class="bg-[#2DD4BF] h-full w-[54%] rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECOND ROW ANALYTICS -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Efficiency Bar Chart -->
+                <div class="card-bg p-6 rounded-xl">
+                    <h3 class="text-lg font-bold text-white mb-6">Fleet Efficiency by Zone</h3>
+                    <div class="h-64">
+                        <canvas id="zoneEfficiencyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Summary Card -->
+                <div class="card-bg p-6 rounded-xl flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-white mb-2">Monthly Performance Summary</h3>
+                        <p class="text-sm text-gray-500">Overall performance score based on safety and load targets.</p>
+                    </div>
+                    
+                    <div class="flex items-end gap-6 py-6">
+                        <div class="text-center">
+                            <p class="text-5xl font-bold text-[#2DD4BF]">94<span class="text-2xl">%</span></p>
+                            <p class="text-[10px] font-bold text-gray-500 uppercase mt-2">Safety Score</p>
+                        </div>
+                        <div class="flex-1 space-y-4">
+                            <div>
+                                <div class="flex justify-between text-[10px] font-bold uppercase mb-1">
+                                    <span class="text-gray-400">Delivery Speed</span>
+                                    <span class="text-white">88%</span>
+                                </div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-[#2DD4BF] h-full w-[88%]"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] font-bold uppercase mb-1">
+                                    <span class="text-gray-400">Fuel Efficiency</span>
+                                    <span class="text-white">76%</span>
+                                </div>
+                                <div class="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="bg-blue-500 h-full w-[76%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="w-full py-3 bg-gray-800 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition uppercase tracking-widest">
+                        Download Full Dataset (CSV)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    
+    <script src="/js/admin/adminReports.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-screen shrink-0 z-20 font-sans shadow-2xl">
+    
+<div class="p-6 flex items-center gap-3.5 mb-2">
+    <div class="w-9 h-9 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="14" height="10" rx="1"></rect>
+            <path d="M16 11h4a2 2 0 0 1 2 2v2h-6"></path>
+            <circle cx="6" cy="18" r="2"></circle>
+            <circle cx="18" cy="18" r="2"></circle>
+        </svg>
+    </div>
+    <span class="text-xl font-extrabold tracking-tight text-white">WeighGuard</span>
+</div>
+
+    <nav class="flex-1 px-4 space-y-1 overflow-y-auto scrollbar-hide pb-6">
+        
+        <div class="text-[10px] font-bold text-slate-500 tracking-[0.15em] mb-3 mt-2 px-3 uppercase">Main Menu</div>
+        
+        <a href="/admin" class="<%= currentPage === 'dashboard' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <svg class="w-5 h-5 mr-3 <%= currentPage === 'dashboard' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Dashboard</span>
+        </a>
+
+        <a href="/admin/fleet" class="<%= currentPage === 'fleet' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <svg class="w-5 h-5 mr-3 <%= currentPage === 'fleet' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+            <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Fleet Management</span>
+        </a>
+
+        <div class="text-[10px] font-bold text-slate-500 tracking-[0.15em] mb-3 mt-8 px-3 uppercase">Management</div>
+        
+        <a href="/admin/users" class="<%= currentPage === 'user' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <svg class="w-5 h-5 mr-3 <%= currentPage === 'user' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-12 0v1zm0 0h6v-1a6 6 0 01-12 0v1z"></path></svg>
+            <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">User Management</span>
+        </a>
+
+        <a href="/admin/reports" class="<%= currentPage === 'reports' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <svg class="w-5 h-5 mr-3 <%= currentPage === 'reports' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Reports</span>
+        </a>
+
+        <div class="text-[10px] font-bold text-slate-500 tracking-[0.15em] mb-3 mt-8 px-3 uppercase">Communication</div>
+        
+        <a href="/admin/incidents" class="<%= currentPage === 'incidents' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-3 <%= currentPage === 'incidents' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Incident Logs</span>
+            </div>
+            <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">3</span>
+        </a>
+
+        <a href="/admin/notifications" class="<%= currentPage === 'notifications' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-3 <%= currentPage === 'notifications' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Notifications</span>
+            </div>
+            <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">NEW</span>
+        </a>
+
+        <div class="text-[10px] font-bold text-slate-500 tracking-[0.15em] mb-3 mt-8 px-3 uppercase">System</div>
+        
+        <a href="/admin/settings" class="<%= currentPage === 'settings' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
+            <svg class="w-5 h-5 mr-3 <%= currentPage === 'settings' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Settings</span>
+        </a>
+    </nav>
+
+    <div class="p-4 mt-auto border-t border-slate-800 bg-slate-900">
+        <div class="flex items-center justify-between p-2 rounded-xl hover:bg-slate-800/50 transition-colors group">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-gradient-to-tr from-emerald-400 to-teal-600 rounded-full flex items-center justify-center text-slate-900 font-bold text-sm shadow-md shadow-emerald-500/20">
+                    A
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-sm font-bold text-white leading-tight">Admin User</span>
+                    <span class="text-[11px] font-medium text-slate-500 leading-tight mt-0.5">System Admin</span>
+                </div>
+            </div>
+            
+            <form action="/logout" method="POST" class="m-0">
+                <button type="submit" class="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all duration-200" title="Secure Logout">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</aside>

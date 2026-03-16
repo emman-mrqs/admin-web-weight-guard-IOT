@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeighGuard - Incident & Alert Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS for OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/css/admin/adminIncidents.css">
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <!-- HEADER -->
+        <header class="h-20 bg-[#0B0E14] border-b border-gray-800 flex items-center justify-between px-8 shrink-0">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Incident & Alert Logs</h1>
+                <p class="text-xs text-gray-500 font-medium">Monitoring cargo weight and detecting theft/loss in real-time</p>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex bg-[#111827] rounded-lg p-1 border border-gray-800">
+                    <button id="btnActiveView" class="px-4 py-1.5 text-xs font-bold bg-[#1E293B] text-white rounded-md shadow-sm">ACTIVE</button>
+                    <button id="btnHistoryView" class="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-300 transition">HISTORY</button>
+                </div>
+                <button id="btnRefresh" class="relative p-2 text-gray-400 hover:text-white transition" title="Refresh Data">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+                <div class="relative">
+                    <span id="activeIncidentCount" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">0</span>
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                </div>
+            </div>
+        </header>
+
+        <!-- DASHBOARD BODY -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+            
+            <!-- STATS CARDS -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="card-bg p-4 rounded-xl">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Critical</p>
+                    <p id="statCritical" class="text-2xl font-bold text-red-500">0</p>
+                </div>
+                <div class="card-bg p-4 rounded-xl">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Warnings</p>
+                    <p id="statWarning" class="text-2xl font-bold text-orange-500">0</p>
+                </div>
+                <div class="card-bg p-4 rounded-xl">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Open</p>
+                    <p id="statOpen" class="text-2xl font-bold text-blue-400">0</p>
+                </div>
+                <div class="card-bg p-4 rounded-xl">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Last 24h</p>
+                    <p id="statRecent" class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+
+            <!-- MAP VIEW -->
+            <div class="card-bg rounded-xl overflow-hidden p-1 relative">
+                <div id="incidentMap"></div>
+                <!-- Map Overlay UI -->
+                <div class="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
+                    <div class="bg-[#111827]/90 backdrop-blur border border-gray-800 px-3 py-2 rounded-lg shadow-xl">
+                        <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                            Live Incident Tracking
+                        </p>
+                    </div>
+                </div>
+                <!-- Map Legend -->
+                <div class="absolute bottom-6 left-6 z-[1000] bg-[#111827]/90 backdrop-blur border border-gray-800 px-3 py-2 rounded-lg shadow-xl">
+                    <div class="flex items-center gap-4 text-[10px]">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> Critical</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-orange-500"></span> Warning</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Info</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIVE ALERTS OVERVIEW -->
+            <div id="alertCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Dynamic alert cards will be inserted here -->
+                <div class="card-bg p-6 rounded-xl flex items-center justify-center min-h-[200px]">
+                    <p class="text-gray-500 text-sm">Loading incidents...</p>
+                </div>
+            </div>
+
+            <!-- LOG TABLE -->
+            <div class="card-bg rounded-xl overflow-hidden">
+                <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white">Full Incident Log</h3>
+                    <div class="flex gap-4">
+                        <select id="filterType" class="bg-[#0B0E14] border border-gray-800 text-xs font-bold text-gray-400 rounded px-3 py-1.5 focus:outline-none focus:border-[#2DD4BF]">
+                            <option value="">All Types</option>
+                            <option value="cargo_loss">Cargo Loss</option>
+                            <option value="overload">Overload</option>
+                            <option value="route_deviation">Route Deviation</option>
+                            <option value="unauthorized_stop">Unauthorized Stop</option>
+                        </select>
+                        <select id="filterStatus" class="bg-[#0B0E14] border border-gray-800 text-xs font-bold text-gray-400 rounded px-3 py-1.5 focus:outline-none focus:border-[#2DD4BF]">
+                            <option value="">All Status</option>
+                            <option value="open">Open</option>
+                            <option value="acknowledged">Acknowledged</option>
+                            <option value="investigating">Investigating</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="false_alarm">False Alarm</option>
+                        </select>
+                        <button id="btnExport" class="text-xs text-[#2DD4BF] font-bold flex items-center gap-2 hover:underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            EXPORT LOG
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-gray-500 text-[10px] uppercase font-bold bg-[#111827]/50 border-b border-gray-800">
+                                <th class="px-6 py-4">Timestamp</th>
+                                <th class="px-6 py-4">Vehicle / Driver</th>
+                                <th class="px-6 py-4">Incident Type</th>
+                                <th class="px-6 py-4">Severity</th>
+                                <th class="px-6 py-4">Status</th>
+                                <th class="px-6 py-4">Weight Impact</th>
+                                <th class="px-6 py-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidentTableBody" class="divide-y divide-gray-800">
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading incidents...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- INCIDENT DETAIL MODAL -->
+    <div id="incidentDetailModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#111827] rounded-xl border border-gray-800 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center shrink-0">
+                <div>
+                    <h3 id="modalTitle" class="text-xl font-bold text-white">Incident Details</h3>
+                    <p id="modalSubtitle" class="text-xs text-gray-500"></p>
+                </div>
+                <button id="btnCloseModal" class="text-gray-400 hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <!-- Incident Info Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-[#0B0E14] p-4 rounded-lg">
+                        <p class="text-[10px] text-gray-500 uppercase mb-1">Type</p>
+                        <p id="modalType" class="text-sm font-bold text-white">-</p>
+                    </div>
+                    <div class="bg-[#0B0E14] p-4 rounded-lg">
+                        <p class="text-[10px] text-gray-500 uppercase mb-1">Severity</p>
+                        <p id="modalSeverity" class="text-sm font-bold">-</p>
+                    </div>
+                    <div class="bg-[#0B0E14] p-4 rounded-lg">
+                        <p class="text-[10px] text-gray-500 uppercase mb-1">Initial Weight</p>
+                        <p id="modalInitialWeight" class="text-sm font-bold text-white">-</p>
+                    </div>
+                    <div class="bg-[#0B0E14] p-4 rounded-lg">
+                        <p class="text-[10px] text-gray-500 uppercase mb-1">Weight Lost</p>
+                        <p id="modalWeightDiff" class="text-sm font-bold text-red-500">-</p>
+                    </div>
+                </div>
+                
+                <!-- Description -->
+                <div class="bg-[#0B0E14] p-4 rounded-lg">
+                    <p class="text-[10px] text-gray-500 uppercase mb-2">Description</p>
+                    <p id="modalDescription" class="text-sm text-gray-300">-</p>
+                </div>
+
+                <!-- Incident Location Map -->
+                <div class="bg-[#0B0E14] p-4 rounded-lg">
+                    <p class="text-[10px] text-gray-500 uppercase mb-2">Incident Location</p>
+                    <div id="modalMap" class="h-[250px] rounded-lg"></div>
+                </div>
+
+                <!-- Weight Timeline Chart -->
+                <div class="bg-[#0B0E14] p-4 rounded-lg">
+                    <p class="text-[10px] text-gray-500 uppercase mb-2">Weight Timeline</p>
+                    <div id="weightChartContainer" class="h-[200px] flex items-center justify-center">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Status Update -->
+                <div class="bg-[#0B0E14] p-4 rounded-lg">
+                    <p class="text-[10px] text-gray-500 uppercase mb-2">Update Status</p>
+                    <div class="flex gap-2 flex-wrap">
+                        <button data-status="acknowledged" class="status-btn px-4 py-2 bg-blue-600/20 border border-blue-600 text-blue-400 text-xs font-bold rounded hover:bg-blue-600/40 transition">Acknowledge</button>
+                        <button data-status="investigating" class="status-btn px-4 py-2 bg-orange-600/20 border border-orange-600 text-orange-400 text-xs font-bold rounded hover:bg-orange-600/40 transition">Investigating</button>
+                        <button data-status="resolved" class="status-btn px-4 py-2 bg-green-600/20 border border-green-600 text-green-400 text-xs font-bold rounded hover:bg-green-600/40 transition">Resolved</button>
+                        <button data-status="false_alarm" class="status-btn px-4 py-2 bg-gray-600/20 border border-gray-600 text-gray-400 text-xs font-bold rounded hover:bg-gray-600/40 transition">False Alarm</button>
+                    </div>
+                    <div class="mt-3">
+                        <textarea id="resolutionNotes" class="w-full bg-[#111827] border border-gray-700 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#2DD4BF]" rows="2" placeholder="Resolution notes (optional)..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js for weight timeline -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/admin/adminIncidents.js"></script>
+</body>
+</html>

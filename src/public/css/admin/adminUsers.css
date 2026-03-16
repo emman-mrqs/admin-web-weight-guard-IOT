@@ -1,0 +1,115 @@
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0E14;
+            color: #E2E8F0;
+        }
+        .sidebar-item-active {
+            background-color: #1E293B;
+            border-left: 4px solid #2DD4BF;
+        }
+        .card-bg {
+            background-color: #111827;
+            border: 1px solid #1F2937;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 10px;
+        }
+        /* Modal Transition Classes */
+        .modal-enter {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-enter-active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content-enter {
+            transform: scale(0.95);
+        }
+        .modal-content-enter-active {
+            transform: scale(1);
+        }
+        /* Map Styles */
+        .dark-map-layer {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        #users-map {
+            background: #1e293b;
+            z-index: 1;
+            height: 100%;
+            width: 100%;
+            border-radius: 0.75rem;
+        }
+        .tab-active {
+            border-bottom: 2px solid #2DD4BF;
+            color: #2DD4BF;
+        }
+        .tab-inactive {
+            border-bottom: 2px solid transparent;
+            color: #6B7280;
+        }
+        .tab-inactive:hover {
+            color: #E2E8F0;
+        }
+        /* Hide Leaflet Routing Machine directions container on map */
+        .leaflet-routing-container {
+            display: none !important;
+        }
+        /* Task Map Styles */
+        #taskMap {
+            background: #1e293b;
+            z-index: 1;
+            height: 100%;
+            width: 100%;
+        }
+        /* Custom cursors for pickup/destination mode */
+        #taskMap.cursor-pickup {
+            cursor: crosshair;
+        }
+        #taskMap.cursor-dest {
+            cursor: crosshair;
+        }
+        /* Alternative: use custom cursor with color indicator */
+        .pickup-mode #taskMap {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232DD4BF' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+        .dest-mode #taskMap {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23EF4444' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+
+        /* Users Map View Styles */
+        #users-map {
+            background: #1e293b;
+            z-index: 1;
+            height: 100%;
+            width: 100%;
+        }
+        /* Custom cursors for map view pickup/destination mode */
+        #users-map.cursor-pickup {
+            cursor: crosshair;
+        }
+        #users-map.cursor-dest {
+            cursor: crosshair;
+        }
+        .map-pickup-mode #users-map {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232DD4BF' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+        .map-dest-mode #users-map {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23EF4444' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+
+        /* Edit Assignment Map Styles */
+        #editAssignmentMap {
+            background: #1e293b;
+        }
+        #editAssignmentMap.cursor-pickup {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232DD4BF' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
+        #editAssignmentMap.cursor-dest {
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23EF4444' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cline x1='12' y1='2' x2='12' y2='6'/%3E%3Cline x1='12' y1='18' x2='12' y2='22'/%3E%3Cline x1='2' y1='12' x2='6' y2='12'/%3E%3Cline x1='18' y1='12' x2='22' y2='12'/%3E%3C/svg%3E") 12 12, crosshair;
+        }
