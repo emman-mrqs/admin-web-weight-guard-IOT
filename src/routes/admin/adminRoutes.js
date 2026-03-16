@@ -4,6 +4,7 @@ import express from 'express';
 import AdminDashboardController from '../../controller/admin/adminDashboardController.js';
 import AdminFleetController from '../../controller/admin/adminFleetController.js';
 import AdminAddFleetController from '../../controller/admin/adminAddFleetController.js';
+import AdminFleetMapsController from '../../controller/admin/adminFleetMapsController.js';
 import AdminIncidentsController from '../../controller/admin/adminIncidentsController.js';
 import AdminUserController from '../../controller/admin/adminUserController.js';
 import AdminReportsController from '../../controller/admin/adminReportController.js';
@@ -17,6 +18,9 @@ router.get("/admin", AdminDashboardController.getDashboard);
 // Admin Fleet Routes
 router.get("/admin/fleet", AdminFleetController.getFleet);
 router.get("/admin/fleet/add", AdminAddFleetController.getAddFleet);
+
+// Admin Fleet Maps Routes
+router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
 
 // Admin Incidents Routes
 router.get("/admin/incidents", AdminIncidentsController.getIncidents);
