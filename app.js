@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 
 //======================== Import Routes =========================
 import adminRoutes from "./src/routes/admin/adminRoutes.js";
+import adminAuthRoutes from "./src/routes/admin/adminAuthRoutes.js";
 import locationRoutes from "./src/routes/api/locationRoutes.js";
 import driverRoutes from "./src/routes/api/driverRoutes.js";
 import incidentRoutes from "./src/routes/api/incidentRoutes.js";
@@ -52,6 +53,7 @@ setIncidentWsConnections(wsConnections);
 
 // ================ Declare Routes ===============
 app.use("/", adminRoutes);
+app.use("/", adminAuthRoutes);
 app.use("/api", locationRoutes);
 app.use("/api", incidentRoutes);
 app.use("/api/driver", driverRoutes);

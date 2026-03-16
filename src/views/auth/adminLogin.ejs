@@ -3,31 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WeighGuard - Admin Login</title>
+    <title>WeighGuard - Secure Admin Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0B0E14;
-            color: #E2E8F0;
+            background-color: #020617; /* slate-950 */
+            color: #f8fafc; /* slate-50 */
         }
-        /* Custom gradient for the hero section */
+        
+        /* Premium deep-tech gradient background for the hero section */
         .hero-pattern {
-            background-color: #111827;
+            background-color: #020617;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(45, 212, 191, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(15, 23, 42, 1) 0px, transparent 50%);
-            background-size: 100% 100%;
+                radial-gradient(circle at 15% 50%, rgba(52, 211, 153, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(15, 118, 110, 0.08), transparent 25%);
+            background-size: cover;
+            background-position: center;
         }
-        /* Subtle glow for inputs */
-        .input-glow:focus {
-            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.2);
+
+        /* Ambient animated dots background */
+        .ambient-dots {
+            background-image: radial-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+            background-size: 32px 32px;
         }
-        /* Animated connection lines simulation */
+
+        /* Animated connection lines simulation (Restored from Version 1) */
         .connection-line {
-            stroke-dasharray: 10;
-            animation: dash 30s linear infinite;
+            stroke-dasharray: 12;
+            animation: dash 40s linear infinite;
         }
         @keyframes dash {
             to {
@@ -38,131 +43,152 @@
 </head>
 <body class="h-screen w-full flex overflow-hidden">
 
-    <!-- LEFT SIDE: BRAND HERO -->
-    <div class="hidden lg:flex w-1/2 hero-pattern relative flex-col justify-between p-12 overflow-hidden border-r border-gray-800">
-        <!-- Decoration Map Graphic (SVG) -->
-        <div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
-            <svg class="w-full h-full" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
-                <path class="connection-line text-[#2DD4BF]" stroke="currentColor" stroke-width="1" fill="none" d="M100,100 Q400,50 700,100 T400,400 T100,700" />
-                <path class="connection-line text-gray-600" stroke="currentColor" stroke-width="1" fill="none" d="M50,400 Q200,300 400,400 T750,400" />
-                <circle cx="100" cy="100" r="4" fill="#2DD4BF" />
-                <circle cx="700" cy="100" r="4" fill="#2DD4BF" />
-                <circle cx="400" cy="400" r="4" fill="#2DD4BF" />
-                <circle cx="100" cy="700" r="4" fill="#2DD4BF" />
+    <div class="hidden lg:flex w-1/2 hero-pattern relative flex-col justify-between p-12 overflow-hidden border-r border-slate-800/60 shadow-[4px_0_24px_rgba(0,0,0,0.4)] z-10">
+        
+        <div class="absolute inset-0 ambient-dots z-0 opacity-50"></div>
+        
+        <div class="absolute inset-0 z-0 opacity-30 pointer-events-none flex items-center justify-center">
+            <svg class="w-[120%] h-[120%] -ml-20" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+                <path class="connection-line text-emerald-400" stroke="currentColor" stroke-width="1.5" fill="none" d="M100,100 Q400,50 700,100 T400,400 T100,700" />
+                <path class="connection-line text-blue-500" stroke="currentColor" stroke-width="1.5" fill="none" d="M50,400 Q200,300 400,400 T750,400" />
+                <path class="connection-line text-teal-600" stroke="currentColor" stroke-width="1" fill="none" d="M100,700 Q300,600 750,400" />
+                
+                <circle cx="100" cy="100" r="4" fill="#34d399" class="animate-pulse" />
+                <circle cx="700" cy="100" r="4" fill="#34d399" />
+                <circle cx="400" cy="400" r="5" fill="#3b82f6" class="animate-pulse" />
+                <circle cx="100" cy="700" r="4" fill="#34d399" />
+                <circle cx="750" cy="400" r="4" fill="#0ea5e9" />
             </svg>
+            <div class="absolute top-1/2 left-[45%] -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
         </div>
 
         <div class="relative z-10">
-            <div class="flex items-center gap-3 mb-8">
-                <div class="w-10 h-10 bg-[#2DD4BF] rounded-lg flex items-center justify-center shadow-lg shadow-teal-900/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/><path d="M12 3v12"/></svg>
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="14" height="10" rx="1"></rect>
+                        <path d="M16 11h4a2 2 0 0 1 2 2v2h-6"></path>
+                        <circle cx="6" cy="18" r="2"></circle>
+                        <circle cx="18" cy="18" r="2"></circle>
+                    </svg>
                 </div>
-                <span class="text-2xl font-bold tracking-tight text-white uppercase">WeighGuard</span>
+                <span class="text-2xl font-extrabold tracking-tight text-white uppercase">WeighGuard</span>
             </div>
-            <h1 class="text-4xl font-bold text-white mb-4 leading-tight">
-                Intelligent Fleet Monitoring <br>
-                <span class="text-[#2DD4BF]">Reimagined.</span>
+        </div>
+
+        <div class="relative z-10 mb-20">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700 backdrop-blur-md mb-6">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Admin Portal v2.0</span>
+            </div>
+            
+            <h1 class="text-5xl font-extrabold text-white mb-6 leading-[1.1] tracking-tight">
+                Command center for<br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">fleet telemetry.</span>
             </h1>
-            <p class="text-gray-400 text-lg max-w-md leading-relaxed">
-                Securely manage your fleet's cargo integrity, track real-time incidents, and optimize logistics with our advanced telemetry dashboard.
+            
+            <p class="text-slate-400 text-lg max-w-md leading-relaxed font-medium">
+                Monitor live cargo integrity, dispatch assignments globally, and intercept payload anomalies in real-time.
             </p>
         </div>
 
-        <div class="relative z-10 flex gap-4 text-xs font-mono text-gray-500">
-            <div class="px-3 py-1 border border-gray-800 rounded bg-gray-900/50 backdrop-blur">
-                <span class="w-2 h-2 rounded-full bg-green-500 inline-block mr-2"></span>System Operational
-            </div>
-            <div class="px-3 py-1 border border-gray-800 rounded bg-gray-900/50 backdrop-blur">
-                v2.4.0 (Stable)
+        <div class="relative z-10 flex gap-4">
+            <div class="flex items-center gap-2 px-4 py-2 border border-slate-800 rounded-xl bg-slate-900/50 backdrop-blur-md shadow-inner text-xs font-bold text-slate-400">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                End-to-End Encrypted
             </div>
         </div>
     </div>
 
-    <!-- RIGHT SIDE: LOGIN FORM -->
-    <div class="w-full lg:w-1/2 bg-[#0B0E14] flex flex-col justify-center items-center p-8 relative">
-        <!-- Mobile Logo (Visible only on small screens) -->
-        <div class="lg:hidden absolute top-8 left-8 flex items-center gap-3">
-            <div class="w-8 h-8 bg-[#2DD4BF] rounded-md flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l5 5 5-5"/><path d="M12 3v12"/></svg>
+    <div class="w-full lg:w-1/2 bg-slate-950 flex flex-col justify-center items-center p-8 sm:p-12 lg:p-24 relative z-20">
+        
+        <div class="lg:hidden absolute top-8 left-8 flex items-center gap-3.5">
+            <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="14" height="10" rx="1"></rect>
+                    <path d="M16 11h4a2 2 0 0 1 2 2v2h-6"></path>
+                    <circle cx="6" cy="18" r="2"></circle>
+                    <circle cx="18" cy="18" r="2"></circle>
+                </svg>
             </div>
-            <span class="text-lg font-bold tracking-tight text-white uppercase">WeighGuard</span>
+            <span class="text-xl font-extrabold tracking-tight text-white uppercase">WeighGuard</span>
         </div>
 
-        <div class="w-full max-w-sm">
-            <div class="mb-10">
-                <h2 class="text-3xl font-bold text-white mb-2">Welcome back</h2>
-                <p class="text-gray-400 text-sm">Please enter your admin credentials to access the dashboard.</p>
+        <div class="w-full max-w-[400px]">
+            <div class="mb-10 text-center lg:text-left">
+                <h2 class="text-3xl font-extrabold text-white tracking-tight mb-2">Secure Access</h2>
+                <p class="text-slate-400 text-sm font-medium">Authenticate to access the command dashboard.</p>
             </div>
 
             <form onsubmit="handleLogin(event)" class="space-y-6">
-                <!-- Email Field -->
                 <div>
-                    <label for="email" class="block text-xs font-bold text-gray-500 uppercase mb-2">Email Address</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
+                    <label for="email" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Admin Email</label>
+                    <div class="relative group">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
                         </span>
                         <input type="email" id="email" value="admin@weighguard.io" required 
-                            class="input-glow w-full bg-[#111827] border border-gray-700 text-white text-sm rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-0 transition placeholder-gray-600" 
-                            placeholder="name@company.com">
+                            class="w-full bg-slate-900 border border-slate-700 text-white text-sm font-medium rounded-xl pl-12 pr-4 py-4 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner placeholder-slate-600" 
+                            placeholder="admin@weighguard.io">
                     </div>
                 </div>
 
-                <!-- Password Field -->
                 <div>
                     <div class="flex justify-between items-center mb-2">
-                        <label for="password" class="block text-xs font-bold text-gray-500 uppercase">Password</label>
-                        <a href="#" class="text-xs font-semibold text-[#2DD4BF] hover:text-teal-300 transition">Forgot password?</a>
+                        <label for="password" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Master Password</label>
+                        <a href="#" class="text-xs font-bold text-blue-400 hover:text-blue-300 transition">Forgot?</a>
                     </div>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    <div class="relative group">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                            <svg class="w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         </span>
                         <input type="password" id="password" value="password123" required 
-                            class="input-glow w-full bg-[#111827] border border-gray-700 text-white text-sm rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:border-[#2DD4BF] focus:ring-0 transition placeholder-gray-600" 
+                            class="w-full bg-slate-900 border border-slate-700 text-white text-sm font-medium rounded-xl pl-12 pr-4 py-4 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner placeholder-slate-600" 
                             placeholder="••••••••">
                     </div>
                 </div>
 
-                <!-- Checkbox -->
-                <div class="flex items-center">
-                    <input id="remember-me" type="checkbox" class="w-4 h-4 text-[#2DD4BF] bg-[#111827] border-gray-700 rounded focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#2DD4BF]">
-                    <label for="remember-me" class="ml-2 block text-sm text-gray-400 cursor-pointer select-none">Remember me for 30 days</label>
+                <div class="flex items-center pt-2">
+                    <input id="remember-me" type="checkbox" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer">
+                    <label for="remember-me" class="ml-3 block text-sm font-medium text-slate-400 cursor-pointer select-none">Remember this device</label>
                 </div>
 
-                <!-- Submit Button -->
-                <button type="submit" id="login-btn" class="w-full bg-[#2DD4BF] hover:bg-teal-300 text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-teal-900/20 flex justify-center items-center gap-2 group">
-                    <span>Sign In</span>
-                    <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                <button type="submit" id="login-btn" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold py-4 rounded-xl transition-all shadow-[0_0_15px_rgba(52,211,153,0.3)] flex justify-center items-center gap-2 group mt-4 uppercase tracking-widest">
+                    <span>Authenticate</span>
+                    <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </button>
             </form>
 
-            <div class="mt-8 pt-8 border-t border-gray-800 text-center">
-                <p class="text-xs text-gray-500">
-                    Protected by WeighGuard Security Protocols. <br>
-                    <a href="#" class="text-gray-400 hover:text-white transition">Privacy Policy</a> &bull; <a href="#" class="text-gray-400 hover:text-white transition">Terms of Service</a>
+            <div class="mt-12 text-center lg:text-left">
+                <p class="text-[10px] text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
+                    Access restricted to authorized personnel only.<br>
+                    Protected by WeighGuard Security Protocols.
                 </p>
             </div>
         </div>
     </div>
 
-    <!-- Login Logic -->
     <script>
         function handleLogin(e) {
             e.preventDefault();
             const btn = document.getElementById('login-btn');
-            const originalContent = btn.innerHTML;
             
             // Loading State
-            btn.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Signing in...';
+            btn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-slate-950" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                AUTHORIZING...
+            `;
             btn.disabled = true;
-            btn.classList.add('opacity-80', 'cursor-not-allowed');
+            btn.classList.add('opacity-80', 'cursor-not-allowed', 'bg-emerald-600');
+            btn.classList.remove('hover:bg-emerald-400');
 
-            // Simulate API Request
+            // Simulate API Request then redirect
             setTimeout(() => {
-                // Redirect to the main fleet dashboard
-                window.location.href = 'fleet_map.html';
-            }, 1500);
+                window.location.href = '/admin/dashboard';
+            }, 1200);
         }
     </script>
 </body>
