@@ -2,14 +2,19 @@
   "name": "iot-weighguard",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "dev": "node app.js",
+     "test": "echo \"No tests\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+    "engines": {
+    "node": ">=18 <=24"
+  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.2",
