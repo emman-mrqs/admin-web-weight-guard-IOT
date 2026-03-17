@@ -9,8 +9,15 @@
     <link rel="stylesheet" href="/css/admin/adminFleet.css">
     <style>
         /* Ensure map fills the entire container */
-        #live-fleet-map { height: 100%; width: 100%; z-index: 0; }
-        .glass-panel { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
+        #live-fleet-map { height: 100%; width: 100%; z-index: 0; background-color: #020617; }
+        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(51, 65, 85, 0.6); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5); }
+        
+        /* Custom Leaflet Popup Styling to match Theme */
+        .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.95) !important; backdrop-filter: blur(10px) !important; border: 1px solid rgba(51, 65, 85, 0.8) !important; border-radius: 1rem !important; padding: 0 !important; overflow: hidden !important; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.8) !important; }
+        .leaflet-popup-content { margin: 0 !important; width: 300px !important; }
+        .leaflet-popup-tip { background: rgba(15, 23, 42, 0.95) !important; border: 1px solid rgba(51, 65, 85, 0.8) !important; border-top: none !important; border-left: none !important; }
+        .leaflet-popup-close-button { color: #94a3b8 !important; right: 12px !important; top: 12px !important; background: rgba(15,23,42,0.5) !important; border-radius: 50% !important; padding: 4px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+        .leaflet-popup-close-button:hover { color: #f8fafc !important; background: rgba(51,65,85,0.8) !important; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
@@ -21,9 +28,10 @@
         
         <div id="live-fleet-map"></div>
 
-        <div class="absolute top-6 left-8 right-8 z-[1000] flex justify-between items-center pointer-events-none">
-            <div class="flex items-center gap-4 pointer-events-auto">
-                <div class="glass-panel px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4">
+        <div class="absolute top-6 left-6 right-6 z-[1000] flex justify-between items-start pointer-events-none">
+            
+            <div class="flex flex-col gap-3 pointer-events-auto">
+                <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-4">
                     <div class="flex items-center gap-2">
                         <span class="relative flex h-3 w-3">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -32,50 +40,71 @@
                         <h1 class="text-white font-extrabold tracking-tight uppercase text-sm">Live System</h1>
                     </div>
                     <div class="h-4 w-px bg-slate-700"></div>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">114 Active Units</p>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest"><span id="activeUnitCount">114</span> Active Units</p>
+                </div>
+
+                <div class="flex bg-slate-900/80 backdrop-blur-md rounded-xl p-1 border border-slate-700/50 shadow-lg w-max">
+                    <button id="btnMapStyle" class="px-4 py-1.5 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition">Map</button>
+                    <button id="btnSatStyle" class="px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 rounded-lg transition">Satellite</button>
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 pointer-events-auto">
-                <div class="relative group">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-4">
-                        <svg class="w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </span>
-                    <input type="text" placeholder="Track vehicle ID..." class="glass-panel rounded-xl pl-11 pr-4 py-3 w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm text-white placeholder-slate-500 transition-all">
+            <div class="glass-panel p-5 rounded-2xl w-80 pointer-events-auto">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Filter Live Map</h3>
+                <div class="space-y-4">
+                    <div class="relative group">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                            <svg class="w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </span>
+                        <input type="text" id="vehicleSearch" placeholder="Track vehicle ID..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
+                    </div>
+                    <div class="relative">
+                        <select id="categoryFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors">
+                            <option value="all">All Categories</option>
+                            <option value="Trailer Truck">Trailer Trucks (Class 8)</option>
+                            <option value="Reefer Truck">Reefer Trucks (Class 6)</option>
+                            <option value="Small Truck">Small Trucks (Class 4)</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    </div>
+                    <div class="relative">
+                        <select id="statusFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors">
+                            <option value="all">All Statuses</option>
+                            <option value="in_transit" class="text-emerald-400">In Transit (Normal)</option>
+                            <option value="loss" class="text-rose-400">Cargo Loss Detected</option>
+                            <option value="overload" class="text-amber-400">Overload Warning</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="absolute bottom-10 right-8 z-[1000] w-80 pointer-events-auto">
-            <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden border border-rose-500/20">
-                <div class="p-4 bg-rose-500/10 border-b border-slate-800 flex justify-between items-center">
-                    <h3 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Priority Incidents</h3>
-                    <span class="text-[10px] font-mono text-rose-500/80">LIVE</span>
+        <div class="absolute bottom-8 right-6 z-[1000] w-80 pointer-events-auto">
+            <div class="glass-panel rounded-2xl overflow-hidden border border-rose-500/30">
+                <div class="p-4 bg-rose-500/10 border-b border-rose-500/20 flex justify-between items-center">
+                    <h3 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        Priority Incidents
+                    </h3>
+                    <span class="text-[10px] font-bold bg-rose-500 text-white px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">LIVE</span>
                 </div>
-                <div class="max-h-60 overflow-y-auto custom-scrollbar p-4 space-y-4">
-                    <div class="flex gap-3 border-l-2 border-rose-500 pl-3 py-1 cursor-pointer hover:bg-white/5 transition rounded-r-lg">
-                        <div>
-                            <p class="text-xs font-bold text-white">#RC-0034 <span class="text-rose-400">Cargo Loss</span></p>
-                            <p class="text-[10px] text-slate-500 mt-0.5">Rodriguez, Rizal &bull; 2 mins ago</p>
-                        </div>
+                <div id="incidentList" class="max-h-60 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-950/50">
                     </div>
-                    <div class="flex gap-3 border-l-2 border-amber-500 pl-3 py-1 cursor-pointer hover:bg-white/5 transition rounded-r-lg">
-                        <div>
-                            <p class="text-xs font-bold text-white">#RC-7721 <span class="text-amber-400">Overload</span></p>
-                            <p class="text-[10px] text-slate-500 mt-0.5">Payatas Rd &bull; 14 mins ago</p>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
-        <div class="absolute bottom-10 left-8 z-[1000] flex flex-col gap-2 pointer-events-auto">
-            <button class="glass-panel p-3 rounded-xl text-slate-400 hover:text-white transition" title="Recenter Map">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+        <div class="absolute bottom-8 left-6 z-[1000] flex flex-col gap-3 pointer-events-auto">
+            <button onclick="recenterMap()" class="glass-panel p-3.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition shadow-lg group" title="Recenter Map">
+                <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             </button>
-            <button class="glass-panel p-3 rounded-xl text-slate-400 hover:text-white transition" title="Toggle Traffic">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
+            <button onclick="toggleZones()" class="glass-panel p-3.5 rounded-xl text-blue-400 hover:text-white hover:bg-blue-900/30 border-blue-500/30 transition shadow-lg group" title="Toggle Zone Boundaries">
+                <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             </button>
+        </div>
+        
+        <div class="absolute bottom-2 right-4 z-[1000] text-[9px] font-bold tracking-widest text-slate-500 uppercase pointer-events-none">
+            Scope: Super Admin - All Reports
         </div>
 
     </main>

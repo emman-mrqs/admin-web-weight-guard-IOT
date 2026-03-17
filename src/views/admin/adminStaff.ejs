@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeighGuard - Staff Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/css/admin/adminUsers.css">
+</head>
+<body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
+
+    <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
+
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-950">
+        
+        <header class="h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 shrink-0 z-10 sticky top-0">
+            <div>
+                <h1 class="text-2xl font-extrabold text-white tracking-tight">Staff Management</h1>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Manage operational staff, dispatchers, and incident responders</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="openModal('addStaffModal')" class="bg-emerald-500 text-slate-900 px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 hover:bg-emerald-400 transition shadow-[0_0_15px_rgba(52,211,153,0.4)] tracking-wide uppercase">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                    ADD NEW STAFF
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-hidden p-8 flex flex-col">
+            
+            <div id="summaryStats" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 shrink-0">
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Staff</p>
+                        <p class="text-2xl font-extrabold text-white leading-none">12</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Active / On-Shift</p>
+                        <p class="text-2xl font-extrabold text-white leading-none">5</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                    <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Dispatch Staff</p>
+                        <p class="text-2xl font-extrabold text-white leading-none">8</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
+                    <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Incident Staff</p>
+                        <p class="text-2xl font-extrabold text-slate-400 leading-none">4</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden relative">
+                
+                <div id="listView" class="flex flex-col h-full absolute inset-0 transition-opacity duration-300">
+                    
+                    <div class="bg-slate-900 rounded-t-2xl border border-slate-800 border-b-0 shadow-lg p-5 px-6 flex flex-col md:flex-row gap-4 justify-between items-center shrink-0">
+                        <div class="relative w-full md:w-96 group">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                                <svg class="w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </span>
+                            <input id="staffSearchInput" type="text" placeholder="Search staff by name or email..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
+                        </div>
+                        <div class="flex gap-3 w-full md:w-auto">
+                            <select id="staffRoleFilter" class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer flex-1">
+                                <option value="all">All Roles</option>
+                                <option value="dispatch staff">Dispatch Staff</option>
+                                <option value="incident staff">Incident Staff</option>
+                            </select>
+                            <select id="staffStatusFilter" class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer flex-1">
+                                <option value="all">All Status</option>
+                                <option value="on-shift">On-Shift</option>
+                                <option value="offline">Offline</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-b-2xl border border-slate-800 shadow-lg flex flex-col overflow-hidden flex-1">
+                        <div class="overflow-y-auto custom-scrollbar h-full">
+                            <table class="w-full text-left border-collapse whitespace-nowrap">
+                                <thead class="sticky top-0 bg-slate-900/90 backdrop-blur border-b border-slate-800 z-10">
+                                    <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
+                                        <th class="px-6 py-4">Staff Member</th>
+                                        <th class="px-6 py-4">Assigned Role</th>
+                                        <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4">Activity</th>
+                                        <th class="px-6 py-4 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="staffTableBody" class="divide-y divide-slate-800/50">
+                                    
+                                    <tr class="hover:bg-slate-800/40 transition-colors group">
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-sm">
+                                                    AM
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-white text-sm">Alex Mercer</div>
+                                                    <div class="text-[10px] text-slate-500 mt-0.5 font-mono">alex.m@weighguard.io</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-bold text-amber-400">Dispatch Staff</div>
+                                            <div class="font-mono text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest">Routing & Map Access</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"></span>
+                                                ON-SHIFT
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg class="w-3 h-3 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                    <span class="text-[10px] text-slate-300 font-mono">Jan 10, 2026</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg class="w-3 h-3 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                    <span class="text-[10px] text-slate-500 font-mono">Mar 15, 2026</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex items-center justify-end gap-2">
+                                                <button onclick="openModal('historyModal')" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50" title="Activity Log">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                                </button>
+                                                <button onclick="openModal('editStaffModal')" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30" title="Edit Staff">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                </button>
+                                                <button onclick="openModal('deleteStaffModal')" class="p-2 text-red-500 hover:text-red-400 transition bg-red-900/20 rounded-lg border border-red-500/30" title="Delete Staff">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <tr class="hover:bg-slate-800/40 transition-colors group">
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-sm">
+                                                    SC
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-white text-sm">Sarah Connor</div>
+                                                    <div class="text-[10px] text-slate-500 mt-0.5 font-mono">sarah.c@weighguard.io</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-bold text-rose-400">Incident Staff</div>
+                                            <div class="font-mono text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest">Alerts & Logs Access</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold tracking-wide">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                                OFFLINE
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg class="w-3 h-3 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                    <span class="text-[10px] text-slate-300 font-mono">Feb 3, 2026</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg class="w-3 h-3 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                    <span class="text-[10px] text-slate-500 font-mono">Mar 12, 2026</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 text-right">
+                                            <div class="flex items-center justify-end gap-2">
+                                                <button onclick="openModal('historyModal')" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50" title="Activity Log">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                                </button>
+                                                <button onclick="openModal('editStaffModal')" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30" title="Edit Staff">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                </button>
+                                                <button onclick="openModal('deleteStaffModal')" class="p-2 text-red-500 hover:text-red-400 transition bg-red-900/20 rounded-lg border border-red-500/30" title="Delete Staff">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    <tr id="staffNoResultsRow" class="hidden">
+                                        <td colspan="5" class="px-6 py-10 text-center text-slate-500 text-sm">No staff member matches your search/filter.</td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                            <p class="text-xs text-slate-500 font-medium">
+                                Showing <span class="text-white font-bold">1</span> to <span class="text-white font-bold">12</span> of <span class="text-white font-bold">12</span> staff
+                            </p>
+                            <div class="flex items-center gap-1.5">
+                                <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                                <button class="w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">1</button>
+                                <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeAllModals()"></div>
+
+    <div id="addStaffModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                </div>
+                <h2 class="text-xl font-extrabold text-white tracking-tight">Add New Staff</h2>
+            </div>
+            <button onclick="closeModal('addStaffModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        <form class="p-8 space-y-6" onsubmit="event.preventDefault(); closeModal('addStaffModal');">
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">First Name</label>
+                    <input type="text" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="John">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Last Name</label>
+                    <input type="text" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="Doe">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
+                        </span>
+                        <input type="email" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="john.doe@weighguard.io">
+                    </div>
+                </div>
+
+                <div class="col-span-2 border-t border-slate-800 pt-6">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Staff Role</label>
+                    <div class="relative">
+                        <select class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer">
+                            <option value="dispatch_staff">Dispatch Staff (Manage Routes & Maps)</option>
+                            <option value="incident_staff">Incident Staff (Manage Alerts & Logs)</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    </div>
+                </div>
+                
+                <div class="col-span-2 grid grid-cols-2 gap-6 border-t border-slate-800 pt-6">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                        <div class="relative">
+                            <input type="password" id="addPassword" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="••••••••">
+                            <button type="button" onclick="togglePasswordVisibility('addPassword')" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-500 hover:text-emerald-400 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm Password</label>
+                        <div class="relative">
+                            <input type="password" id="addConfirmPassword" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 pr-10 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner" placeholder="••••••••">
+                            <button type="button" onclick="togglePasswordVisibility('addConfirmPassword')" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-500 hover:text-emerald-400 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between col-span-2">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Need a secure password?</span>
+                        <button type="button" onclick="generateRandomPassword()" class="text-xs font-bold text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Generate Random
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex gap-4 mt-2">
+                <button type="button" onclick="closeModal('addStaffModal')" class="w-1/3 py-3.5 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 hover:text-white transition">Cancel</button>
+                <button type="submit" class="w-2/3 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-extrabold transition shadow-[0_0_15px_rgba(52,211,153,0.4)] tracking-wide uppercase text-xs">
+                    Create Staff Account
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="editStaffModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </div>
+                <h2 class="text-xl font-extrabold text-white tracking-tight">Edit Staff Details</h2>
+            </div>
+            <button onclick="closeModal('editStaffModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        
+        <form class="p-8 space-y-6" onsubmit="event.preventDefault(); closeModal('editStaffModal');">
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">First Name</label>
+                    <input type="text" value="Alex" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Last Name</label>
+                    <input type="text" value="Mercer" class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address (Read Only)</label>
+                    <input type="email" value="alex.m@weighguard.io" class="w-full bg-slate-900 border border-slate-800 text-slate-500 text-sm rounded-xl px-4 py-3.5 cursor-not-allowed shadow-inner font-mono" readonly>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800 pt-6">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Change Role</label>
+                <div class="relative">
+                    <select class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                        <option value="dispatch_staff" selected>Dispatch Staff</option>
+                        <option value="incident_staff">Incident Staff</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none"><svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+            </div>
+
+            <div class="py-2 border-t border-slate-800 mt-2">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Account Status</label>
+                <div class="relative">
+                    <select class="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-4 py-3.5 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer shadow-inner">
+                        <option value="active" selected>Active / Allowed to Login</option>
+                        <option value="inactive">Suspended / Locked</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none"><svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex gap-4 mt-2">
+                <button type="button" onclick="closeModal('editStaffModal')" class="w-1/3 py-3.5 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 hover:text-white transition">Cancel</button>
+                <button type="submit" class="w-2/3 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold transition shadow-[0_0_15px_rgba(37,99,235,0.4)] tracking-wide uppercase text-xs">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="deleteStaffModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300">
+        <div class="p-6 text-center space-y-4">
+            <div class="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto text-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </div>
+            <h2 class="text-xl font-bold text-white tracking-tight">Revoke Staff Access?</h2>
+            
+            <div class="bg-rose-950/20 border border-rose-500/20 rounded-xl p-4 mb-2 text-left">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Target Account</p>
+                <p class="text-sm font-bold text-white mb-2">Alex Mercer (Dispatch Staff)</p>
+                <p class="text-[10px] text-slate-500 leading-relaxed">This action cannot be undone. This staff member will immediately lose access to the platform and any currently monitored tasks will be unassigned.</p>
+            </div>
+
+            <div class="pt-4 flex gap-3">
+                <button type="button" onclick="closeModal('deleteStaffModal')" class="flex-1 px-4 py-3 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 transition">Cancel</button>
+                <button type="button" onclick="closeModal('deleteStaffModal')" class="flex-1 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition shadow-[0_0_15px_rgba(225,29,72,0.4)] flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Revoke
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-3xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-[0_0_10px_rgba(52,211,153,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-white tracking-tight">Activity Log</h2>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">Detailed history of staff activity and actions.</p>
+                </div>
+            </div>
+            <button onclick="closeModal('historyModal')" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+        
+        <div class="max-h-[50vh] overflow-y-auto custom-scrollbar">
+            <table class="w-full text-left whitespace-nowrap">
+                <thead class="sticky top-0 bg-slate-900/90 backdrop-blur border-b border-slate-800 z-10">
+                    <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
+                        <th class="px-8 py-4">Timestamp</th>
+                        <th class="px-6 py-4">Action</th>
+                        <th class="px-6 py-4">Details</th>
+                        <th class="px-8 py-4 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/50">
+                    
+                    <tr class="hover:bg-slate-800/40 transition-colors">
+                        <td class="px-8 py-4 text-xs font-bold text-white font-mono">May 12, 08:30 AM</td>
+                        <td class="px-6 py-4 text-xs font-bold text-white">Route Assigned</td>
+                        <td class="px-6 py-4 text-xs text-slate-400 font-mono">RC-8802 (Warehouse A -> Zone B)</td>
+                        <td class="px-8 py-4 text-right">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide uppercase">ACTIVE</span>
+                        </td>
+                    </tr>
+
+                    <tr class="hover:bg-slate-800/40 transition-colors">
+                        <td class="px-8 py-4 text-xs font-bold text-white font-mono">May 11, 04:15 PM</td>
+                        <td class="px-6 py-4 text-xs font-bold text-white">System Login</td>
+                        <td class="px-6 py-4 text-xs text-slate-400 font-mono">IP: 192.168.1.44 • Chrome OS</td>
+                        <td class="px-8 py-4 text-right">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold tracking-wide uppercase">SUCCESS</span>
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="/js/admin/adminStaff.js"></script>
+</body>
+</html>

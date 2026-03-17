@@ -6,6 +6,7 @@ import AdminFleetController from '../../controller/admin/adminFleetController.js
 import AdminAddFleetController from '../../controller/admin/adminAddFleetController.js';
 import AdminFleetMapsController from '../../controller/admin/adminFleetMapsController.js';
 import AdminUserController from '../../controller/admin/adminUserController.js';
+import AdminStaffController from '../../controller/admin/adminStaffController.js';
 import AdminDispatchController from '../../controller/admin/adminDispatchController.js';
 import AdminReportsController from '../../controller/admin/adminReportController.js';
 import AdminIncidentsController from '../../controller/admin/adminIncidentsController.js';
@@ -31,6 +32,9 @@ router.get("/admin/users/fetch", AdminUserController.fetchUsers);
 router.post("/admin/users", AdminUserController.createUser);
 router.put("/admin/users/:id", AdminUserController.updateUser);
 router.delete("/admin/users/:id", AdminUserController.deleteUser);
+
+// Admin Staff Routes
+router.get("/admin/staff", AdminStaffController.getStaffList);
 
 // Admin Task Dispatch Routes
 router.get("/admin/task-dispatch", AdminDispatchController.getTaskDispatch);
