@@ -6,13 +6,13 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node app.js",
-     "test": "echo \"No tests\""
+    "test": "echo \"No tests\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
-    "engines": {
+  "engines": {
     "node": ">=18 <=24"
   },
   "dependencies": {

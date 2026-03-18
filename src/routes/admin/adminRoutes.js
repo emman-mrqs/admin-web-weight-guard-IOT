@@ -28,10 +28,6 @@ router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
 
 // Admin User Routes
 router.get("/admin/users", AdminUserController.getUsers);
-router.get("/admin/users/fetch", AdminUserController.fetchUsers);
-router.post("/admin/users", AdminUserController.createUser);
-router.put("/admin/users/:id", AdminUserController.updateUser);
-router.delete("/admin/users/:id", AdminUserController.deleteUser);
 
 // Admin Staff Routes
 router.get("/admin/staff", AdminStaffController.getStaffList);

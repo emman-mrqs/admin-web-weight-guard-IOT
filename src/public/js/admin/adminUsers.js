@@ -1,22 +1,31 @@
 // ===========================================
-// USER MANAGEMENT ONLY LOGIC
+// USER MANAGEMENT - STATIC FRONTEND ONLY
+// ===========================================
+// 
+// FILE STRUCTURE OVERVIEW:
+// 1. Modal Display & Control Functions
+// 2. Password Visibility & Generation
+// 3. Verification & Email Confirmation  
+// 4. Edit User Modal - Form Management
+// 5. Delete User Modal - Confirmation
+// 6. Suspension Creation - Modal & Form
+// 7. Suspension Data - Configuration
+// 8. Suspension Details View - Display
+// 9. Lift Suspension - Restore User Access
+// 10. Utility Helpers - Form Reset
+// 11. Page Initialization - DOM Setup
+//
 // ===========================================
 
-function getInitials(fullName) {
-    return fullName.split(' ').map(n => n[0]).join('').toUpperCase();
-}
-
-const USERS_PER_PAGE = 10;
-let allUsers = [];
-let currentUserPage = 1;
-
+// ╔═══════════════════════════════════════════╗
+// ║     MODAL DISPLAY & CONTROL FUNCTIONS     ║
+// ║  openModal, closeModal, toggleModal, etc  ║
+// ╚═══════════════════════════════════════════╝
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
 
     const overlay = document.getElementById('modalOverlay');
-    const content = modal.querySelector('.modal-content') || modal;
-
     if (overlay) {
         overlay.classList.remove('hidden');
         overlay.classList.remove('opacity-0');
@@ -24,12 +33,8 @@ function openModal(modalId) {
 
     modal.classList.remove('hidden');
     requestAnimationFrame(() => {
-        modal.classList.remove('opacity-0', 'scale-95', 'modal-enter');
-        modal.classList.add('opacity-100', 'scale-100', 'modal-enter-active');
-        if (content !== modal) {
-            content.classList.remove('modal-content-enter');
-            content.classList.add('modal-content-enter-active');
-        }
+        modal.classList.remove('opacity-0', 'scale-95');
+        modal.classList.add('opacity-100', 'scale-100');
     });
 }
 
@@ -38,15 +43,10 @@ function closeModal(modalId) {
     if (!modal) return;
 
     const overlay = document.getElementById('modalOverlay');
-    const content = modal.querySelector('.modal-content') || modal;
-
-    modal.classList.remove('opacity-100', 'scale-100', 'modal-enter-active');
-    modal.classList.add('opacity-0', 'scale-95', 'modal-enter');
-    if (content !== modal) {
-        content.classList.remove('modal-content-enter-active');
-        content.classList.add('modal-content-enter');
-    }
-
+    
+    modal.classList.remove('opacity-100', 'scale-100');
+    modal.classList.add('opacity-0', 'scale-95');
+    
     if (overlay) {
         overlay.classList.add('opacity-0');
     }
@@ -77,16 +77,24 @@ function toggleModal(modalId) {
     }
 }
 
+// ╔═══════════════════════════════════════════╗
+// ║   PASSWORD VISIBILITY & GENERATION         ║
+// ║  Show/hide password, generate random pass ║
+// ╚═══════════════════════════════════════════╝
 function togglePasswordVisibility(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon = document.getElementById(iconId);
 
     if (input.type === 'password') {
         input.type = 'text';
-        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>';
+        if (icon) {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>';
+        }
     } else {
         input.type = 'password';
-        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
+        if (icon) {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>';
+        }
     }
 }
 
@@ -115,380 +123,407 @@ function generateRandomPassword() {
     if (icon2) icon2.innerHTML = eyeOffSvg;
 }
 
-async function summaryStats() {
-    try {
-        const res = await fetch('/admin/users/fetch');
-        const data = await res.json();
+// ╔═══════════════════════════════════════════╗
+// ║   VERIFICATION & EMAIL CONFIRMATION        ║
+// ║  Verification code input, email confirm   ║
+// ╚═══════════════════════════════════════════╝
+function setupVerificationCodeInputs() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    
+    inputs.forEach((id, index) => {
+        const input = document.getElementById(id);
+        if (!input) return;
 
-        const activeUser = data.users.filter(u => u.status === 'active').length;
-        const inTransitUser = data.users.filter(u => u.assignment_status === 'active').length;
-        const unassignedUser = data.users.filter(u => !u.assignment_id).length;
-        const suspendedUser = data.users.filter(u => u.status === 'inactive').length;
-
-        const totalEl = document.getElementById('summaryTotalUsers');
-        const activeEl = document.getElementById('summaryActiveUsers');
-        const inTransitEl = document.getElementById('summaryInTransit');
-        const unassignedEl = document.getElementById('summaryUnassigned');
-        const suspendedEl = document.getElementById('summarySuspendedUsers');
-
-        if (totalEl && activeEl && unassignedEl) {
-            totalEl.textContent = String(data.users.length);
-            activeEl.textContent = String(activeUser);
-            unassignedEl.textContent = String(unassignedUser);
-            if (inTransitEl) {
-                inTransitEl.textContent = String(inTransitUser);
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length > 0 && index < inputs.length - 1) {
+                document.getElementById(inputs[index + 1]).focus();
             }
-            if (suspendedEl) {
-                suspendedEl.textContent = String(suspendedUser);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && e.target.value.length === 0 && index > 0) {
+                document.getElementById(inputs[index - 1]).focus();
             }
-            return;
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (!/[0-9]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    });
+}
+
+function getVerificationCode() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    return inputs.map(id => document.getElementById(id).value).join('');
+}
+
+// ╔═══════════════════════════════════════════╗
+// ║   UTILITY HELPERS - FORM RESET             ║
+// ║  Clear fields, close forms gracefully     ║
+// ╚═══════════════════════════════════════════╝
+function resetVerificationCode() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    inputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    const errorEl = document.getElementById('verificationError');
+    const successEl = document.getElementById('verificationSuccess');
+    if (errorEl) errorEl.classList.add('hidden');
+    if (successEl) successEl.classList.add('hidden');
+}
+
+function submitVerificationCode() {
+    const code = getVerificationCode();
+    const errorEl = document.getElementById('verificationError');
+    const successEl = document.getElementById('verificationSuccess');
+
+    if (errorEl) errorEl.classList.add('hidden');
+    if (successEl) successEl.classList.add('hidden');
+
+    if (code.length !== 6) {
+        if (errorEl) {
+            errorEl.textContent = 'Please enter all 6 digits';
+            errorEl.classList.remove('hidden');
         }
-
-        // Backward-compatible fallback if the static summary markup is missing.
-        const div = document.getElementById('summaryStats');
-        if (div) {
-            div.innerHTML = `
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Total Users</p>
-                    <p class="text-2xl font-bold text-white">${data.users.length}</p>
-                </div>
-                <div class="card-bg p-4 rounded-xl border-l-4 border-[#2DD4BF]">
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Active Now</p>
-                    <p class="text-2xl font-bold text-white">${activeUser}</p>
-                </div>
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">In Transit</p>
-                    <p class="text-2xl font-bold text-white">${inTransitUser}</p>
-                </div>
-                <div class="card-bg p-4 rounded-xl">
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Unassigned</p>
-                    <p class="text-2xl font-bold text-white">${unassignedUser}</p>
-                </div>
-            `;
-        }
-    } catch (err) {
-        console.error('Error fetching summary stats:', err);
-    }
-}
-
-function locateUserOnMap(assignmentId) {
-    if (!assignmentId) return;
-    window.location.href = `/admin/task-dispatch?assignmentId=${assignmentId}`;
-}
-
-async function loadUsers() {
-    try {
-        const res = await fetch('/admin/users/fetch');
-        const data = await res.json();
-
-        allUsers = Array.isArray(data.users) ? data.users : [];
-        const totalPages = Math.max(1, Math.ceil(allUsers.length / USERS_PER_PAGE));
-        if (currentUserPage > totalPages) {
-            currentUserPage = totalPages;
-        }
-        renderUsersTable();
-    } catch (err) {
-        console.error('Error loading users:', err);
-    }
-}
-
-function goToUserPage(page) {
-    const totalPages = Math.max(1, Math.ceil(allUsers.length / USERS_PER_PAGE));
-    currentUserPage = Math.min(Math.max(1, page), totalPages);
-    renderUsersTable();
-}
-
-function updatePaginationInfo(totalUsers, startIndex, endIndex) {
-    const infoEl = document.getElementById('pagination-info');
-    if (!infoEl) return;
-
-    if (totalUsers === 0) {
-        infoEl.innerHTML = 'Showing <span class="text-white font-bold">0</span> to <span class="text-white font-bold">0</span> of <span class="text-white font-bold">0</span> entries';
         return;
     }
 
-    infoEl.innerHTML = `Showing <span class="text-white font-bold">${startIndex}</span> to <span class="text-white font-bold">${endIndex}</span> of <span class="text-white font-bold">${totalUsers}</span> entries`;
-}
-
-function renderPaginationControls(totalPages) {
-    const controlsEl = document.getElementById('pagination-controls');
-    if (!controlsEl) return;
-
-    controlsEl.innerHTML = '';
-
-    const prevBtn = document.createElement('button');
-    prevBtn.className = `p-2 rounded-lg border border-slate-700 transition ${currentUserPage === 1 ? 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`;
-    prevBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>';
-    prevBtn.disabled = currentUserPage === 1;
-    prevBtn.onclick = () => goToUserPage(currentUserPage - 1);
-    controlsEl.appendChild(prevBtn);
-
-    for (let i = 1; i <= totalPages; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.className = i === currentUserPage
-            ? 'w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold'
-            : 'w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold';
-        pageBtn.textContent = String(i);
-        pageBtn.onclick = () => goToUserPage(i);
-        controlsEl.appendChild(pageBtn);
-    }
-
-    const nextBtn = document.createElement('button');
-    nextBtn.className = `p-2 rounded-lg border border-slate-700 transition ${currentUserPage === totalPages ? 'text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`;
-    nextBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
-    nextBtn.disabled = currentUserPage === totalPages;
-    nextBtn.onclick = () => goToUserPage(currentUserPage + 1);
-    controlsEl.appendChild(nextBtn);
-}
-
-function renderUsersTable() {
-    const tbody = document.getElementById('usersTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-
-    const totalUsers = allUsers.length;
-    const totalPages = Math.max(1, Math.ceil(totalUsers / USERS_PER_PAGE));
-    const startOffset = (currentUserPage - 1) * USERS_PER_PAGE;
-    const paginatedUsers = allUsers.slice(startOffset, startOffset + USERS_PER_PAGE);
-
-    if (paginatedUsers.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="px-6 py-10 text-center text-slate-500 text-sm">No users found.</td>
-            </tr>
-        `;
-    }
-
-    paginatedUsers.forEach(user => {
-            const initials = getInitials(user.full_name);
-            const hasAssignment = user.assignment_id && user.assignment_status;
-
-            let assignment = 'UNASSIGNED';
-            let assignmentClass = 'bg-gray-800 text-gray-400';
-            let vehicleInfo = '';
-            let tripInfo = '';
-
-            if (hasAssignment) {
-                if (user.assignment_status === 'active') {
-                    assignment = 'IN TRANSIT';
-                    assignmentClass = 'bg-[#2DD4BF]/10 text-[#2DD4BF]';
-                } else if (user.assignment_status === 'pending') {
-                    assignment = 'PENDING';
-                    assignmentClass = 'bg-yellow-900/20 text-yellow-400';
-                }
-                vehicleInfo = user.vehicle_number || '';
-                if (user.distance_km && user.est_duration_min) {
-                    tripInfo = `${user.distance_km} km • ${user.est_duration_min} min`;
-                }
-            }
-
-            const statusClass = user.status.toLowerCase() === 'active'
-                ? 'bg-green-900/20 text-green-500'
-                : 'bg-orange-900/20 text-orange-400';
-
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-800/30 transition group';
-            row.innerHTML = `
-                <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">${initials}</div>
-                        <div>
-                            <p class="text-sm font-bold text-white">${user.full_name}</p>
-                            <p class="text-xs text-gray-500">${user.email}</p>
-                        </div>
-                    </div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="flex flex-col">
-                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${assignmentClass} text-[10px] font-bold w-fit mb-1 border ${hasAssignment ? 'border-current/20' : 'border-gray-700'}">${assignment}</span>
-                        ${vehicleInfo ? `<span class="text-xs text-gray-300 font-mono">${vehicleInfo}</span>` : ''}
-                        ${tripInfo ? `<span class="text-[10px] text-gray-500">${tripInfo}</span>` : ''}
-                    </div>
-                </td>
-                <td class="px-6 py-4">
-                    <span class="px-2 py-1 rounded-full ${statusClass} text-[10px] font-bold">${user.status.toUpperCase()}</span>
-                </td>
-                <td class="px-6 py-4 text-xs text-gray-400">${user.created_at ? new Date(user.created_at).toLocaleDateString() : '--'}</td>
-                <td class="px-6 py-4 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                        <button onclick="locateUserOnMap(${user.assignment_id})"
-                            class="p-2 transition rounded-lg border ${hasAssignment
-                                ? 'text-white hover:bg-gray-700 bg-gray-800 border-gray-600 cursor-pointer'
-                                : 'text-gray-600 bg-gray-800/50 border-gray-700 cursor-not-allowed opacity-50'}"
-                            title="${hasAssignment ? 'Open Task Dispatch' : 'No active assignment'}"
-                            ${hasAssignment ? '' : 'disabled'}>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                            </svg>
-                        </button>
-                        <button onclick="openModal('historyModal')" class="p-2 text-[#2DD4BF] hover:text-teal-300 transition bg-teal-900/20 rounded-lg border border-teal-500/30 hover:border-teal-500/50" title="Cargo Integrity History">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                        </button>
-                        <button onclick="openEditUserModal(${user.id})" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30" title="Edit User">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </button>
-                        <button onclick="openDeleteUserModal(${user.id}, '${user.full_name.replace(/'/g, "\\'")}')"
-                            class="p-2 text-red-500 hover:text-red-400 transition bg-red-900/20 rounded-lg border border-red-500/30" title="Delete User">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                    </div>
-                </td>
-            `;
-
-            tbody.appendChild(row);
-        });
-
-    const startIndex = totalUsers === 0 ? 0 : startOffset + 1;
-    const endIndex = startOffset + paginatedUsers.length;
-    updatePaginationInfo(totalUsers, startIndex, endIndex);
-    renderPaginationControls(totalPages);
-}
-
-async function openEditUserModal(userId) {
-    try {
-        const res = await fetch('/admin/users/fetch');
-        const data = await res.json();
-        const user = data.users.find(u => u.id === userId);
-        if (!user) return;
-
-        const nameParts = user.full_name.split(' ');
-        document.getElementById('editUserId').value = user.id;
-        document.getElementById('editFirstName').value = nameParts[0] || '';
-        document.getElementById('editLastName').value = nameParts.slice(1).join(' ') || '';
-        document.getElementById('editEmail').value = user.email;
-        document.getElementById('editStatus').value = user.status;
-
-        document.getElementById('editFormError').textContent = '';
-        document.getElementById('editFormSuccess').textContent = '';
-        openModal('editUserModal');
-    } catch (err) {
-        console.error('Error fetching user data:', err);
+    if (/^\d{6}$/.test(code)) {
+        if (successEl) {
+            successEl.textContent = 'Account verified successfully!';
+            successEl.classList.remove('hidden');
+        }
+        
+        setTimeout(() => {
+            closeModal('verificationModal');
+            resetVerificationCode();
+            const addForm = document.getElementById('addUserForm');
+            if (addForm) addForm.reset();
+        }, 1000);
+    } else {
+        if (errorEl) {
+            errorEl.textContent = 'Invalid verification code';
+            errorEl.classList.remove('hidden');
+        }
     }
 }
 
+// ╔═══════════════════════════════════════════╗
+// ║    EDIT USER MODAL - FORM MANAGEMENT       ║
+// ║  Open/close edit modal, update user data  ║
+// ╚═══════════════════════════════════════════╝
+function openEditUserModal(userId) {
+    const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!userRow) return;
+
+    const fullName = userRow.querySelector('[data-field="name"]')?.textContent || '';
+    const email = userRow.querySelector('[data-field="email"]')?.textContent || '';
+    
+    const nameParts = fullName.split(' ');
+    document.getElementById('editUserId').value = userId;
+    document.getElementById('editFirstName').value = nameParts[0] || '';
+    document.getElementById('editLastName').value = nameParts.slice(1).join(' ') || '';
+    document.getElementById('editEmail').value = email;
+
+    const statusEl = document.getElementById('editStatus');
+    const currentStatus = userRow.querySelector('[data-field="status"]')?.textContent.trim().toLowerCase() || 'active';
+    if (statusEl) statusEl.value = currentStatus === 'inactive' ? 'inactive' : 'active';
+
+    openModal('editUserModal');
+}
+
+// ╔═══════════════════════════════════════════╗
+// ║   DELETE USER MODAL - CONFIRMATION         ║
+// ║  Confirm deletion, remove user from list  ║
+// ╚═══════════════════════════════════════════╝
 function openDeleteUserModal(userId, userName) {
     document.getElementById('deleteUserId').value = userId;
     document.getElementById('deleteUserName').textContent = userName;
-    document.getElementById('deleteFormError').textContent = '';
-    document.getElementById('deleteFormSuccess').textContent = '';
     openModal('deleteUserModal');
 }
 
-async function confirmDeleteUser() {
+function confirmDeleteUser() {
     const userId = document.getElementById('deleteUserId').value;
-    const errorEl = document.getElementById('deleteFormError');
-    const successEl = document.getElementById('deleteFormSuccess');
+    const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+    
+    if (userRow) {
+        userRow.remove();
+    }
 
-    errorEl.textContent = '';
-    successEl.textContent = '';
+    setTimeout(() => {
+        closeModal('deleteUserModal');
+    }, 300);
+}
 
-    try {
-        const res = await fetch(`/admin/users/${userId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
+// ╔═══════════════════════════════════════════╗
+// ║  SUSPENSION CREATION - MODAL & FORM        ║
+// ║  Create suspension, select type/reason    ║
+// ╚═══════════════════════════════════════════╝
+function openSuspensionModal(userId, userName) {
+    document.getElementById('suspensionUserId').value = userId;
+    document.getElementById('suspensionUserName').textContent = userName;
+    document.getElementById('suspensionTypeTemp').checked = true;
+    document.getElementById('suspensionReason').value = '';
+    document.getElementById('suspensionUntilDate').value = '';
+    document.getElementById('suspensionError').classList.add('hidden');
+    document.getElementById('suspensionSuccess').classList.add('hidden');
+    updateSuspensionFields();
+    openModal('suspensionModal');
+}
 
-        const data = await res.json();
-
-        if (!res.ok) {
-            errorEl.textContent = data.error || 'Delete failed.';
-            return;
-        }
-
-        successEl.textContent = data.message || 'User deleted successfully.';
-
-        setTimeout(() => {
-            closeModal('deleteUserModal');
-            loadUsers();
-            summaryStats();
-        }, 800);
-    } catch (err) {
-        errorEl.textContent = 'Something went wrong. Please try again.';
+function updateSuspensionFields() {
+    const isTempSelected = document.getElementById('suspensionTypeTemp').checked;
+    const tempDateField = document.getElementById('tempDateField');
+    
+    if (isTempSelected) {
+        tempDateField.classList.remove('hidden');
+    } else {
+        tempDateField.classList.add('hidden');
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    summaryStats();
-    loadUsers();
+function resetSuspensionForm() {
+    document.getElementById('suspensionTypeTemp').checked = true;
+    document.getElementById('suspensionReason').value = '';
+    document.getElementById('suspensionUntilDate').value = '';
+    document.getElementById('suspensionError').classList.add('hidden');
+    document.getElementById('suspensionSuccess').classList.add('hidden');
+    updateSuspensionFields();
+}
 
+function confirmSuspension() {
+    const userId = document.getElementById('suspensionUserId').value;
+    const suspensionType = document.querySelector('input[name="suspensionType"]:checked').value;
+    const reason = document.getElementById('suspensionReason').value.trim();
+    const errorEl = document.getElementById('suspensionError');
+    const successEl = document.getElementById('suspensionSuccess');
+
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    if (!reason) {
+        errorEl.textContent = 'Please enter a reason for suspension.';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    if (suspensionType === 'temporary') {
+        const untilDate = document.getElementById('suspensionUntilDate').value;
+        if (!untilDate) {
+            errorEl.textContent = 'Please select a suspension end date.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        const selectedDate = new Date(untilDate);
+        const today = new Date();
+        if (selectedDate <= today) {
+            errorEl.textContent = 'Please select a future date.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+    }
+
+    // Update user row status
+    const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+    if (userRow) {
+        const statusCell = userRow.querySelector('[data-field="status"]');
+        if (statusCell) {
+            statusCell.innerHTML = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold tracking-wide"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>INACTIVE</span>';
+        }
+    }
+
+    successEl.textContent = `User suspended successfully (${suspensionType}).`;
+    successEl.classList.remove('hidden');
+
+    setTimeout(() => {
+        closeModal('suspensionModal');
+        resetSuspensionForm();
+    }, 1500);
+}
+
+function openVerificationForUser(userId) {
+    const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!userRow) return;
+
+    const email = userRow.querySelector('[data-field="email"]')?.textContent || 'email@example.com';
+    const verificationEmail = document.getElementById('verificationEmail');
+    if (verificationEmail) {
+        verificationEmail.textContent = email;
+    }
+
+    resetVerificationCode();
+    setupVerificationCodeInputs();
+    openModal('verificationModal');
+    setTimeout(() => document.getElementById('verifyDigit1').focus(), 300);
+}
+
+// ╔═══════════════════════════════════════════╗
+// ║   SUSPENSION DATA - CONFIGURATION          ║
+// ║  Suspension types, reasons, dates         ║
+// ╚═══════════════════════════════════════════╝
+const suspensionData = {
+    1: { type: 'temporary', reason: 'Unauthorized truck modifications detected during routine inspection.', startDate: '2026-03-01', endDate: '2026-04-01' },
+    2: { type: 'permanent', reason: 'Account flagged for fraudulent GPS data submission and evasion of monitoring protocols.', suspendedDate: '2026-03-05' },
+    3: { type: 'temporary', reason: 'Repeated violations of safety protocols and non-compliance with dispatch procedures.', startDate: '2026-03-10', endDate: '2026-03-25' },
+    4: { type: 'permanent', reason: 'Multiple unauthorized access attempts and security breach investigation.', suspendedDate: '2026-02-28' },
+    5: { type: 'temporary', reason: 'Scheduled maintenance - account temporarily restricted.', startDate: '2026-03-15', endDate: '2026-03-20' }
+};
+
+const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+// ╔═══════════════════════════════════════════╗
+// ║  SUSPENSION DETAILS VIEW - DISPLAY         ║
+// ║  Show suspension reason, type, dates      ║
+// ╚═══════════════════════════════════════════╝
+// ===== Suspension Details View =====
+function openSuspensionDetailsModal(userId, userName) {
+    const data = suspensionData[userId];
+    if (!data) return;
+
+    const isPermanent = data.type === 'permanent';
+    document.getElementById('detailsUserName').textContent = userName;
+    document.getElementById('detailsBanType').textContent = isPermanent ? 'PERMANENT BAN' : 'TEMPORARY';
+    document.getElementById('detailsBanType').className = isPermanent ? 'text-rose-400 font-bold mt-1' : 'text-blue-400 font-bold mt-1';
+    document.getElementById('detailsReason').textContent = data.reason;
+
+    document.getElementById('detailsPermanentDates').classList.toggle('hidden', !isPermanent);
+    document.getElementById('detailsTemporaryDates').classList.toggle('hidden', isPermanent);
+
+    if (isPermanent) {
+        document.getElementById('detailsSuspendedDate').textContent = formatDate(data.suspendedDate);
+    } else {
+        document.getElementById('detailsStartDate').textContent = formatDate(data.startDate);
+        document.getElementById('detailsEndDate').textContent = formatDate(data.endDate);
+    }
+
+    openModal('suspensionDetailsModal');
+}
+
+// ╔═══════════════════════════════════════════╗
+// ║  LIFT SUSPENSION - RESTORE USER ACCESS     ║
+// ║  Remove suspension & restore ACTIVE status║
+// ╚═══════════════════════════════════════════╝
+// ===== Lift Suspension =====
+function openLiftSuspensionModal(userId, userName) {
+    const data = suspensionData[userId];
+    if (!data) return;
+
+    document.getElementById('liftUserId').value = userId;
+    document.getElementById('liftUserName').textContent = userName;
+    document.getElementById('liftBanType').textContent = data.type === 'permanent' ? 'PERMANENT BAN' : 'TEMPORARY';
+    document.getElementById('liftError').classList.add('hidden');
+    document.getElementById('liftSuccess').classList.add('hidden');
+
+    openModal('liftSuspensionModal');
+}
+
+function confirmLiftSuspension() {
+    const userId = document.getElementById('liftUserId').value;
+    const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!userRow) return;
+
+    const statusCell = userRow.querySelector('[data-field="status"]');
+    statusCell.innerHTML = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"></span>ACTIVE</span>';
+
+    const liftBtn = userRow.querySelector('button[title="Lift Suspension"]');
+    if (liftBtn) {
+        liftBtn.title = 'Suspend User';
+        liftBtn.className = 'p-2 text-orange-400 hover:text-orange-300 transition bg-orange-900/20 rounded-lg border border-orange-500/30';
+        liftBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><line x1="5.636" y1="18.364" x2="18.364" y2="5.636" stroke="currentColor" stroke-width="2"></line></svg>';
+        liftBtn.onclick = () => openSuspensionModal(userId, 'Michael Brown');
+    }
+
+    document.getElementById('liftSuccess').textContent = 'Suspension lifted. User account is active.';
+    document.getElementById('liftSuccess').classList.remove('hidden');
+
+    setTimeout(() => closeModal('liftSuspensionModal'), 1500);
+}
+
+// ╔═══════════════════════════════════════════╗
+// ║  PAGE INITIALIZATION - DOM SETUP           ║
+// ║  Form handlers, event listeners on load   ║
+// ╚═══════════════════════════════════════════╝
+// ===== Page Initialization =====
+document.addEventListener('DOMContentLoaded', () => {
+    // ─── ADD USER FORM HANDLER ───
+    // Add User Form Handler
     const addUserForm = document.getElementById('addUserForm');
     if (addUserForm) {
-        addUserForm.addEventListener('submit', async function(e) {
+        addUserForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            const payload = {
-                firstName: addUserForm.firstName.value,
-                lastName: addUserForm.lastName.value,
-                email: addUserForm.email.value,
-                password: addUserForm.password.value,
-                confirmPassword: addUserForm.confirmPassword.value
-            };
+            const firstName = addUserForm.firstName.value;
+            const lastName = addUserForm.lastName.value;
+            const email = addUserForm.email.value;
 
             const errorEl = document.getElementById('formError');
-            const successEl = document.getElementById('formSuccess');
-            errorEl.textContent = '';
-            successEl.textContent = '';
+            if (errorEl) errorEl.classList.add('hidden');
 
-            try {
-                const res = await fetch('/admin/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    errorEl.textContent = data.error;
-                    return;
+            if (!firstName || !lastName || !email) {
+                if (errorEl) {
+                    errorEl.textContent = 'All fields are required';
+                    errorEl.classList.remove('hidden');
                 }
-
-                loadUsers();
-                summaryStats();
-                successEl.textContent = data.message;
-                addUserForm.reset();
-            } catch (err) {
-                errorEl.textContent = 'Something went wrong. Please try again.';
+                return;
             }
+
+            const verificationEmail = document.getElementById('verificationEmail');
+            if (verificationEmail) verificationEmail.textContent = email;
+            resetVerificationCode();
+            setupVerificationCodeInputs();
+            closeModal('addUserModal');
+            openModal('verificationModal');
+            setTimeout(() => document.getElementById('verifyDigit1').focus(), 300);
         });
     }
 
+    // ─── EDIT USER FORM HANDLER ───
+    // Edit User Form Handler
     const editUserForm = document.getElementById('editUserForm');
     if (editUserForm) {
-        editUserForm.addEventListener('submit', async function(e) {
+        editUserForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const userId = document.getElementById('editUserId').value;
-            const payload = {
-                firstName: document.getElementById('editFirstName').value,
-                lastName: document.getElementById('editLastName').value,
-                status: document.getElementById('editStatus').value
-            };
+            const firstName = document.getElementById('editFirstName').value;
+            const lastName = document.getElementById('editLastName').value;
+            const status = document.getElementById('editStatus').value;
 
             const errorEl = document.getElementById('editFormError');
-            const successEl = document.getElementById('editFormSuccess');
-            errorEl.textContent = '';
-            successEl.textContent = '';
+            if (errorEl) errorEl.classList.add('hidden');
 
-            try {
-                const res = await fetch(`/admin/users/${userId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    errorEl.textContent = data.error || 'Update failed.';
-                    return;
+            if (!firstName || !lastName || !status) {
+                if (errorEl) {
+                    errorEl.textContent = 'All fields are required';
+                    errorEl.classList.remove('hidden');
                 }
-
-                successEl.textContent = data.message || 'User updated successfully.';
-                loadUsers();
-                summaryStats();
-            } catch (err) {
-                errorEl.textContent = 'Something went wrong. Please try again.';
+                return;
             }
+
+            // Update in DOM
+            const userRow = document.querySelector(`[data-user-id="${userId}"]`);
+            if (userRow) {
+                const nameEl = userRow.querySelector('[data-field="name"]');
+                if (nameEl) nameEl.textContent = `${firstName} ${lastName}`;
+                
+                const statusEl = userRow.querySelector('[data-field="status"]');
+                if (statusEl) {
+                    if (status === 'inactive') {
+                        statusEl.innerHTML = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold tracking-wide"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>INACTIVE</span>';
+                    } else {
+                        statusEl.innerHTML = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"></span>ACTIVE</span>';
+                    }
+                }
+            }
+
+            setTimeout(() => {
+                closeModal('editUserModal');
+            }, 600);
         });
     }
+
+    // Setup verification code inputs on page load
+    setupVerificationCodeInputs();
 });

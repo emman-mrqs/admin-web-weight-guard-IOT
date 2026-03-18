@@ -14,7 +14,7 @@ function openModal(modalId) {
 
 function closeAllModals() {
     const overlay = document.getElementById('modalOverlay');
-    const modals = ['addStaffModal', 'editStaffModal', 'deleteStaffModal', 'historyModal']; // Added historyModal here
+    const modals = ['addStaffModal', 'editStaffModal', 'deleteStaffModal', 'historyModal', 'verificationModal', 'suspensionDetailsViewModal', 'liftSuspensionModal'];
     
     overlay.classList.add('opacity-0');
     modals.forEach(id => {
@@ -126,4 +126,294 @@ function filterStaffRows(searchTerm, roleValue, statusValue) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initStaffFilters);
+document.addEventListener('DOMContentLoaded', () => {
+    initStaffFilters();
+    setupVerificationCodeInputs();
+});
+
+// ===== Verification Code Functions =====
+function setupVerificationCodeInputs() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    
+    inputs.forEach((id, index) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length > 0 && index < inputs.length - 1) {
+                document.getElementById(inputs[index + 1]).focus();
+            }
+            if (allInputsFilled()) {
+                document.getElementById(inputs[5]).blur();
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && e.target.value.length === 0 && index > 0) {
+                document.getElementById(inputs[index - 1]).focus();
+            }
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (!/[0-9]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    });
+}
+
+function allInputsFilled() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    return inputs.every(id => document.getElementById(id).value !== '');
+}
+
+function getVerificationCode() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    return inputs.map(id => document.getElementById(id).value).join('');
+}
+
+function resetVerificationCode() {
+    const inputs = ['verifyDigit1', 'verifyDigit2', 'verifyDigit3', 'verifyDigit4', 'verifyDigit5', 'verifyDigit6'];
+    inputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+    const errorEl = document.getElementById('verificationError');
+    const successEl = document.getElementById('verificationSuccess');
+    if (errorEl) errorEl.classList.add('hidden');
+    if (successEl) successEl.classList.add('hidden');
+}
+
+function submitVerificationCode() {
+    const code = getVerificationCode();
+    const errorEl = document.getElementById('verificationError');
+    const successEl = document.getElementById('verificationSuccess');
+
+    if (!errorEl || !successEl) return;
+
+    errorEl.textContent = '';
+    successEl.textContent = '';
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
+
+    if (code.length !== 6) {
+        errorEl.textContent = 'Please enter all 6 digits';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    if (/^\d{6}$/.test(code)) {
+        successEl.textContent = 'Account verified successfully!';
+        successEl.classList.remove('hidden');
+        
+        // Create staff record from tempStaffData if available
+        if (window.tempStaffData) {
+            const newStaff = {
+                id: Math.max(...staticStaff.map(s => s.id), 0) + 1,
+                first_name: window.tempStaffData.firstName,
+                last_name: window.tempStaffData.lastName,
+                email: window.tempStaffData.email,
+                role: window.tempStaffData.role,
+                status: 'active',
+                joining_date: new Date().toISOString().split('T')[0],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                phone: '',
+                location: 'Headquarters'
+            };
+
+            staticStaff.push(newStaff);
+            window.tempStaffData = null;
+        }
+        
+        // Case 2: Verify existing staff member by email
+        if (window.currentVerifyingStaffEmail) {
+            // Update the staff member's verification status (in a real system, this would be a database update)
+            // For now, we'll just show success - in a real implementation, you'd mark this in the table
+            window.currentVerifyingStaffEmail = null;
+        }
+
+        setTimeout(() => {
+            closeAllModals();
+            resetVerificationCode();
+            const form = document.getElementById('addStaffForm');
+            if (form) form.reset();
+            // Reload staff list if needed (would call loadStaff() and renderSummaryStats())
+        }, 1000);
+    } else {
+        errorEl.textContent = 'Invalid verification code';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+// ===== Staff Verification Functions =====
+function openVerificationForStaff(staffEmail) {
+    // Show verification email
+    const verificationEmail = document.getElementById('verificationEmail');
+    if (verificationEmail) {
+        verificationEmail.textContent = staffEmail;
+    }
+
+    // Store the current staff email being verified
+    window.currentVerifyingStaffEmail = staffEmail;
+
+    // Reset and setup verification modal
+    resetVerificationCode();
+    setupVerificationCodeInputs();
+
+    // Open verification modal
+    openModal('verificationModal');
+    setTimeout(() => document.getElementById('verifyDigit1').focus(), 300);
+}
+
+function handleAddStaffSubmit() {
+    const form = document.getElementById('addStaffForm');
+    if (!form) return;
+
+    const firstName = form.querySelector('input[name="firstName"]').value.trim();
+    const lastName = form.querySelector('input[name="lastName"]').value.trim();
+    const email = form.querySelector('input[name="email"]').value.trim();
+    const role = form.querySelector('select').value;
+    const password = document.getElementById('addPassword').value;
+    const confirmPassword = document.getElementById('addConfirmPassword').value;
+
+    // Basic validation
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+    }
+
+    // Store staff data temporarily
+    window.tempStaffData = {
+        firstName,
+        lastName,
+        email,
+        role,
+        password
+    };
+
+    // Show verification email
+    const verificationEmail = document.getElementById('verificationEmail');
+    if (verificationEmail) {
+        verificationEmail.textContent = email;
+    }
+
+    // Reset and setup verification modal
+    resetVerificationCode();
+    setupVerificationCodeInputs();
+
+    // Close add modal and show verification modal
+    closeAllModals();
+    
+    setTimeout(() => {
+        openModal('verificationModal');
+        document.getElementById('verifyDigit1').focus();
+    }, 350);
+}
+
+/*
+╔════════════════════════════════════════════════════════════════╗
+║  SUSPENSION DATA & FORMATTING HELPERS                         ║
+║  Centralized suspension info, date formatter utility           ║
+╚════════════════════════════════════════════════════════════════╝
+*/
+
+// Date formatter helper
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+}
+
+// Centralized suspension data for staff members
+const suspensionData = {
+    'robert.b@weighguard.io': {
+        type: 'temporary',
+        reason: 'Breach of operational protocol - excessive delays on routes',
+        suspendedDate: '2026-02-15T10:30:00Z',
+        liftDate: null,
+        status: 'inactive'
+    }
+};
+
+/*
+╔════════════════════════════════════════════════════════════════╗
+║  SUSPENSION WORKFLOW - VIEW DETAILS                           ║
+║  openSuspensionDetailsModal, populate and display details      ║
+╚════════════════════════════════════════════════════════════════╝
+*/
+
+function openSuspensionDetailsModal(staffEmail, staffName) {
+    const data = suspensionData[staffEmail];
+    if (!data) return;
+
+    // Populate details
+    const detailsStaffName = document.getElementById('detailsStaffName');
+    const detailsBanType = document.getElementById('detailsBanType');
+    const detailsReason = document.getElementById('detailsReason');
+    const detailsSuspensionDate = document.getElementById('detailsSuspensionDate');
+    const detailsLiftDate = document.getElementById('detailsLiftDate');
+    const detailsLiftsectionContainer = document.getElementById('detailsLiftsectionContainer');
+
+    if (detailsStaffName) detailsStaffName.textContent = staffName || '—';
+    if (detailsBanType) detailsBanType.textContent = data.type === 'temporary' ? 'Temporary Suspension' : 'Permanent Ban';
+    if (detailsReason) detailsReason.textContent = data.reason || '—';
+    if (detailsSuspensionDate) detailsSuspensionDate.textContent = formatDate(data.suspendedDate);
+    
+    if (data.liftDate && detailsLiftDate && detailsLiftsectionContainer) {
+        detailsLiftDate.textContent = formatDate(data.liftDate);
+        detailsLiftsectionContainer.classList.remove('hidden');
+    } else if (detailsLiftsectionContainer) {
+        detailsLiftsectionContainer.classList.add('hidden');
+    }
+
+    openModal('suspensionDetailsViewModal');
+}
+
+/*
+╔════════════════════════════════════════════════════════════════╗
+║  LIFT SUSPENSION - RESTORE ACCESS                             ║
+║  openLiftSuspensionModal, confirmLiftSuspension logic          ║
+╚════════════════════════════════════════════════════════════════╝
+*/
+
+function openLiftSuspensionModal(staffEmail, staffName) {
+    const data = suspensionData[staffEmail];
+    if (!data) return;
+
+    const liftStaffName = document.getElementById('liftStaffName');
+    const liftSuspensionType = document.getElementById('liftSuspensionType');
+
+    if (liftStaffName) liftStaffName.textContent = staffName || '—';
+    if (liftSuspensionType) liftSuspensionType.textContent = data.type === 'temporary' ? 'Temporary Suspension' : 'Permanent Ban';
+
+    // Store current staff for confirmation
+    window.currentLiftingSuspensionEmail = staffEmail;
+
+    openModal('liftSuspensionModal');
+}
+
+function confirmLiftSuspension() {
+    const staffEmail = window.currentLiftingSuspensionEmail;
+    if (!staffEmail || !suspensionData[staffEmail]) return;
+
+    // Update suspension data with lift date
+    suspensionData[staffEmail].liftDate = new Date().toISOString();
+    suspensionData[staffEmail].status = 'active';
+
+    // In a real application, this would make an API call to update the database
+    // For now, we just close the modal and show success
+    
+    closeAllModals();
+    window.currentLiftingSuspensionEmail = null;
+    
+    // Show success feedback (would update table in real implementation)
+    console.log(`Suspension lifted for ${staffEmail}`);
+}
