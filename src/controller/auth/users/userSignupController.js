@@ -62,7 +62,16 @@ class SignUpUserController {
 
                     return res.status(200).json({
                         message: "An account with this email already exists but is not verified. A new verification code has been sent to your email.",
-                        requiresVerification: true
+                        requiresVerification: true,
+                        verificationExpiresAt: expiryTime.toISOString(),
+                        user: {
+                            id: existingUser.id,
+                            first_name: existingUser.first_name,
+                            last_name: existingUser.last_name,
+                            email: existingUser.email,
+                            is_verified: existingUser.is_verified,
+                            created_at: existingUser.created_at
+                        }
                     });
                 }
             }
@@ -75,12 +84,12 @@ class SignUpUserController {
            const createQuery = `
                 INSERT INTO users (first_name, last_name, email, password, is_verified, status, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, 'Pending', NOW(), NOW())
-                RETURNING id
+             RETURNING id, first_name, last_name, email, is_verified, created_at
            `;
            
            const createValues =[fName, lName, email, hashedPassword, false];
            const createResult = await db.query(createQuery, createValues);
-           const newUser = createResult.rows[0];
+           const createdUser = createResult.rows[0];
 
             // Generate verification code and expiry time
             const verificationCode = nodemailerService.generateVerificationCode();
@@ -92,7 +101,7 @@ class SignUpUserController {
                 WHERE id = $3
             `;
 
-            await db.query(updateQuery, [verificationCode, expiryTime, newUser.id]);
+            await db.query(updateQuery, [verificationCode, expiryTime, createdUser.id]);
 
             // Send verification email
             const emailResult = await nodemailerService.sendVerificationEmail(email, fName, lName, verificationCode, password);
@@ -102,7 +111,12 @@ class SignUpUserController {
                 return res.status(500).json({ error: "Failed to send verification email. Please try again later." });
             }
 
-            res.status(201).json({ message: "Signup successful. A verification code has been sent to your email." });
+            res.status(201).json({
+                message: "Signup successful. A verification code has been sent to your email.",
+                requiresVerification: true,
+                verificationExpiresAt: expiryTime.toISOString(),
+                user: createdUser
+            });
 
         } catch (error) {
             console.error("Error handling sign-up:", error);

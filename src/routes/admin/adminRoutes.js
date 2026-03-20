@@ -28,6 +28,13 @@ router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
 
 // Admin User Routes
 router.get("/admin/users", AdminUserController.getUsers);
+router.get("/api/admin/users", AdminUserController.getAllUsers);
+router.put("/api/admin/users/:userId", AdminUserController.updateUser);
+router.put("/api/admin/users/:userId/soft-delete", AdminUserController.softDeleteStaff);
+router.put("/api/admin/users/:userId/restore-soft-delete", AdminUserController.restoreSoftDeletedStaff);
+router.put("/api/admin/users/:userId/suspend", AdminUserController.suspendUser);
+router.get("/api/admin/users/:userId/suspension-details", AdminUserController.getUserSuspensionDetails);
+router.put("/api/admin/users/:userId/lift-suspension", AdminUserController.liftUserSuspension);
 
 // Admin Staff Routes
 router.get("/admin/staff", AdminStaffController.getStaffList);

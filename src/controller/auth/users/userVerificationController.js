@@ -111,7 +111,10 @@ class verificationUserController {
             // Audit Logs here
 
             // Send success response
-            return res.status(200).json({ message: "A new verification code has been sent to your email." });
+            return res.status(200).json({
+                message: "A new verification code has been sent to your email.",
+                verificationExpiresAt: expiryTime.toISOString()
+            });
         } catch (error) {
             console.error("Error during resend user verification:", error);
             res.status(500).json({ error: "An error occurred while resending verification. Please try again later." });
