@@ -34,24 +34,12 @@ router.get("/admin/staff", AdminStaffController.getStaffList);
 
 // Admin Task Dispatch Routes
 router.get("/admin/task-dispatch", AdminDispatchController.getTaskDispatch);
-router.get("/admin/users/available-drivers", AdminDispatchController.fetchAvailableDrivers);
-router.get("/admin/assignments", AdminDispatchController.fetchAssignments);
-router.post("/admin/assignments", AdminDispatchController.assignTaskToUser);
-router.put("/admin/assignments/:id", AdminDispatchController.updateAssignment);
-router.delete("/admin/assignments/:id", AdminDispatchController.deleteAssignment);
 
 // Admin Reports Routes
 router.get("/admin/reports", AdminReportsController.getReports);
 
 // Admin Incidents Routes
 router.get("/admin/incidents", AdminIncidentsController.getIncidents);
-router.get("/admin/incidents/fetch", AdminIncidentsController.fetchIncidents);
-router.get("/admin/incidents/stats", AdminIncidentsController.getIncidentStats);
-router.get("/admin/incidents/active-locations", AdminIncidentsController.getActiveIncidentLocations);
-router.get("/admin/incidents/:id", AdminIncidentsController.getIncidentById);
-router.patch("/admin/incidents/:id/status", AdminIncidentsController.updateIncidentStatus);
-router.delete("/admin/incidents/:id", AdminIncidentsController.deleteIncident);
-router.get("/admin/cargo-manifest/:assignmentId", AdminIncidentsController.getCargoManifest);
 
 // Admin Notifications Routes
 router.get("/admin/notifications", AdminNotificationController.getNotifications);

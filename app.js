@@ -13,8 +13,8 @@ import adminAuthRoutes from "./src/routes/admin/adminAuthRoutes.js";
 import locationRoutes from "./src/routes/api/locationRoutes.js";
 import driverRoutes from "./src/routes/api/driverRoutes.js";
 import incidentRoutes from "./src/routes/api/incidentRoutes.js";
-import { setWsConnections } from "./src/controller/api/locationController.js";
-import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
+// import { setWsConnections } from "./src/controller/api/locationController.js";
+// import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
 import { initTrackingWebSocket } from "./src/realtime/trackingWebSocket.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,8 +48,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Pass WebSocket connections to controllers
-setWsConnections(wsConnections);
-setIncidentWsConnections(wsConnections);
+// setWsConnections(wsConnections);
+// setIncidentWsConnections(wsConnections); 
 
 // ================ Declare Routes ===============
 app.use("/", adminRoutes);

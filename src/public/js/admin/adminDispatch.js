@@ -291,31 +291,31 @@ function closeAssignTaskModal() {
     }, 300);
 }
 
-async function loadAvailableDrivers() {
-    try {
-        const response = await fetch('/admin/users/available-drivers');
-        const data = await response.json();
+/**
+ * Load available drivers - STATIC DATA (Controller removed)
+ */
+function loadAvailableDrivers() {
+    const staticDrivers = [
+        { id: 1, full_name: 'John Martinez' },
+        { id: 2, full_name: 'Carlos Reyes' },
+        { id: 3, full_name: 'Miguel Santos' }
+    ];
 
-        const select = document.getElementById('taskDriverSelect');
-        select.innerHTML = '<option value="">Choose an available driver...</option>';
-
-        if (data.drivers && data.drivers.length > 0) {
-            data.drivers.forEach(driver => {
-                const option = document.createElement('option');
-                option.value = driver.id;
-                option.textContent = `${driver.full_name} (Available)`;
-                select.appendChild(option);
-            });
-        } else {
-            select.innerHTML = '<option value="">No available drivers</option>';
-        }
-    } catch (error) {
-        const select = document.getElementById('taskDriverSelect');
-        select.innerHTML = '<option value="">Error loading drivers</option>';
-    }
+    const select = document.getElementById('taskDriverSelect');
+    select.innerHTML = '<option value="">Choose an available driver...</option>';
+    
+    staticDrivers.forEach(driver => {
+        const option = document.createElement('option');
+        option.value = driver.id;
+        option.textContent = `${driver.full_name} (Available)`;
+        select.appendChild(option);
+    });
 }
 
-async function dispatchTask() {
+/**
+ * Dispatch task - STUB (Controller removed - backend integration needed)
+ */
+function dispatchTask() {
     const errorEl = document.getElementById('taskFormError');
     const successEl = document.getElementById('taskFormSuccess');
 
@@ -328,67 +328,19 @@ async function dispatchTask() {
     const vehicle = document.getElementById('taskVehicleSelect').value;
     const pickup = document.getElementById('pickupInput').value;
     const dest = document.getElementById('destInput').value;
-    const time = document.getElementById('timeVal').innerText;
-    const dist = document.getElementById('distVal').innerText;
 
     if (!driverId || !pickup || !dest || !vehicle) {
         showInlineMessage(errorEl, 'Please fill in all fields (Driver, Vehicle, Pickup, Destination)');
         return;
     }
 
-    const pickupCoords = pickup.split(',').map(c => parseFloat(c.trim()));
-    const destCoords = dest.split(',').map(c => parseFloat(c.trim()));
-
-    let distanceKm = parseFloat(dist.replace(' km', '').replace(' m', ''));
-    if (dist.includes(' m') && !dist.includes(' km')) {
-        distanceKm = distanceKm / 1000;
-    }
-
-    let estDurationMin = parseInt(time.replace(' min', '').replace('h ', '*60+').replace('m', ''));
-    if (time.includes('h')) {
-        const parts = time.match(/(\d+)h\s*(\d+)m?/);
-        if (parts) {
-            estDurationMin = parseInt(parts[1]) * 60 + parseInt(parts[2] || 0);
-        }
-    }
-
-    const payload = {
-        driverId: parseInt(driverId),
-        vehicleNumber: `RC-${vehicle}`,
-        pickupLat: pickupCoords[0],
-        pickupLng: pickupCoords[1],
-        destLat: destCoords[0],
-        destLng: destCoords[1],
-        distanceKm,
-        estDurationMin
-    };
-
-    try {
-        const response = await fetch('/admin/assignments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            showInlineMessage(errorEl, data.error);
-            return;
-        }
-
-        showInlineMessage(successEl, `Task dispatched successfully! Driver: ${driverName}, Vehicle: RC-${vehicle}`);
-
-        setTimeout(() => {
-            closeAssignTaskModal();
-            resetTaskMap();
-            loadMapAssignments();
-            clearInlineMessage(errorEl);
-            clearInlineMessage(successEl);
-        }, 1200);
-    } catch (error) {
-        showInlineMessage(errorEl, 'Failed to dispatch task. Please try again.');
-    }
+    showInlineMessage(successEl, `Task would be dispatched to ${driverName}, Vehicle RC-${vehicle} (Backend integration needed)`);
+    
+    setTimeout(() => {
+        closeAssignTaskModal();
+        resetTaskMap();
+        clearInlineMessage(successEl);
+    }, 1500);
 }
 
 let map = null;
@@ -425,41 +377,55 @@ function clearMapRoute() {
     }
 }
 
-async function loadMapAssignments() {
+/**
+ * Load map assignments - STATIC DATA (Controller removed)
+ */
+function loadMapAssignments() {
     const listContainer = document.getElementById('assignmentsList');
 
-    try {
-        const response = await fetch('/admin/users/fetch');
-        const data = await response.json();
-
-        cachedAssignedUsers = data.users.filter(u =>
-            u.assignment_id &&
-            (u.assignment_status === 'active' || u.assignment_status === 'pending') &&
-            u.pickup_lat && u.pickup_lng && u.dest_lat && u.dest_lng
-        );
-
-        clearMapMarkers();
-        clearMapRoute();
-        selectedAssignmentId = null;
-
-        if (cachedAssignedUsers.length === 0) {
-            listContainer.innerHTML = '<div class="p-4 text-center text-gray-500 text-xs"><p class="font-bold">No Active Assignments</p><p class="mt-1">Dispatch a task to see routes here</p></div>';
-            hideTaskDetails();
-            return;
+    // Static assignment data
+    cachedAssignedUsers = [
+        {
+            assignment_id: 1,
+            user_id: 1,
+            full_name: 'John Martinez',
+            vehicle_number: 'RC-0001',
+            assignment_status: 'active',
+            pickup_lat: 14.6091,
+            pickup_lng: 121.0223,
+            dest_lat: 14.5994,
+            dest_lng: 120.9842,
+            distance_km: 12.5,
+            est_duration_min: 45,
+            assigned_at: new Date().toISOString()
+        },
+        {
+            assignment_id: 2,
+            user_id: 2,
+            full_name: 'Carlos Reyes',
+            vehicle_number: 'RC-0002',
+            assignment_status: 'pending',
+            pickup_lat: 14.5500,
+            pickup_lng: 121.0100,
+            dest_lat: 14.6200,
+            dest_lng: 121.0500,
+            distance_km: 8.3,
+            est_duration_min: 30,
+            assigned_at: new Date(Date.now() - 3600000).toISOString()
         }
+    ];
 
-        renderAssignmentsList();
+    clearMapMarkers();
+    clearMapRoute();
+    selectedAssignmentId = null;
 
-        if (requestedAssignmentId) {
-            const target = cachedAssignedUsers.find(u => String(u.assignment_id) === String(requestedAssignmentId));
-            if (target) {
-                selectAssignment(target);
-            }
-            requestedAssignmentId = null;
-        }
-    } catch (error) {
-        listContainer.innerHTML = '<div class="p-4 text-center text-red-400 text-xs">Failed to load assignments</div>';
+    if (cachedAssignedUsers.length === 0) {
+        listContainer.innerHTML = '<div class="p-4 text-center text-gray-500 text-xs"><p class="font-bold">No Active Assignments</p><p class="mt-1">Dispatch a task to see routes here</p></div>';
+        hideTaskDetails();
+        return;
     }
+
+    renderAssignmentsList();
 }
 
 function renderAssignmentsList() {
@@ -718,14 +684,14 @@ function updateEditRoute() {
     });
 }
 
-async function saveAssignmentChanges() {
-    const assignmentId = document.getElementById('editAssignmentId').value;
+/**
+ * Save assignment changes - STUB (Controller removed - backend integration needed)
+ */
+function saveAssignmentChanges() {
     const vehicleInput = document.getElementById('editAssignmentVehicle').value.trim();
-    const vehicleNumber = 'RC-' + (vehicleInput || '0001');
-    const status = document.getElementById('editAssignmentStatus').value;
-
     const errorEl = document.getElementById('editAssignmentError');
     const successEl = document.getElementById('editAssignmentSuccess');
+    
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
 
@@ -739,37 +705,13 @@ async function saveAssignmentChanges() {
         return;
     }
 
-    try {
-        const res = await fetch(`/admin/assignments/${assignmentId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                vehicle_number: vehicleNumber,
-                status: status,
-                pickup_lat: editPickupCoords.lat,
-                pickup_lng: editPickupCoords.lng,
-                dest_lat: editDestCoords.lat,
-                dest_lng: editDestCoords.lng
-            })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            showInlineMessage(errorEl, data.error || 'Update failed.');
-            return;
-        }
-
-        showInlineMessage(successEl, 'Assignment updated successfully!');
-
-        setTimeout(() => {
-            closeModal('editAssignmentModal');
-            loadMapAssignments();
-            hideTaskDetails();
-        }, 800);
-    } catch (err) {
-        showInlineMessage(errorEl, 'Something went wrong. Please try again.');
-    }
+    showInlineMessage(successEl, 'Assignment would be updated (Backend integration needed)');
+    
+    setTimeout(() => {
+        closeModal('editAssignmentModal');
+        loadMapAssignments();
+        hideTaskDetails();
+    }, 800);
 }
 
 function openDeleteAssignmentModal() {
@@ -787,37 +729,23 @@ function openDeleteAssignmentModal() {
     openModal('deleteAssignmentModal');
 }
 
-async function confirmDeleteAssignment() {
-    const assignmentId = document.getElementById('deleteAssignmentId').value;
+/**
+ * Confirm delete assignment - STUB (Controller removed - backend integration needed)
+ */
+function confirmDeleteAssignment() {
     const errorEl = document.getElementById('deleteAssignmentError');
     const successEl = document.getElementById('deleteAssignmentSuccess');
 
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
 
-    try {
-        const res = await fetch(`/admin/assignments/${assignmentId}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            showInlineMessage(errorEl, data.error || 'Delete failed.');
-            return;
-        }
-
-        showInlineMessage(successEl, 'Assignment cancelled successfully!');
-
-        setTimeout(() => {
-            closeModal('deleteAssignmentModal');
-            loadMapAssignments();
-            hideTaskDetails();
-        }, 800);
-    } catch (err) {
-        showInlineMessage(errorEl, 'Something went wrong. Please try again.');
-    }
+    showInlineMessage(successEl, 'Assignment would be cancelled (Backend integration needed)');
+    
+    setTimeout(() => {
+        closeModal('deleteAssignmentModal');
+        loadMapAssignments();
+        hideTaskDetails();
+    }, 800);
 }
 
 let trackingSocket = null;
@@ -825,71 +753,26 @@ let liveLocationMarkers = {};
 let trackingInterval = null;
 let isTrackingActive = false;
 
+/**
+ * Initialize tracking WebSocket - REMOVED (Controller removed)
+ * Real-time GPS tracking requires backend WebSocket endpoint
+ * Re-enable when dispatch controller backend is restored
+ */
 function initTrackingWebSocket() {
-    if (trackingSocket && trackingSocket.readyState === WebSocket.OPEN) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/tracking`;
-
-    try {
-        trackingSocket = new WebSocket(wsUrl);
-
-        trackingSocket.onopen = () => {
-            if (trackingInterval) {
-                clearInterval(trackingInterval);
-                trackingInterval = null;
-            }
-        };
-
-        trackingSocket.onmessage = (event) => {
-            try {
-                const message = JSON.parse(event.data);
-                if (message.type === 'location_update') {
-                    handleLiveLocationUpdate(message.data);
-                }
-            } catch (error) {
-                console.error('[GPS Tracking] Error parsing message:', error);
-            }
-        };
-
-        trackingSocket.onclose = () => {
-            trackingSocket = null;
-            if (isTrackingActive) startPollingFallback();
-        };
-    } catch (error) {
-        startPollingFallback();
-    }
+    console.log('[GPS Tracking] WebSocket tracking disabled (backend required)');
 }
 
 function startPollingFallback() {
-    if (trackingInterval) return;
-    fetchLiveLocations();
-    trackingInterval = setInterval(fetchLiveLocations, 3000);
+    console.log('[GPS Tracking] Polling fallback disabled (backend required)');
 }
 
-async function fetchLiveLocations() {
-    if (!map || !mapInitialized) return;
-
-    try {
-        const response = await fetch('/api/locations/active');
-        const data = await response.json();
-
-        if (data.drivers) {
-            data.drivers.forEach(driver => {
-                handleLiveLocationUpdate({
-                    userId: driver.user_id,
-                    fullName: driver.full_name,
-                    latitude: parseFloat(driver.latitude),
-                    longitude: parseFloat(driver.longitude),
-                    speed: driver.speed ? parseFloat(driver.speed) : null,
-                    assignmentId: driver.assignment_id,
-                    recordedAt: driver.recorded_at
-                });
-            });
-        }
-    } catch (error) {
-        console.error('[GPS Tracking] Error fetching locations:', error);
-    }
+/**
+ * Fetch live locations - REMOVED (Controller removed - requires GPS/API backend)
+ * This functionality requires active backend API endpoint
+ */
+function fetchLiveLocations() {
+    // Live GPS tracking disabled - requires backend
+    console.log('[GPS Tracking] Live location tracking disabled (backend required)');
 }
 
 function handleLiveLocationUpdate(locationData) {
