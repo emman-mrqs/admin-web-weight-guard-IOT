@@ -31,7 +31,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Fleet</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">120</p>
+                        <p id="fleetStatTotal" class="text-2xl font-extrabold text-white leading-none">0</p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg shadow-black/20 flex items-center gap-4 relative overflow-hidden">
@@ -41,7 +41,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Active</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">114</p>
+                        <p id="fleetStatActive" class="text-2xl font-extrabold text-white leading-none">0</p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg shadow-black/20 flex items-center gap-4 relative overflow-hidden">
@@ -51,7 +51,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Avg Load</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">842 <span class="text-sm font-semibold text-slate-500">kg</span></p>
+                        <p id="fleetStatAvgCapacity" class="text-2xl font-extrabold text-white leading-none">0 <span class="text-sm font-semibold text-slate-500">kg</span></p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg shadow-black/20 flex items-center gap-4 relative overflow-hidden">
@@ -61,7 +61,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Loss Events</p>
-                        <p class="text-2xl font-extrabold text-rose-400 leading-none">3</p>
+                        <p id="fleetStatAlerts" class="text-2xl font-extrabold text-rose-400 leading-none">0</p>
                     </div>
                 </div>
             </div>
@@ -74,20 +74,25 @@
                             All Vehicles
                         </button>
                         <button onclick="filterFleet('active', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-400 text-xs font-bold rounded-lg border border-transparent hover:text-slate-200 transition">
-                            Active (114)
+                            Active (<span id="fleetActiveCount">0</span>)
                         </button>
                         <button onclick="filterFleet('maintenance', this)" class="filter-btn px-4 py-2 bg-transparent text-amber-400 text-xs font-bold rounded-lg border border-transparent hover:bg-amber-500/10 transition flex items-center gap-2">
-                            Maintenance (0)
+                            Maintenance (<span id="fleetMaintenanceCount">0</span>)
                         </button>
                         <button onclick="filterFleet('alert', this)" class="filter-btn px-4 py-2 bg-transparent text-rose-400 text-xs font-bold rounded-lg border border-transparent hover:bg-rose-500/10 transition flex items-center gap-2">
-                            Alerts (3)
+                            Alerts (<span id="fleetAlertCount">0</span>)
                             <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span></span>
                         </button>
                     </div>
-                    <a href="/admin/fleet/add" class="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 hover:bg-emerald-500/20 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                        Add Vehicle
-                    </a>
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <input id="fleetSearchInput" type="text" placeholder="Search plate, type, driver..." class="w-64 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <a href="/admin/fleet/add" class="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                            Add Vehicle
+                        </a>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -103,139 +108,9 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/50" id="fleet-table-body">
-                            
-                            <tr class="hover:bg-slate-800/40 transition-colors group">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center border border-slate-700 text-slate-400">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-white text-sm">Trailer Truck</div>
-                                            <div class="text-xs text-slate-500 mt-0.5">Marcus Lee &bull; <span class="text-emerald-400/80 font-mono">RC-8802</span></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]"></span>
-                                        IN TRANSIT
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-slate-300">Route A-12</div>
-                                    <div class="font-mono text-[10px] text-slate-500 mt-0.5">34.0653, -118.349</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <div class="text-sm font-bold text-white">920 kg <span class="text-slate-500 font-medium text-xs">/ 1.2t</span></div>
-                                        <div class="w-32 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                            <div class="bg-emerald-400 h-full rounded-full" style="width: 76%"></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="w-24 h-8 opacity-70 group-hover:opacity-100 transition-opacity">
-                                        <canvas id="sparkline-1"></canvas>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <button onclick="toggleModal('viewModal')" class="text-slate-500 hover:text-emerald-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="View Details"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                        <button onclick="toggleModal('editModal')" class="text-slate-500 hover:text-blue-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Edit Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                                        <button onclick="toggleModal('deleteModal')" class="text-slate-500 hover:text-rose-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Delete Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                                    </div>
-                                </td>
-                            </tr>
-
-                            <tr class="bg-rose-950/10 hover:bg-rose-900/20 transition-colors group">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-rose-500/10 rounded-lg flex items-center justify-center border border-rose-500/30 text-rose-400">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-white text-sm">Reefer Box Truck</div>
-                                            <div class="text-xs text-rose-500 mt-0.5">Sarah Connor &bull; <span class="text-rose-400/80 font-mono">RC-0034</span></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[10px] font-bold tracking-wide">
-                                        <div class="relative flex h-1.5 w-1.5">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
-                                        </div>
-                                        CARGO LOSS
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-slate-300">Route B-44</div>
-                                    <div class="font-mono text-[10px] text-slate-500 mt-0.5">34.0063, -118.349</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <div class="text-sm font-bold text-rose-400">450 kg <span class="text-rose-500/60 font-medium text-xs">/ 1.2t (-300kg)</span></div>
-                                        <div class="w-32 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                            <div class="bg-rose-500 h-full rounded-full" style="width: 37%"></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="w-24 h-8">
-                                        <canvas id="sparkline-2"></canvas>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <button onclick="toggleModal('viewModal')" class="text-slate-500 hover:text-emerald-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="View Details"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                        <button onclick="toggleModal('editModal')" class="text-slate-500 hover:text-blue-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Edit Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                                        <button onclick="toggleModal('deleteModal')" class="text-slate-500 hover:text-rose-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Delete Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                                    </div>
-                                </td>
-                            </tr>
-
-                            <tr class="hover:bg-slate-800/40 transition-colors group">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-slate-800/50 rounded-lg flex items-center justify-center border border-slate-700/50 text-slate-500">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-white text-sm">Small Truck</div>
-                                            <div class="text-xs text-slate-500 mt-0.5">Unassigned &bull; <span class="text-slate-400/80 font-mono">RC-9211</span></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold tracking-wide">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                                        IDLE
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-slate-300">Dock #3</div>
-                                    <div class="font-mono text-[10px] text-slate-500 mt-0.5">Warehouse A</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <div class="text-sm font-bold text-slate-400">0 kg <span class="text-slate-600 font-medium text-xs">/ 1.2t</span></div>
-                                        <div class="w-32 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                            <div class="bg-slate-600 h-full rounded-full" style="width: 0%"></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="w-24 h-8 opacity-50">
-                                        <canvas id="sparkline-3"></canvas>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <button onclick="toggleModal('viewModal')" class="text-slate-500 hover:text-emerald-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="View Details"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                        <button onclick="toggleModal('editModal')" class="text-slate-500 hover:text-blue-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Edit Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
-                                        <button onclick="toggleModal('deleteModal')" class="text-slate-500 hover:text-rose-400 transition p-2 rounded-lg hover:bg-slate-800/80" title="Delete Vehicle"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
-                                    </div>
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-slate-500 text-sm">
+                                    Loading fleet data...
                                 </td>
                             </tr>
                         </tbody>
@@ -244,10 +119,13 @@
 
                 <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
                     <p class="text-xs text-slate-500 font-medium" id="pagination-info">
-                        Showing <span class="text-white font-bold">1</span> to <span class="text-white font-bold">10</span> of <span class="text-white font-bold">114</span> entries
+                        Loading entries...
                     </p>
                     <div class="flex items-center gap-1.5" id="pagination-controls">
-                        </div>
+                        <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50" disabled><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                        <button class="w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold" disabled>1</button>
+                        <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50" disabled><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                    </div>
                 </div>
 
             </div>
@@ -260,13 +138,13 @@
         <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start">
             <div>
                 <div class="flex items-center gap-3 mb-1">
-                    <h2 class="text-2xl font-extrabold text-white tracking-tight">Trailer Truck</h2>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">
+                    <h2 id="viewVehicleType" class="text-2xl font-extrabold text-white tracking-tight">Trailer Truck</h2>
+                    <span id="viewStatusBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                         IN TRANSIT
                     </span>
                 </div>
-                <p class="text-sm text-slate-400 font-mono tracking-wide">RC-8802</p>
+                <p id="viewPlateNumber" class="text-sm text-slate-400 font-mono tracking-wide">RC-8802</p>
             </div>
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
@@ -277,7 +155,7 @@
                     <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">ML</div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Assigned Driver</p>
-                        <p class="text-sm font-bold text-white">Marcus Lee</p>
+                        <p id="viewDriverName" class="text-sm font-bold text-white">Marcus Lee</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-800 bg-slate-950/50">
@@ -286,7 +164,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Current Location</p>
-                        <p class="text-sm font-bold text-white">Route A-12 <span class="text-xs font-mono text-slate-500 ml-1">(34.06, -118.34)</span></p>
+                        <p id="viewCurrentState" class="text-sm font-bold text-white">Route A-12 <span class="text-xs font-mono text-slate-500 ml-1">(34.06, -118.34)</span></p>
                     </div>
                 </div>
             </div>
@@ -295,30 +173,30 @@
                 <div class="flex justify-between items-end mb-3">
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Current Cargo Load</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">920 <span class="text-sm font-medium text-slate-500">kg</span></p>
+                        <p id="viewCurrentLoad" class="text-2xl font-extrabold text-white leading-none">920 <span class="text-sm font-medium text-slate-500">kg</span></p>
                     </div>
                     <div class="text-right">
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Max Capacity</p>
-                        <p class="text-sm font-bold text-emerald-400">1,200 kg</p>
+                        <p id="viewMaxCapacity" class="text-sm font-bold text-emerald-400">1,200 kg</p>
                     </div>
                 </div>
                 <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                    <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" style="width: 76%"></div>
+                    <div id="viewLoadProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" style="width: 0%"></div>
                 </div>
             </div>
 
             <div class="grid grid-cols-3 gap-4 border-t border-slate-800 pt-6">
                 <div>
                     <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Class</p>
-                    <p class="text-sm font-bold text-slate-300">Class 8 Heavy Duty</p>
+                    <p id="viewVehicleClass" class="text-sm font-bold text-slate-300">Class 8 Heavy Duty</p>
                 </div>
                 <div>
                     <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Deploy Date</p>
-                    <p class="text-sm font-bold text-slate-300">Oct 12, 2025</p>
+                    <p id="viewCreatedAt" class="text-sm font-bold text-slate-300">Oct 12, 2025</p>
                 </div>
                 <div>
                     <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Last Maintenance</p>
-                    <p class="text-sm font-bold text-slate-300">Jan 04, 2026</p>
+                    <p id="viewLastMaintenance" class="text-sm font-bold text-slate-300">Jan 04, 2026</p>
                 </div>
             </div>
         </div>
@@ -339,22 +217,25 @@
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
 
-        <form class="p-8 space-y-6">
+        <form id="editFleetForm" class="p-8 space-y-6">
+            <input type="hidden" id="editVehicleId" name="vehicleId">
+            <div id="editFleetFormFeedback" class="hidden rounded-xl border px-4 py-3 text-sm font-medium"></div>
             
             <div class="grid grid-cols-2 gap-6">
                 <div class="col-span-2 sm:col-span-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Plate Number / ID</label>
-                    <input type="text" value="RC-8802" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition uppercase font-mono shadow-inner">
+                    <input id="editPlateNumber" name="plateNumber" type="text" value="RC-8802" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition uppercase font-mono shadow-inner">
                 </div>
                 
                 <div class="col-span-2 sm:col-span-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Vehicle Type</label>
                     <div class="relative">
-                        <select class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
-                            <option value="trailer" selected>Trailer Truck (Class 8)</option>
-                            <option value="flatbed">Flatbed Truck (Class 7-8)</option>
-                            <option value="reefer">Reefer Box Truck (Class 6-7)</option>
-                            <option value="small">Small Truck (Class 3-4)</option>
+                        <select id="editVehicleType" name="vehicleType" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
+                            <option value="Trailer Truck">Trailer Truck</option>
+                            <option value="Flatbed Truck">Flatbed Truck</option>
+                            <option value="Reefer Box Truck">Reefer Box Truck</option>
+                            <option value="Small Truck">Small Truck</option>
+                            <option value="Box Truck">Box Truck</option>
                         </select>
                         <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
                             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -364,12 +245,24 @@
             </div>
 
             <div class="grid grid-cols-2 gap-6">
+                <div class="col-span-2">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
+                        Max Capacity
+                        <span id="editCapacityDisplay" class="text-blue-400">12,000 kg</span>
+                    </label>
+                    <input id="editMaxCapacity" name="maxCapacity" type="range" min="1000" max="30000" step="500" value="12000" class="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-medium mt-2">
+                        <span>Light (1t)</span>
+                        <span>Heavy (30t)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
                 <div class="col-span-2 sm:col-span-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Driver</label>
                     <div class="relative">
-                        <select class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
-                            <option value="driver1" selected>Marcus Lee</option>
-                            <option value="driver2">Sarah Connor</option>
+                        <select id="editDriverId" name="driverId" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
                             <option value="">-- Unassigned --</option>
                         </select>
                         <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
@@ -381,8 +274,9 @@
                 <div class="col-span-2 sm:col-span-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Operational Status</label>
                     <div class="relative">
-                        <select class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-emerald-400 font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
-                            <option value="active" selected>Active / In Transit</option>
+                        <select id="editCurrentState" name="currentState" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-emerald-400 font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
+                            <option value="available" selected>Available</option>
+                            <option value="in_transit" class="text-slate-400 font-medium">In Transit</option>
                             <option value="idle" class="text-slate-400 font-medium">Idle / Docked</option>
                             <option value="maintenance" class="text-amber-400 font-medium">In Maintenance</option>
                         </select>
@@ -403,16 +297,32 @@
         </form>
     </div>
 
-    <div id="deleteModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-sm bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300">
-        <div class="p-6 text-center space-y-4">
-            <div class="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-full flex items-center justify-center mx-auto text-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+    <div id="deleteModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </div>
+                <h2 class="text-lg font-extrabold text-white tracking-tight">Delete Vehicle Permanently?</h2>
             </div>
-            <h2 class="text-xl font-bold text-white">Delete Vehicle?</h2>
-            <p class="text-sm text-slate-400">Are you sure you want to permanently delete <strong class="text-white font-mono">RC-8802</strong>? This action cannot be undone and will erase all associated weight history.</p>
-            <div class="pt-4 flex gap-3">
+            <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+        </div>
+
+        <div class="p-8 space-y-6">
+            <div class="bg-rose-950/20 border border-rose-500/20 rounded-xl p-4 text-left">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Target Vehicle</p>
+                <p class="text-white font-bold mb-2 font-mono" id="deletePlateNumber">RC-8802</p>
+                <p class="text-xs text-slate-400 leading-relaxed">This action permanently deletes the vehicle record and cannot be undone.</p>
+            </div>
+
+            <p id="deleteFleetFormError" class="text-rose-500 text-xs hidden text-center"></p>
+
+            <div class="flex gap-3 pt-4 border-t border-slate-800">
                 <button type="button" onclick="closeAllModals()" class="flex-1 px-4 py-3 rounded-xl border border-slate-700 text-slate-300 font-bold hover:bg-slate-800 transition">Cancel</button>
-                <button type="button" class="flex-1 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition shadow-[0_0_15px_rgba(225,29,72,0.4)]">Delete Vehicle</button>
+                <button id="confirmDeleteVehicleBtn" type="button" class="flex-1 px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold transition shadow-[0_0_15px_rgba(225,29,72,0.4)] flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Delete Vehicle
+                </button>
             </div>
         </div>
     </div>

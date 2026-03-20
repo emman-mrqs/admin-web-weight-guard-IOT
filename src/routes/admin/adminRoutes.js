@@ -22,6 +22,12 @@ router.get("/admin", AdminDashboardController.getDashboard);
 // Admin Fleet Routes
 router.get("/admin/fleet", AdminFleetController.getFleet);
 router.get("/admin/fleet/add", AdminAddFleetController.getAddFleet);
+router.post("/admin/fleet/add", AdminAddFleetController.createAddFleet);
+router.get("/api/admin/fleet/assignable-drivers", AdminAddFleetController.getAssignableDrivers);
+router.get("/api/admin/fleet", AdminFleetController.getAllFleet);
+router.get("/api/admin/fleet/drivers", AdminFleetController.getAssignableDrivers);
+router.put("/api/admin/fleet/:vehicleId", AdminFleetController.updateFleet);
+router.delete("/api/admin/fleet/:vehicleId", AdminFleetController.deleteFleet);
 
 // Admin Fleet Maps Routes
 router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);

@@ -206,4 +206,212 @@ document.addEventListener('DOMContentLoaded', () => {
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
     });
+
+    initializeAddFleetForm();
 });
+
+function normalizeVehicleType(typeId) {
+    const typeMap = {
+        'trailer-truck': 'Trailer Truck',
+        'flatbed-truck': 'Flatbed Truck',
+        'reefer-truck': 'Reefer Box Truck',
+        'small-truck': 'Small Truck',
+        'box-truck': 'Box Truck'
+    };
+
+    return typeMap[typeId] || String(typeId || '').trim();
+}
+
+function ensureFormFeedback(form) {
+    if (!form) return null;
+
+    let feedback = form.querySelector('[data-role="fleet-form-feedback"]');
+    if (feedback) return feedback;
+
+    feedback = document.createElement('div');
+    feedback.setAttribute('data-role', 'fleet-form-feedback');
+    feedback.className = 'hidden rounded-xl border px-4 py-3 text-sm font-medium';
+    form.insertBefore(feedback, form.firstChild.nextSibling);
+    return feedback;
+}
+
+function showFormFeedback(form, type, message) {
+    const feedback = ensureFormFeedback(form);
+    if (!feedback) return;
+
+    feedback.textContent = message || '';
+    feedback.classList.remove('hidden', 'border-emerald-700', 'bg-emerald-950/60', 'text-emerald-300', 'border-rose-700', 'bg-rose-950/60', 'text-rose-300');
+
+    if (type === 'success') {
+        feedback.classList.add('border-emerald-700', 'bg-emerald-950/60', 'text-emerald-300');
+        return;
+    }
+
+    feedback.classList.add('border-rose-700', 'bg-rose-950/60', 'text-rose-300');
+}
+
+function clearFormFeedback(form) {
+    const feedback = form?.querySelector('[data-role="fleet-form-feedback"]');
+    if (!feedback) return;
+
+    feedback.textContent = '';
+    feedback.classList.add('hidden');
+}
+
+function ensureInlineErrorElement(inputElement, fieldName) {
+    if (!inputElement) return null;
+
+    const existing = inputElement.parentElement.querySelector(`.inline-error[data-field="${fieldName}"]`);
+    if (existing) return existing;
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'inline-error hidden mt-2 text-xs font-medium text-rose-400';
+    errorDiv.setAttribute('data-field', fieldName);
+    inputElement.parentElement.appendChild(errorDiv);
+    return errorDiv;
+}
+
+function clearInlineErrors(form) {
+    if (!form) return;
+
+    form.querySelectorAll('.inline-error').forEach((el) => {
+        el.textContent = '';
+        el.classList.add('hidden');
+    });
+}
+
+function renderInlineErrors(form, fieldErrors) {
+    if (!form || !fieldErrors) return;
+
+    Object.entries(fieldErrors).forEach(([field, message]) => {
+        const input = form.querySelector(`[name="${field}"]`);
+        const errorEl = ensureInlineErrorElement(input, field);
+        if (errorEl) {
+            errorEl.textContent = String(message || 'Invalid value.');
+            errorEl.classList.remove('hidden');
+        }
+    });
+}
+
+function setSubmitLoading(button, isLoading) {
+    if (!button) return;
+
+    if (isLoading) {
+        button.dataset.originalText = button.innerHTML;
+        button.disabled = true;
+        button.classList.add('opacity-70', 'cursor-not-allowed');
+        button.innerHTML = 'Registering...';
+        return;
+    }
+
+    button.disabled = false;
+    button.classList.remove('opacity-70', 'cursor-not-allowed');
+    if (button.dataset.originalText) {
+        button.innerHTML = button.dataset.originalText;
+    }
+}
+
+async function loadAssignableDrivers() {
+    const select = document.querySelector('#fleetAddForm select[name="driverId"]');
+    if (!select) return;
+
+    try {
+        const response = await fetch('/api/admin/fleet/assignable-drivers', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            console.error('Failed to fetch assignable drivers:', payload);
+            return;
+        }
+
+        select.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Leave Unassigned --';
+        select.appendChild(defaultOption);
+
+        (payload.data || []).forEach((driver) => {
+            const option = document.createElement('option');
+            option.value = String(driver.id);
+            option.textContent = `${driver.first_name} ${driver.last_name}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading assignable drivers:', error);
+    }
+}
+
+async function handleAddFleetSubmit(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitButton = document.querySelector('button[form="fleetAddForm"]');
+    clearInlineErrors(form);
+    clearFormFeedback(form);
+
+    const vehicleTypeRaw = form.querySelector('input[name="vehicleType"]')?.value;
+    const plateNumber = form.querySelector('input[name="plateNumber"]')?.value?.trim();
+    const maxCapacity = form.querySelector('input[name="maxCapacity"]')?.value;
+    const driverId = form.querySelector('select[name="driverId"]')?.value;
+
+    setSubmitLoading(submitButton, true);
+
+    try {
+        const response = await fetch('/admin/fleet/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                vehicleType: normalizeVehicleType(vehicleTypeRaw),
+                plateNumber,
+                maxCapacity,
+                driverId: driverId || null
+            })
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            renderInlineErrors(form, payload.fieldErrors || {});
+            showFormFeedback(form, 'error', payload.error || 'Failed to register vehicle.');
+            return;
+        }
+
+        form.reset();
+        const typeInput = form.querySelector('input[name="vehicleType"]');
+        if (typeInput) {
+            typeInput.value = 'box-truck';
+        }
+        const capacityDisplay = document.getElementById('capacity-display');
+        if (capacityDisplay) {
+            capacityDisplay.textContent = '12,000 kg';
+        }
+        await loadAssignableDrivers();
+        showFormFeedback(form, 'success', payload.message || 'Vehicle added successfully.');
+        setTimeout(() => {
+            clearFormFeedback(form);
+        }, 3500);
+    } catch (error) {
+        console.error('Error creating vehicle:', error);
+        showFormFeedback(form, 'error', 'Network error while adding vehicle. Please try again.');
+    } finally {
+        setSubmitLoading(submitButton, false);
+    }
+}
+
+function initializeAddFleetForm() {
+    const form = document.getElementById('fleetAddForm');
+    if (!form) return;
+
+    form.addEventListener('submit', handleAddFleetSubmit);
+    loadAssignableDrivers();
+}
