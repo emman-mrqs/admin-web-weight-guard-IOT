@@ -22,6 +22,11 @@ class SignUpAdminController {
                 return res.status(400).json({ error: "Password must be at least 8 characters long." });
             }
 
+            const normalizedRole = String(role || '').trim().toLowerCase();
+            if (!['dispatch_staff', 'incident_staff'].includes(normalizedRole)) {
+                return res.status(400).json({ error: "Invalid role. Allowed values: dispatch_staff, incident_staff." });
+            }
+
             // Email format validation
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
@@ -64,7 +69,8 @@ class SignUpAdminController {
 
                     return res.status(200).json({
                         message: "An account with this email already exists but is not verified. A new verification code has been sent to your email.",
-                        requiresVerification: true
+                        requiresVerification: true,
+                        verificationExpiresAt: expiryTime.toISOString()
                     });
                 }
             }
@@ -80,7 +86,7 @@ class SignUpAdminController {
                 RETURNING id
            `;
 
-           const createValues =[fName, lName, email, hashedPassword, role, false];
+           const createValues =[fName, lName, email, hashedPassword, normalizedRole, false];
            const createResult = await db.query(createQuery, createValues);
            const newStaff = createResult.rows[0];
 
@@ -104,7 +110,10 @@ class SignUpAdminController {
                 return res.status(500).json({ error: "Failed to send verification email. Please try again later." });
             }
 
-            res.status(201).json({ message: "Signup successful. A verification code has been sent to your email." });
+            res.status(201).json({
+                message: "Signup successful. A verification code has been sent to your email.",
+                verificationExpiresAt: expiryTime.toISOString()
+            });
 
         } catch (error) {
             console.error("Error handling user signup:", error);

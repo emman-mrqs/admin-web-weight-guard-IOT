@@ -111,7 +111,10 @@ class VerificationController {
 
 
             // Send success response back to the frontend
-            return res.status(200).json({ message: "A new verification code has been sent." });
+            return res.status(200).json({
+                message: "A new verification code has been sent.",
+                verificationExpiresAt: expiryTime.toISOString()
+            });
         } catch (error) {
             console.error("Error during resend verification:", error);
             res.status(500).json({ error: "An error occurred while resending verification email. Please try again later." });

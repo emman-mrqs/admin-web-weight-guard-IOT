@@ -131,6 +131,10 @@ function generateRandomPassword() {
 let verificationTimerInterval = null;
 let verificationInputsInitialized = false;
 let usersState = [];
+const usersPagination = {
+    page: 1,
+    limit: 10
+};
 
 function escapeForSingleQuotedAttr(value) {
     return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -243,9 +247,32 @@ function upsertUserInState(user) {
 }
 
 function renderUsersState() {
-    populateUsersTable(usersState);
+    const { pagedUsers } = getPaginatedUsers();
+    populateUsersTable(pagedUsers);
     updateSummaryStats(usersState);
-    updatePaginationInfo(usersState.length);
+    updatePaginationInfo();
+}
+
+function getPaginatedUsers(totalEntriesOverride = null) {
+    const totalEntries = Number.isFinite(totalEntriesOverride) ? Number(totalEntriesOverride) : usersState.length;
+    const totalPages = Math.max(1, Math.ceil(totalEntries / usersPagination.limit));
+
+    if (usersPagination.page > totalPages) {
+        usersPagination.page = totalPages;
+    }
+
+    const startIndex = totalEntries === 0 ? 0 : (usersPagination.page - 1) * usersPagination.limit;
+    const endIndex = Math.min(startIndex + usersPagination.limit, totalEntries);
+    const pagedUsers = totalEntries === 0 ? [] : usersState.slice(startIndex, endIndex);
+
+    return {
+        pagedUsers,
+        totalEntries,
+        totalPages,
+        startIndex,
+        endIndex,
+        page: usersPagination.page
+    };
 }
 
 function setUsersTableState(message, isError = false) {
@@ -260,34 +287,66 @@ function setUsersTableState(message, isError = false) {
     `;
 }
 
-function updatePaginationInfo(totalEntries) {
+function updatePaginationInfo(totalEntries = usersState.length) {
     const paginationInfo = document.getElementById('pagination-info');
-    if (paginationInfo) {
-        if (totalEntries === 0) {
-            paginationInfo.textContent = 'Showing 0 to 0 of 0 entries';
-        } else {
-            paginationInfo.innerHTML = `Showing <span class="text-white font-bold">1</span> to <span class="text-white font-bold">${totalEntries}</span> of <span class="text-white font-bold">${totalEntries}</span> entries`;
-        }
-    }
-
     const paginationControls = document.getElementById('pagination-controls');
-    if (!paginationControls) return;
+    if (!paginationInfo || !paginationControls) return;
+
+    const { totalPages, startIndex, endIndex, page } = getPaginatedUsers(totalEntries);
 
     if (totalEntries === 0) {
+        paginationInfo.textContent = 'Showing 0 to 0 of 0 entries';
         paginationControls.classList.add('hidden');
         return;
     }
 
+    paginationInfo.innerHTML = `Showing <span class="text-white font-bold">${startIndex + 1}</span> to <span class="text-white font-bold">${endIndex}</span> of <span class="text-white font-bold">${totalEntries}</span> entries`;
     paginationControls.classList.remove('hidden');
-    paginationControls.innerHTML = `
-        <button class="p-2 rounded-lg border border-slate-700 text-slate-500 opacity-50 cursor-not-allowed bg-slate-800/50" disabled>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-        </button>
-        <button class="w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold" disabled>1</button>
-        <button class="p-2 rounded-lg border border-slate-700 text-slate-500 opacity-50 cursor-not-allowed bg-slate-800/50" disabled>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-        </button>
-    `;
+
+    const makePageBtn = (p, active = false) => {
+        const cls = active
+            ? 'w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold'
+            : 'w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold';
+
+        return `<button onclick="goToUsersPage(${p})" class="${cls}">${p}</button>`;
+    };
+
+    const makeArrowBtn = (targetPage, direction, disabled = false) => {
+        const path = direction === 'prev' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7';
+        const baseCls = disabled
+            ? 'p-2 rounded-lg border border-slate-700 text-slate-500 opacity-50 cursor-not-allowed bg-slate-800/50'
+            : 'p-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition';
+        const clickAttr = disabled ? '' : `onclick="goToUsersPage(${targetPage})"`;
+
+        return `<button ${disabled ? 'disabled' : ''} ${clickAttr} class="${baseCls}"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"></path></svg></button>`;
+    };
+
+    let html = '';
+    html += makeArrowBtn(page - 1, 'prev', page <= 1);
+
+    const pages = [];
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+    } else {
+        pages.push(1);
+        if (page > 3) pages.push('...');
+        const start = Math.max(2, page - 1);
+        const end = Math.min(totalPages - 1, page + 1);
+        for (let i = start; i <= end; i += 1) pages.push(i);
+        if (page < totalPages - 2) pages.push('...');
+        pages.push(totalPages);
+    }
+
+    pages.forEach((entry) => {
+        if (entry === '...') {
+            html += '<span class="w-8 h-8 flex items-center justify-center text-slate-600 text-xs font-bold">...</span>';
+        } else {
+            html += makePageBtn(entry, entry === page);
+        }
+    });
+
+    html += makeArrowBtn(page + 1, 'next', page >= totalPages);
+    paginationControls.innerHTML = html;
 }
 
 function setupVerificationCodeInputs() {
@@ -544,12 +603,18 @@ async function resendVerificationCode() {
 
 function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
     let resolvedEmail = '';
+    let resolvedVerificationExpiresAt = verificationExpiresAt;
 
     if (typeof userEmailOrId === 'number' || /^\d+$/.test(String(userEmailOrId))) {
         const userRow = document.querySelector(`[data-user-id="${userEmailOrId}"]`);
         resolvedEmail = userRow?.querySelector('[data-field="email"]')?.textContent?.trim() || '';
     } else {
         resolvedEmail = String(userEmailOrId || '').trim();
+    }
+
+    if (!resolvedVerificationExpiresAt && resolvedEmail) {
+        const userInState = usersState.find(u => String(u.email || '').toLowerCase() === resolvedEmail.toLowerCase());
+        resolvedVerificationExpiresAt = userInState?.verification_expires || null;
     }
 
     if (!resolvedEmail) {
@@ -565,7 +630,7 @@ function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
     resetVerificationCode();
     setupVerificationCodeInputs();
     openModal('verificationModal');
-    startVerificationTimer(verificationExpiresAt);
+    startVerificationTimer(resolvedVerificationExpiresAt);
     setTimeout(() => document.getElementById('verifyDigit1').focus(), 300);
 }
 
@@ -998,6 +1063,7 @@ async function fetchAllUsers() {
         }
 
         usersState = result.data || [];
+        usersPagination.page = 1;
         renderUsersState();
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -1021,6 +1087,9 @@ function populateUsersTable(users) {
     users.forEach(user => {
         const safeEmail = escapeForSingleQuotedAttr(user.email);
         const safeFullName = escapeForSingleQuotedAttr(`${user.first_name} ${user.last_name}`);
+        const verificationExpiresArg = user.verification_expires
+            ? `'${escapeForSingleQuotedAttr(user.verification_expires)}'`
+            : 'null';
         const initials = `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
         const isVerified = Boolean(user.is_verified);
         const normalizedStatus = String(user.status || '').toLowerCase();
@@ -1061,6 +1130,7 @@ function populateUsersTable(users) {
             ? (String(user.vehicle_state || '').toUpperCase() || 'ASSIGNED')
             : 'UNASSIGNED';
         const assignmentPlate = hasAssignment ? user.vehicle_plate_number : '—';
+        const assignmentTruckName = hasAssignment ? (user.vehicle_type || 'Unknown Truck') : '';
         const createdAtText = formatLongDate(user.created_at);
         const updatedAtText = formatRelativeTime(user.updated_at);
         const deletedAtText = isSoftDeleted ? formatDateTime(user.deleted_at) : '-';
@@ -1081,7 +1151,7 @@ function populateUsersTable(users) {
             </td>
             <td class="px-6 py-4">
                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold w-fit mb-1 ${assignmentBadgeClass}">${assignmentLabel}</span>
-                ${hasAssignment ? `<span class="text-xs text-slate-300 font-mono block">${assignmentPlate}</span>` : ''}
+                ${hasAssignment ? `<span class="text-xs text-slate-300 font-mono block">${assignmentPlate}</span><span class="text-[10px] text-slate-500 block mt-0.5">${assignmentTruckName}</span>` : ''}
             </td>
             <td class="px-6 py-4" data-field="status">
                 <div class="flex flex-col gap-2">
@@ -1109,7 +1179,7 @@ function populateUsersTable(users) {
             </td>
             <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-2">
-                    ${!isVerified && !isSoftDeleted ? `<button onclick="openVerificationForUser('${safeEmail}')" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Send Verification">
+                    ${!isVerified && !isSoftDeleted ? `<button onclick="openVerificationForUser('${safeEmail}', ${verificationExpiresArg})" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Send Verification">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </button>` : ''}
                     <button onclick="openModal('historyModal')" class="p-2 text-teal-400 hover:text-teal-300 transition bg-teal-900/20 rounded-lg border border-teal-500/30" title="History">
@@ -1352,5 +1422,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup verification code inputs on page load
     setupVerificationCodeInputs();
 });
+
+window.goToUsersPage = function goToUsersPage(page) {
+    const target = Number(page);
+    if (!Number.isFinite(target)) return;
+
+    const totalPages = Math.max(1, Math.ceil(usersState.length / usersPagination.limit));
+    if (target < 1 || target > totalPages) return;
+
+    usersPagination.page = target;
+    renderUsersState();
+};
 
 window.resendVerificationCode = resendVerificationCode;

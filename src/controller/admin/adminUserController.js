@@ -25,10 +25,12 @@ class AdminUserController {
                     u.email,
                     u.status,
                     u.is_verified,
+                    u.verification_expires,
                     u.created_at,
                     u.updated_at,
                     u.deleted_at,
                     v.id AS vehicle_id,
+                    v.vehicle_type AS vehicle_type,
                     v.plate_number AS vehicle_plate_number,
                     v.current_state AS vehicle_state,
                     EXISTS (
@@ -39,7 +41,7 @@ class AdminUserController {
                     ) AS is_suspended
                 FROM users u
                 LEFT JOIN LATERAL (
-                    SELECT id, plate_number, current_state
+                    SELECT id, vehicle_type, plate_number, current_state
                     FROM vehicles
                     WHERE assigned_driver_id = u.id
                     ORDER BY id DESC

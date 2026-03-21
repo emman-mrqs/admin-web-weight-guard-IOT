@@ -44,6 +44,14 @@ router.put("/api/admin/users/:userId/lift-suspension", AdminUserController.liftU
 
 // Admin Staff Routes
 router.get("/admin/staff", AdminStaffController.getStaffList);
+router.get("/api/admin/staff", AdminStaffController.fetchAllStaff);
+router.get("/api/admin/staff/:staffId/activity", AdminStaffController.getStaffActivity);
+router.put("/api/admin/staff/:staffId", AdminStaffController.updateStaff);
+router.put("/api/admin/staff/:staffId/soft-delete", AdminStaffController.softDeleteStaff);
+router.put("/api/admin/staff/:staffId/restore-soft-delete", AdminStaffController.restoreDeletedStaff);
+router.post("/api/admin/staff/:staffId/suspend", AdminStaffController.suspendStaff);
+router.put("/api/admin/staff/:staffId/lift-suspension", AdminStaffController.liftSuspension);
+router.get("/api/admin/staff/:staffId/suspension-details", AdminStaffController.getSuspensionDetails);
 
 // Admin Task Dispatch Routes
 router.get("/admin/task-dispatch", AdminDispatchController.getTaskDispatch);
