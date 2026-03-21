@@ -1005,6 +1005,7 @@ function openSuspensionDetailsModal(staffId, staffName) {
     const detailsReason = document.getElementById('detailsReason');
     const permanentSection = document.getElementById('detailsPermanentDates');
     const temporarySection = document.getElementById('detailsTemporaryDates');
+    const errorEl = document.getElementById('detailsError');
 
     if (detailsStaffName) detailsStaffName.textContent = staffName;
     if (detailsBanType) {
@@ -1014,6 +1015,7 @@ function openSuspensionDetailsModal(staffId, staffName) {
     if (detailsReason) detailsReason.textContent = 'Loading suspension details...';
     if (permanentSection) permanentSection.classList.add('hidden');
     if (temporarySection) temporarySection.classList.add('hidden');
+    if (errorEl) errorEl.classList.add('hidden');
 
     openModal('suspensionDetailsModal');
 
@@ -1044,9 +1046,9 @@ async function fetchSuspensionDetails(staffId) {
         const detailsStaffName = document.getElementById('detailsStaffName');
         const detailsBanType = document.getElementById('detailsBanType');
         const detailsReason = document.getElementById('detailsReason');
-        const detailsStartedAt = document.getElementById('detailsStartedAt');
         const detailsSuspendedDate = document.getElementById('detailsSuspendedDate');
-        const detailsLiftDate = document.getElementById('detailsLiftDate');
+        const detailsStartDate = document.getElementById('detailsStartDate');
+        const detailsEndDate = document.getElementById('detailsEndDate');
 
         if (detailsStaffName) detailsStaffName.textContent = details.staffName || String(staffId);
         if (detailsBanType) {
@@ -1054,7 +1056,6 @@ async function fetchSuspensionDetails(staffId) {
             detailsBanType.className = isPermanent ? 'text-rose-400 font-bold mt-1' : 'text-blue-400 font-bold mt-1';
         }
         if (detailsReason) detailsReason.textContent = details.reason || 'No reason provided.';
-        if (detailsStartedAt) detailsStartedAt.textContent = formatDateTime(details.startedAt);
 
         const permanentSection = document.getElementById('detailsPermanentDates');
         const temporarySection = document.getElementById('detailsTemporaryDates');
@@ -1065,8 +1066,8 @@ async function fetchSuspensionDetails(staffId) {
         if (isPermanent) {
             if (detailsSuspendedDate) detailsSuspendedDate.textContent = formatDateTime(details.startedAt);
         } else {
-            if (detailsSuspendedDate) detailsSuspendedDate.textContent = formatDateTime(details.startedAt);
-            if (detailsLiftDate) detailsLiftDate.textContent = formatDateTime(details.endedAt);
+            if (detailsStartDate) detailsStartDate.textContent = formatDateTime(details.startedAt);
+            if (detailsEndDate) detailsEndDate.textContent = formatDateTime(details.endedAt);
         }
     } catch (error) {
         console.error('Error fetching suspension details:', error);

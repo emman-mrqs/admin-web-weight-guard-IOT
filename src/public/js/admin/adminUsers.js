@@ -131,9 +131,16 @@ function generateRandomPassword() {
 let verificationTimerInterval = null;
 let verificationInputsInitialized = false;
 let usersState = [];
+let filteredUsersState = [];
 const usersPagination = {
     page: 1,
     limit: 10
+};
+
+const USER_DOM_IDS = {
+    usersSearchInput: 'usersSearchInput',
+    usersAssignmentFilter: 'usersAssignmentFilter',
+    usersStatusFilter: 'usersStatusFilter'
 };
 
 function escapeForSingleQuotedAttr(value) {
@@ -246,14 +253,84 @@ function upsertUserInState(user) {
     };
 }
 
-function renderUsersState() {
-    const { pagedUsers } = getPaginatedUsers();
-    populateUsersTable(pagedUsers);
-    updateSummaryStats(usersState);
-    updatePaginationInfo();
+function getUserUiFlags(user) {
+    const normalizedStatus = String(user?.status || '').toLowerCase();
+    const isSoftDeleted = Boolean(user?.deleted_at);
+    const isSuspended = Boolean(user?.is_suspended) || normalizedStatus === 'suspended';
+    const isInactive = normalizedStatus === 'inactive';
+    const isVerified = Boolean(user?.is_verified);
+    const derivedStatus = isSoftDeleted
+        ? 'deleted'
+        : (isSuspended ? 'suspended' : (normalizedStatus || (isVerified ? 'active' : 'pending')));
+
+    return {
+        normalizedStatus,
+        isSoftDeleted,
+        isSuspended,
+        isInactive,
+        isVerified,
+        derivedStatus
+    };
 }
 
-function getPaginatedUsers(totalEntriesOverride = null) {
+function getSoftDeleteRetentionState(deletedAt) {
+    const retentionMs = 30 * 24 * 60 * 60 * 1000;
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const deletedAtMs = deletedAt ? Date.parse(deletedAt) : NaN;
+    const hasValidDeletedAt = Number.isFinite(deletedAtMs);
+    const msSinceSoftDelete = hasValidDeletedAt ? (Date.now() - deletedAtMs) : 0;
+    const permanentDeleteEligible = hasValidDeletedAt && (msSinceSoftDelete >= retentionMs);
+    const permanentDeleteDaysRemaining = (!permanentDeleteEligible && hasValidDeletedAt)
+        ? Math.max(1, Math.ceil((retentionMs - msSinceSoftDelete) / oneDayMs))
+        : null;
+
+    return {
+        permanentDeleteEligible,
+        permanentDeleteDaysRemaining
+    };
+}
+
+function getFilteredUsers() {
+    const searchValue = String(document.getElementById(USER_DOM_IDS.usersSearchInput)?.value || '').toLowerCase().trim();
+    const assignmentFilter = String(document.getElementById(USER_DOM_IDS.usersAssignmentFilter)?.value || '').trim().toLowerCase();
+    const statusFilter = String(document.getElementById(USER_DOM_IDS.usersStatusFilter)?.value || '').trim().toLowerCase();
+
+    return usersState.filter((user) => {
+        const { derivedStatus } = getUserUiFlags(user);
+        const normalizedVehicleState = String(user.vehicle_state || '').toLowerCase();
+
+        const matchesSearch = !searchValue
+            || String(user.first_name || '').toLowerCase().includes(searchValue)
+            || String(user.last_name || '').toLowerCase().includes(searchValue)
+            || String(user.email || '').toLowerCase().includes(searchValue);
+
+        const matchesAssignment = !assignmentFilter
+            || (assignmentFilter === 'unassigned' && !user.vehicle_id)
+            || (assignmentFilter !== 'unassigned' && Boolean(user.vehicle_id) && normalizedVehicleState === assignmentFilter);
+
+        const matchesStatus = !statusFilter || derivedStatus === statusFilter;
+
+        return matchesSearch && matchesAssignment && matchesStatus;
+    });
+}
+
+function applyUsersFilters(resetPage = false) {
+    if (resetPage) {
+        usersPagination.page = 1;
+    }
+    renderUsersState();
+}
+
+function renderUsersState() {
+    const filteredUsers = getFilteredUsers();
+    filteredUsersState = filteredUsers;
+    const { pagedUsers } = getPaginatedUsers(filteredUsers.length, filteredUsers);
+    populateUsersTable(pagedUsers);
+    updateSummaryStats(usersState);
+    updatePaginationInfo(filteredUsers.length, filteredUsers);
+}
+
+function getPaginatedUsers(totalEntriesOverride = null, sourceEntries = usersState) {
     const totalEntries = Number.isFinite(totalEntriesOverride) ? Number(totalEntriesOverride) : usersState.length;
     const totalPages = Math.max(1, Math.ceil(totalEntries / usersPagination.limit));
 
@@ -263,7 +340,7 @@ function getPaginatedUsers(totalEntriesOverride = null) {
 
     const startIndex = totalEntries === 0 ? 0 : (usersPagination.page - 1) * usersPagination.limit;
     const endIndex = Math.min(startIndex + usersPagination.limit, totalEntries);
-    const pagedUsers = totalEntries === 0 ? [] : usersState.slice(startIndex, endIndex);
+    const pagedUsers = totalEntries === 0 ? [] : sourceEntries.slice(startIndex, endIndex);
 
     return {
         pagedUsers,
@@ -287,12 +364,12 @@ function setUsersTableState(message, isError = false) {
     `;
 }
 
-function updatePaginationInfo(totalEntries = usersState.length) {
+function updatePaginationInfo(totalEntries = filteredUsersState.length, sourceEntries = filteredUsersState) {
     const paginationInfo = document.getElementById('pagination-info');
     const paginationControls = document.getElementById('pagination-controls');
     if (!paginationInfo || !paginationControls) return;
 
-    const { totalPages, startIndex, endIndex, page } = getPaginatedUsers(totalEntries);
+    const { totalPages, startIndex, endIndex, page } = getPaginatedUsers(totalEntries, sourceEntries);
 
     if (totalEntries === 0) {
         paginationInfo.textContent = 'Showing 0 to 0 of 0 entries';
@@ -1091,13 +1168,17 @@ function populateUsersTable(users) {
             ? `'${escapeForSingleQuotedAttr(user.verification_expires)}'`
             : 'null';
         const initials = `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
-        const isVerified = Boolean(user.is_verified);
-        const normalizedStatus = String(user.status || '').toLowerCase();
-        const isSoftDeleted = Boolean(user.deleted_at);
-        const isSuspended = Boolean(user.is_suspended) || normalizedStatus === 'suspended';
-        const isInactive = normalizedStatus === 'inactive';
+        const {
+            isVerified,
+            normalizedStatus,
+            isSoftDeleted,
+            isSuspended,
+            isInactive
+        } = getUserUiFlags(user);
         const hasAssignment = Boolean(user.vehicle_id);
-        const permanentDeleteEligible = isSoftDeleted && ((Date.now() - new Date(user.deleted_at).getTime()) >= (30 * 24 * 60 * 60 * 1000));
+        const { permanentDeleteEligible, permanentDeleteDaysRemaining } = isSoftDeleted
+            ? getSoftDeleteRetentionState(user.deleted_at)
+            : { permanentDeleteEligible: false, permanentDeleteDaysRemaining: null };
 
         const statusText = isSoftDeleted ? 'DELETED' : (isSuspended ? 'SUSPENDED' : (isInactive ? 'INACTIVE' : (isVerified ? 'ACTIVE' : 'PENDING')));
         const statusBg = isSoftDeleted
@@ -1134,6 +1215,13 @@ function populateUsersTable(users) {
         const createdAtText = formatLongDate(user.created_at);
         const updatedAtText = formatRelativeTime(user.updated_at);
         const deletedAtText = isSoftDeleted ? formatDateTime(user.deleted_at) : '-';
+        const deleteAvailabilityText = isSoftDeleted
+            ? (permanentDeleteEligible
+                ? 'Permanent delete available now'
+                : (permanentDeleteDaysRemaining
+                    ? `Permanent delete in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}`
+                    : 'Permanent delete pending'))
+            : '';
 
         const row = document.createElement('tr');
         row.className = 'hover:bg-slate-800/40 transition-colors group';
@@ -1175,7 +1263,10 @@ function populateUsersTable(users) {
                 </div>
             </td>
             <td class="px-6 py-4">
-                <span class="text-[10px] ${isSoftDeleted ? 'text-rose-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
+                <div class="flex flex-col gap-1">
+                    <span class="text-[10px] ${isSoftDeleted ? 'text-rose-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
+                    ${isSoftDeleted ? `<span class="text-[10px] ${permanentDeleteEligible ? 'text-rose-300' : 'text-amber-300'}">${deleteAvailabilityText}</span>` : ''}
+                </div>
             </td>
             <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-2">
@@ -1194,7 +1285,9 @@ function populateUsersTable(users) {
                     </button>
                     ${permanentDeleteEligible ? `<button onclick="openPermanentDeleteUserModal(${user.id}, '${safeFullName}')" class="p-2 text-rose-400 hover:text-rose-300 transition bg-rose-900/20 rounded-lg border border-rose-500/30" title="Permanently Delete">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>` : ''}
+                    </button>` : `<button disabled class="p-2 text-rose-300/50 transition bg-rose-900/10 rounded-lg border border-rose-500/20 cursor-not-allowed opacity-70" title="${permanentDeleteDaysRemaining ? `Permanent delete available in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}` : 'Permanent delete not available yet'}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>`}
                     ` : isSuspended ? `
                     <button onclick="openSuspensionDetailsModal(${user.id}, '${safeFullName}')" class="p-2 text-slate-300 hover:text-white transition bg-slate-800/70 rounded-lg border border-slate-600/70" title="Suspension Details">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1404,6 +1497,21 @@ async function handleEditUserFormSubmit(e) {
 // ════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const usersSearchInput = document.getElementById(USER_DOM_IDS.usersSearchInput);
+    if (usersSearchInput) {
+        usersSearchInput.addEventListener('input', () => applyUsersFilters(true));
+    }
+
+    const usersAssignmentFilter = document.getElementById(USER_DOM_IDS.usersAssignmentFilter);
+    if (usersAssignmentFilter) {
+        usersAssignmentFilter.addEventListener('change', () => applyUsersFilters(true));
+    }
+
+    const usersStatusFilter = document.getElementById(USER_DOM_IDS.usersStatusFilter);
+    if (usersStatusFilter) {
+        usersStatusFilter.addEventListener('change', () => applyUsersFilters(true));
+    }
+
     // Fetch all users on page load
     await fetchAllUsers();
 
@@ -1427,7 +1535,7 @@ window.goToUsersPage = function goToUsersPage(page) {
     const target = Number(page);
     if (!Number.isFinite(target)) return;
 
-    const totalPages = Math.max(1, Math.ceil(usersState.length / usersPagination.limit));
+    const totalPages = Math.max(1, Math.ceil(filteredUsersState.length / usersPagination.limit));
     if (target < 1 || target > totalPages) return;
 
     usersPagination.page = target;
