@@ -35,6 +35,7 @@ router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
 // Admin User Routes
 router.get("/admin/users", AdminUserController.getUsers);
 router.get("/api/admin/users", AdminUserController.getAllUsers);
+router.get('/api/admin/users/:userId/activity', AdminUserController.getUserActivity);
 router.put("/api/admin/users/:userId", AdminUserController.updateUser);
 router.put("/api/admin/users/:userId/soft-delete", AdminUserController.softDeleteStaff);
 router.put("/api/admin/users/:userId/restore-soft-delete", AdminUserController.restoreSoftDeletedStaff);
@@ -55,6 +56,11 @@ router.get("/api/admin/staff/:staffId/suspension-details", AdminStaffController.
 
 // Admin Task Dispatch Routes
 router.get("/admin/task-dispatch", AdminDispatchController.getTaskDispatch);
+router.get('/api/admin/task-dispatch/vehicles', AdminDispatchController.getAssignableVehicles);
+router.get('/api/admin/task-dispatch/assignments', AdminDispatchController.getAssignments);
+router.post('/api/admin/task-dispatch/assignments', AdminDispatchController.createAssignment);
+router.put('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatchController.updateAssignment);
+router.delete('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatchController.cancelAssignment);
 
 // Admin Reports Routes
 router.get("/admin/reports", AdminReportsController.getReports);

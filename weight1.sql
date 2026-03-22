@@ -56,6 +56,7 @@ CREATE TABLE vehicles (
 CREATE TABLE dispatch_tasks (
     id BIGSERIAL PRIMARY KEY,
     vehicle_id BIGINT REFERENCES vehicles(id) ON DELETE CASCADE,
+    created_by BIGINT REFERENCES administrator(id) ON DELETE SET NULL,
     pickup_lat DECIMAL(10, 8),
     pickup_lng DECIMAL(11, 8),
     destination_lat DECIMAL(10, 8),

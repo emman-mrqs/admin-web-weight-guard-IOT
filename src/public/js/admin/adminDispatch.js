@@ -1,3 +1,17 @@
+// ===========================================
+// DISPATCH MANAGEMENT - CLEAN FRONTEND
+// ===========================================
+// File structure:
+// 1. Shared constants, helpers, and API client
+// 2. Assign Task modal (create assignment)
+// 3. Main dispatch map, list, and pagination state
+// 4. Edit Assignment modal (update flow)
+// 5. Delete Assignment flow
+// 6. Bootstrap, geocoding helpers, and global exports
+
+// ===========================================
+// SECTION 1: SHARED CONSTANTS & HELPERS
+// ===========================================
 const DEFAULT_CENTER = [14.6091, 121.0223];
 const DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const DARK_TILE_OPTIONS = {
@@ -7,9 +21,15 @@ const DARK_TILE_OPTIONS = {
 };
 const OSRM_SERVICE_URL = 'https://router.project-osrm.org/route/v1';
 const ROUTE_LINE_STYLE = [{ color: '#3B82F6', opacity: 0.8, weight: 6 }];
+const DISPATCH_API_BASE = '/api/admin/task-dispatch';
 
+// -------------------------------------------
+// Generic UI and Formatting Helpers
+// -------------------------------------------
 function getInitials(fullName) {
-    return fullName.split(' ').map(n => n[0]).join('').toUpperCase();
+    const value = String(fullName || '').trim();
+    if (!value) return 'NA';
+    return value.split(/\s+/).map(n => n[0]).join('').toUpperCase();
 }
 
 function formatTime(seconds) {
@@ -61,7 +81,9 @@ function createRoutingControl(mapInstance, pickupLatLng, destLatLng, onRoutesFou
 
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
+    if (!modal) return;
     const content = modal.querySelector('.modal-content');
+    if (!content) return;
 
     modal.classList.remove('hidden');
     setTimeout(() => {
@@ -74,7 +96,9 @@ function openModal(modalId) {
 
 function closeModal(modalId) {
     const modal = document.getElementById(modalId);
+    if (!modal) return;
     const content = modal.querySelector('.modal-content');
+    if (!content) return;
 
     modal.classList.remove('modal-enter-active');
     modal.classList.add('modal-enter');
@@ -98,6 +122,49 @@ function showInlineMessage(el, message) {
     el.classList.remove('hidden');
 }
 
+async function parseJsonResponse(response) {
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_) {
+        payload = null;
+    }
+
+    if (!response.ok) {
+        const error = new Error(payload?.error || 'Request failed.');
+        error.payload = payload;
+        throw error;
+    }
+
+    return payload;
+}
+
+async function fetchDispatchJson(endpoint, options = {}) {
+    const response = await fetch(`${DISPATCH_API_BASE}${endpoint}`, options);
+    return parseJsonResponse(response);
+}
+
+// -------------------------------------------
+// Dispatch API Client
+// -------------------------------------------
+const dispatchApi = {
+    getAssignableVehicles(queryParams) {
+        return fetchDispatchJson(`/vehicles?${queryParams.toString()}`, {
+            headers: { Accept: 'application/json' }
+        });
+    },
+    getAssignments({ page = 1, limit = 20, includeCompleted = false } = {}) {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(limit));
+        if (includeCompleted) params.set('includeCompleted', 'true');
+
+        return fetchDispatchJson(`/assignments?${params.toString()}`, {
+            headers: { Accept: 'application/json' }
+        });
+    }
+};
+
 const greenIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -116,21 +183,16 @@ const redIcon = new L.Icon({
     shadowSize: [41, 41]
 });
 
-const blueIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
-
 let taskMap = null;
 let pickupMarker = null;
 let destMarker = null;
 let routingControl = null;
 let activeMode = 'pickup';
 let taskMapInitialized = false;
+
+// ===========================================
+// SECTION 2: ASSIGN TASK MODAL (CREATE FLOW)
+// ===========================================
 
 function initTaskMap() {
     if (taskMapInitialized) return;
@@ -140,20 +202,7 @@ function initTaskMap() {
 
     taskMap.on('click', function(e) {
         const { lat, lng } = e.latlng;
-        const coordString = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-        if (activeMode === 'pickup') {
-            if (pickupMarker) taskMap.removeLayer(pickupMarker);
-            pickupMarker = L.marker([lat, lng], { icon: greenIcon }).addTo(taskMap).bindPopup('<b>Pickup Location</b>').openPopup();
-            document.getElementById('pickupInput').value = coordString;
-            setTaskMode('dest');
-        } else {
-            if (destMarker) taskMap.removeLayer(destMarker);
-            destMarker = L.marker([lat, lng], { icon: redIcon }).addTo(taskMap).bindPopup('<b>Destination</b>').openPopup();
-            document.getElementById('destInput').value = coordString;
-        }
-
-        updateTaskRoute();
+        placeDraggableMarker(lat, lng, activeMode);
     });
 
     taskMapInitialized = true;
@@ -206,14 +255,6 @@ function populateRouteDirections(instructions, summary) {
     `).join('');
 }
 
-function toggleDirections() {
-    const content = document.getElementById('mapDirectionsContent');
-    const chevron = document.getElementById('mapDirectionsChevron');
-    if (!content || !chevron) return;
-    content.classList.toggle('hidden');
-    chevron.classList.toggle('rotate-180');
-}
-
 function setTaskMode(mode) {
     activeMode = mode;
     const modeText = document.getElementById('modeText');
@@ -245,15 +286,13 @@ function resetTaskMap() {
     document.getElementById('tripStats').classList.add('hidden');
     const routeDirections = document.getElementById('mapRouteDirections');
     const directionsContent = document.getElementById('mapDirectionsContent');
-    const directionsChevron = document.getElementById('mapDirectionsChevron');
     const directionsList = document.getElementById('mapDirectionsList');
 
     if (routeDirections) routeDirections.classList.add('hidden');
     if (directionsContent) directionsContent.classList.add('hidden');
-    if (directionsChevron) directionsChevron.classList.remove('rotate-180');
     if (directionsList) directionsList.innerHTML = '';
     setTaskMode('pickup');
-    taskMap.setView(DEFAULT_CENTER, 13);
+    if (taskMap) taskMap.setView(DEFAULT_CENTER, 13);
 }
 
 function openAssignTaskModal() {
@@ -268,7 +307,9 @@ function openAssignTaskModal() {
         content.classList.add('modal-content-enter-active');
     }, 10);
 
-    loadAvailableDrivers();
+    loadAssignableVehicles().catch(() => {
+        showInlineMessage(document.getElementById('taskFormError'), 'Unable to load vehicle options.');
+    });
 
     setTimeout(() => {
         initTaskMap();
@@ -291,65 +332,282 @@ function closeAssignTaskModal() {
     }, 300);
 }
 
-/**
- * Load available drivers - STATIC DATA (Controller removed)
- */
-function loadAvailableDrivers() {
-    const staticDrivers = [
-        { id: 1, full_name: 'John Martinez' },
-        { id: 2, full_name: 'Carlos Reyes' },
-        { id: 3, full_name: 'Miguel Santos' }
-    ];
-
-    const select = document.getElementById('taskDriverSelect');
-    select.innerHTML = '<option value="">Choose an available driver...</option>';
-    
-    staticDrivers.forEach(driver => {
-        const option = document.createElement('option');
-        option.value = driver.id;
-        option.textContent = `${driver.full_name} (Available)`;
-        select.appendChild(option);
-    });
+function extractFirstFieldError(fieldErrors) {
+    if (!fieldErrors || typeof fieldErrors !== 'object') return null;
+    const firstMessage = Object.values(fieldErrors).find(
+        (value) => typeof value === 'string' && value.trim().length > 0
+    );
+    return firstMessage || null;
 }
 
-/**
- * Dispatch task - STUB (Controller removed - backend integration needed)
- */
-function dispatchTask() {
+function displayErrorFromResponse(errorElement, responseData) {
+    if (!errorElement || !responseData) return;
+    
+    // Priority: field errors first, then general error, then fallback
+    const fieldErrorMsg = extractFirstFieldError(responseData.fieldErrors);
+    const errorMsg = fieldErrorMsg || responseData.error || 'An unexpected error occurred. Please try again.';
+    
+    errorElement.textContent = errorMsg;
+    errorElement.classList.remove('hidden');
+}
+
+function renderVehicleOptions(vehicles, targetSelectId = 'taskVehicleSelect', placeholder = 'Choose an available vehicle...') {
+    const select = document.getElementById(targetSelectId);
+    if (!select) return;
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    vehicles.forEach((vehicle) => {
+        const option = document.createElement('option');
+        option.value = vehicle.id;
+        const assignedDriver = vehicle.first_name
+            ? `${vehicle.first_name || ''} ${vehicle.last_name || ''}`.trim()
+            : 'Unassigned';
+        option.textContent = `${vehicle.plate_number} • ${vehicle.vehicle_type || 'Vehicle'} • ${assignedDriver}`;
+        select.appendChild(option);
+    });
+
+    if (vehicles.length === 0) {
+        select.innerHTML = '<option value="">No assignable vehicles</option>';
+    }
+}
+
+async function loadAssignableVehicles(options = {}) {
+    const {
+        limit = 5,
+        includeVehicleId = null,
+        requireAssigned = false,
+        targetSelectId = 'taskVehicleSelect',
+        placeholder = 'Choose an available vehicle...'
+    } = options;
+
+    const select = document.getElementById(targetSelectId);
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Loading vehicles...</option>';
+
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (includeVehicleId) params.set('includeVehicleId', String(includeVehicleId));
+    if (requireAssigned) params.set('requireAssigned', 'true');
+
+    const payload = await dispatchApi.getAssignableVehicles(params);
+    renderVehicleOptions(payload.data || [], targetSelectId, placeholder);
+}
+
+async function dispatchTask() {
     const errorEl = document.getElementById('taskFormError');
     const successEl = document.getElementById('taskFormSuccess');
+    const submitBtn = document.querySelector('#assignTaskModal button[type="button"][onclick*="dispatchTask"]');
 
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
 
-    const driverSelect = document.getElementById('taskDriverSelect');
-    const driverId = driverSelect.value;
-    const driverName = driverSelect.options[driverSelect.selectedIndex]?.text || '';
-    const vehicle = document.getElementById('taskVehicleSelect').value;
-    const pickup = document.getElementById('pickupInput').value;
-    const dest = document.getElementById('destInput').value;
+    const vehicle = document.getElementById('taskVehicleSelect')?.value;
+    const pickup = pickupMarker?.getLatLng?.() || null;
+    const dest = destMarker?.getLatLng?.() || null;
 
-    if (!driverId || !pickup || !dest || !vehicle) {
-        showInlineMessage(errorEl, 'Please fill in all fields (Driver, Vehicle, Pickup, Destination)');
-        return;
+    // ─── SHOW LOADING STATE ───
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
     }
 
-    showInlineMessage(successEl, `Task would be dispatched to ${driverName}, Vehicle RC-${vehicle} (Backend integration needed)`);
-    
-    setTimeout(() => {
-        closeAssignTaskModal();
-        resetTaskMap();
-        clearInlineMessage(successEl);
-    }, 1500);
+    try {
+        // ─── SEND TO BACKEND: LET SERVER VALIDATE ALL BUSINESS RULES ───
+        const response = await fetch(`${DISPATCH_API_BASE}/assignments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+            },
+            body: JSON.stringify({
+                vehicleId: vehicle ?? null,
+                pickupLat: pickup?.lat ?? null,
+                pickupLng: pickup?.lng ?? null,
+                destLat: dest?.lat ?? null,
+                destLng: dest?.lng ?? null
+            })
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            // ─── WIRE SERVER VALIDATION ERROR ───
+            displayErrorFromResponse(errorEl, payload);
+            return;
+        }
+
+        // ─── SUCCESS: DISPLAY SERVER MESSAGE ───
+        showInlineMessage(successEl, payload.message || 'Task dispatched successfully.');
+
+        await Promise.all([loadMapAssignments(), loadAssignableVehicles()]);
+
+        setTimeout(() => {
+            closeAssignTaskModal();
+            resetTaskMap();
+            clearInlineMessage(successEl);
+        }, 900);
+    } catch (error) {
+        console.error('Network or server error:', error);
+        showInlineMessage(errorEl, 'Connection error. Please check your network and try again.');
+    } finally {
+        // ─── RESTORE BUTTON STATE ───
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+    }
 }
 
+// ===========================================
+// SECTION 3: MAIN DISPATCH MAP & LIST STATE
+// ===========================================
 let map = null;
 let mapInitialized = false;
 let mapMarkers = [];
 let currentMapRoute = null;
+let isDispatchMapVisible = true;
 let selectedAssignmentId = null;
-let cachedAssignedUsers = [];
-let requestedAssignmentId = new URLSearchParams(window.location.search).get('assignmentId');
+let selectedAssignment = null;
+let sidebarAssignments = [];
+let tableAssignments = [];
+const paginationState = {
+    sidebarPage: 1,
+    tablePage: 1,
+    sidebarPageSize: 10,
+    tablePageSize: 1,
+    sidebarTotal: 0,
+    sidebarTotalPages: 1,
+    tableTotal: 0,
+    tableTotalPages: 1
+};
+
+function renderPaginationControls(containerId, page, totalPages, scope) {
+    const controls = document.getElementById(containerId);
+    if (!controls) return;
+
+    const makeArrowBtn = (targetPage, direction, disabled) => {
+        const icon = direction === 'prev'
+            ? '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>'
+            : '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+
+        return `<button type="button" ${disabled ? 'disabled' : ''} onclick="goToAssignmentsPage('${scope}', ${targetPage})" class="p-2 rounded-lg border text-slate-400 transition ${disabled ? 'border-slate-700 opacity-50 cursor-not-allowed bg-slate-800/50' : 'border-slate-700 hover:bg-slate-800 hover:text-white'}">${icon}</button>`;
+    };
+
+    const makePageBtn = (targetPage, active) => {
+        if (active) {
+            return `<button type="button" class="w-8 h-8 flex items-center justify-center rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">${targetPage}</button>`;
+        }
+        return `<button type="button" onclick="goToAssignmentsPage('${scope}', ${targetPage})" class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold">${targetPage}</button>`;
+    };
+
+    let html = '';
+    html += makeArrowBtn(page - 1, 'prev', page <= 1);
+
+    const pages = [];
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+    } else {
+        pages.push(1);
+        if (page > 3) pages.push('...');
+        const start = Math.max(2, page - 1);
+        const end = Math.min(totalPages - 1, page + 1);
+        for (let i = start; i <= end; i += 1) pages.push(i);
+        if (page < totalPages - 2) pages.push('...');
+        pages.push(totalPages);
+    }
+
+    pages.forEach((entry) => {
+        if (entry === '...') {
+            html += '<span class="w-8 h-8 flex items-center justify-center text-slate-600 text-xs font-bold">...</span>';
+        } else {
+            html += makePageBtn(entry, entry === page);
+        }
+    });
+
+    html += makeArrowBtn(page + 1, 'next', page >= totalPages);
+    controls.innerHTML = html;
+}
+
+function renderPaginationInfo(infoId, page, limit, total, visibleRowsCount) {
+    const infoEl = document.getElementById(infoId);
+    if (!infoEl) return;
+
+    if (!total) {
+        infoEl.textContent = 'Showing 0 to 0 of 0';
+        return;
+    }
+
+    const start = (page - 1) * limit + 1;
+    const end = start + visibleRowsCount - 1;
+    infoEl.textContent = `Showing ${start} to ${end} of ${total}`;
+}
+
+function getAssignmentById(assignmentId) {
+    const inSidebar = sidebarAssignments.find((entry) => Number(entry.assignment_id) === Number(assignmentId));
+    if (inSidebar) return inSidebar;
+
+    const inTable = tableAssignments.find((entry) => Number(entry.assignment_id) === Number(assignmentId));
+    if (inTable) return inTable;
+
+    if (selectedAssignment && Number(selectedAssignment.assignment_id) === Number(assignmentId)) {
+        return selectedAssignment;
+    }
+
+    return null;
+}
+
+async function goToAssignmentsPage(scope, page) {
+    if (scope === 'sidebar') {
+        const clampedPage = Math.min(Math.max(1, page), paginationState.sidebarTotalPages);
+        await loadSidebarAssignments(clampedPage);
+        renderAssignmentsList();
+        return;
+    }
+
+    if (scope === 'table') {
+        const clampedPage = Math.min(Math.max(1, page), paginationState.tableTotalPages);
+        await loadTableAssignments(clampedPage);
+        renderDispatchTaskTable();
+    }
+}
+
+async function loadSidebarAssignments(page = 1) {
+    const payload = await dispatchApi.getAssignments({
+        page,
+        limit: paginationState.sidebarPageSize
+    });
+
+    sidebarAssignments = payload.data || [];
+    const meta = payload.pagination || {};
+    paginationState.sidebarPage = Number(meta.page || page);
+    paginationState.sidebarTotal = Number(meta.total || 0);
+    paginationState.sidebarTotalPages = Math.max(1, Number(meta.totalPages || 1));
+}
+
+async function loadTableAssignments(page = 1) {
+    const payload = await dispatchApi.getAssignments({
+        page,
+        limit: paginationState.tablePageSize
+    });
+
+    tableAssignments = payload.data || [];
+    const meta = payload.pagination || {};
+    paginationState.tablePage = Number(meta.page || page);
+    paginationState.tableTotal = Number(meta.total || 0);
+    paginationState.tableTotalPages = Math.max(1, Number(meta.totalPages || 1));
+}
+
+async function refreshAssignmentsData({ resetPages = false } = {}) {
+    const sidebarTargetPage = resetPages ? 1 : paginationState.sidebarPage;
+    const tableTargetPage = resetPages ? 1 : paginationState.tablePage;
+
+    await Promise.all([
+        loadSidebarAssignments(sidebarTargetPage),
+        loadTableAssignments(tableTargetPage)
+    ]);
+}
 
 function initUsersMap() {
     if (mapInitialized) return;
@@ -377,63 +635,123 @@ function clearMapRoute() {
     }
 }
 
-/**
- * Load map assignments - STATIC DATA (Controller removed)
- */
-function loadMapAssignments() {
-    const listContainer = document.getElementById('assignmentsList');
+function setDispatchMapVisibility(visible) {
+    const mapCard = document.getElementById('dispatchMapCard');
+    const detailsCard = document.getElementById('selectedTaskDetails');
+    if (!mapCard) return;
 
-    // Static assignment data
-    cachedAssignedUsers = [
-        {
-            assignment_id: 1,
-            user_id: 1,
-            full_name: 'John Martinez',
-            vehicle_number: 'RC-0001',
-            assignment_status: 'active',
-            pickup_lat: 14.6091,
-            pickup_lng: 121.0223,
-            dest_lat: 14.5994,
-            dest_lng: 120.9842,
-            distance_km: 12.5,
-            est_duration_min: 45,
-            assigned_at: new Date().toISOString()
-        },
-        {
-            assignment_id: 2,
-            user_id: 2,
-            full_name: 'Carlos Reyes',
-            vehicle_number: 'RC-0002',
-            assignment_status: 'pending',
-            pickup_lat: 14.5500,
-            pickup_lng: 121.0100,
-            dest_lat: 14.6200,
-            dest_lng: 121.0500,
-            distance_km: 8.3,
-            est_duration_min: 30,
-            assigned_at: new Date(Date.now() - 3600000).toISOString()
+    // Prevent expensive DOM/layout work when target state is unchanged.
+    if (visible === isDispatchMapVisible) return;
+
+    isDispatchMapVisible = visible;
+
+    mapCard.classList.toggle('hidden', !visible);
+
+    if (detailsCard) {
+        if (visible) {
+            detailsCard.classList.remove('flex-1', 'min-h-0');
+            detailsCard.classList.add('shrink-0');
+        } else {
+            detailsCard.classList.remove('shrink-0');
+            detailsCard.classList.add('flex-1', 'min-h-0');
         }
-    ];
+    }
+
+    if (visible && map) {
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 120);
+    }
+}
+
+async function loadMapAssignments() {
+    const listContainer = document.getElementById('assignmentsList');
+    setDispatchMapVisibility(true);
+
+    try {
+        await refreshAssignmentsData({ resetPages: true });
+    } catch (error) {
+        sidebarAssignments = [];
+        tableAssignments = [];
+        paginationState.sidebarTotal = 0;
+        paginationState.tableTotal = 0;
+        listContainer.innerHTML = '<div class="p-4 text-center text-rose-400 text-xs"><p class="font-bold">Failed to load assignments</p><p class="mt-1 text-slate-500">Please refresh and try again</p></div>';
+        renderDispatchTaskTable();
+        hideTaskDetails({ clearSelection: true });
+        return;
+    }
 
     clearMapMarkers();
     clearMapRoute();
     selectedAssignmentId = null;
+    selectedAssignment = null;
 
-    if (cachedAssignedUsers.length === 0) {
+    if (paginationState.sidebarTotal === 0) {
         listContainer.innerHTML = '<div class="p-4 text-center text-gray-500 text-xs"><p class="font-bold">No Active Assignments</p><p class="mt-1">Dispatch a task to see routes here</p></div>';
-        hideTaskDetails();
+        renderPaginationInfo('assignmentsPaginationInfo', 1, paginationState.sidebarPageSize, 0, 0);
+        renderPaginationControls('assignmentsPaginationControls', 1, 1, 'sidebar');
+        renderDispatchTaskTable();
+        hideTaskDetails({ clearSelection: true });
         return;
     }
 
     renderAssignmentsList();
+    renderDispatchTaskTable();
+}
+
+function renderDispatchTaskTable() {
+    const tbody = document.getElementById('dispatchTaskTableBody');
+    if (!tbody) return;
+
+    if (!paginationState.tableTotal) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">No dispatch tasks found.</td></tr>';
+        renderPaginationInfo('dispatchTablePaginationInfo', 1, paginationState.tablePageSize, 0, 0);
+        renderPaginationControls('dispatchTablePaginationControls', 1, 1, 'table');
+        return;
+    }
+
+    tbody.innerHTML = tableAssignments.map((item) => {
+        const status = String(item.assignment_status || 'pending').toLowerCase();
+        const statusClass = status === 'active'
+            ? 'text-emerald-400'
+            : (status === 'pending' ? 'text-yellow-400' : 'text-slate-400');
+
+        return `
+            <tr class="hover:bg-slate-800/40 transition">
+                <td class="py-3 pr-4 text-white font-semibold">${item.full_name || 'Unassigned Driver'}</td>
+                <td class="py-3 pr-4 text-slate-300 font-mono">${item.vehicle_number || '--'}</td>
+                <td class="py-3 pr-4 ${statusClass} font-bold uppercase">${status}</td>
+                <td class="py-3 pr-4 text-slate-300">${item.distance_km ? `${item.distance_km} km` : '--'}</td>
+                <td class="py-3 pr-4 text-slate-300">${item.est_duration_min ? `${item.est_duration_min} min` : '--'}</td>
+                <td class="py-3 pr-0">
+                    <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition" onclick="selectAssignmentById(${item.assignment_id})">View</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    renderPaginationInfo(
+        'dispatchTablePaginationInfo',
+        paginationState.tablePage,
+        paginationState.tablePageSize,
+        paginationState.tableTotal,
+        tableAssignments.length
+    );
+    renderPaginationControls('dispatchTablePaginationControls', paginationState.tablePage, paginationState.tableTotalPages, 'table');
+}
+
+function selectAssignmentById(assignmentId) {
+    const user = getAssignmentById(assignmentId);
+    if (!user) return;
+    selectAssignment(user, { hideMap: true, showDetails: true });
 }
 
 function renderAssignmentsList() {
     const listContainer = document.getElementById('assignmentsList');
     listContainer.innerHTML = '';
 
-    cachedAssignedUsers.forEach(user => {
-        const initials = getInitials(user.full_name);
+    sidebarAssignments.forEach(user => {
+        const initials = getInitials(user.full_name || 'ND');
         const isSelected = selectedAssignmentId == user.assignment_id;
         const isActive = user.assignment_status === 'active';
 
@@ -443,14 +761,14 @@ function renderAssignmentsList() {
                 ? 'bg-[#2DD4BF]/10 border-[#2DD4BF]/50'
                 : 'bg-gray-800/50 hover:bg-[#2DD4BF]/10 border-transparent hover:border-[#2DD4BF]/30'
         }`;
-        assignmentDiv.onclick = () => selectAssignment(user);
+        assignmentDiv.onclick = () => selectAssignment(user, { hideMap: false, showDetails: false });
 
         assignmentDiv.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">${initials}</div>
                     <div>
-                        <p class="text-sm font-bold ${isSelected ? 'text-[#2DD4BF]' : 'text-white group-hover:text-[#2DD4BF]'}">${user.full_name}</p>
+                        <p class="text-sm font-bold ${isSelected ? 'text-[#2DD4BF]' : 'text-white group-hover:text-[#2DD4BF]'}">${user.full_name || 'Unassigned Driver'}</p>
                         <p class="text-[10px] text-gray-500">${user.vehicle_number || 'No Vehicle'}</p>
                     </div>
                 </div>
@@ -464,6 +782,15 @@ function renderAssignmentsList() {
 
         listContainer.appendChild(assignmentDiv);
     });
+
+    renderPaginationInfo(
+        'assignmentsPaginationInfo',
+        paginationState.sidebarPage,
+        paginationState.sidebarPageSize,
+        paginationState.sidebarTotal,
+        sidebarAssignments.length
+    );
+    renderPaginationControls('assignmentsPaginationControls', paginationState.sidebarPage, paginationState.sidebarTotalPages, 'sidebar');
 }
 
 function addAssignmentMarkers(user) {
@@ -474,50 +801,78 @@ function addAssignmentMarkers(user) {
     mapMarkers.push(destMarkerObj);
 }
 
-function selectAssignment(user) {
+function hideDetailsPanelContent() {
+    const panel = document.getElementById('selectedTaskDetails');
+    const directions = document.getElementById('mapRouteDirections');
+    const directionsContent = document.getElementById('mapDirectionsContent');
+
+    if (panel) panel.classList.add('hidden');
+    if (directions) directions.classList.add('hidden');
+    if (directionsContent) directionsContent.classList.add('hidden');
+}
+
+function selectAssignment(user, options = {}) {
+    const { hideMap = false, showDetails = false } = options;
+
     selectedAssignmentId = user.assignment_id;
+    selectedAssignment = user;
     renderAssignmentsList();
     clearMapMarkers();
     addAssignmentMarkers(user);
-    showTaskDetails(user);
-    drawAssignmentRoute(user);
+
+    if (showDetails) {
+        showTaskDetails(user);
+    } else {
+        hideDetailsPanelContent();
+    }
+
+    setDispatchMapVisibility(!hideMap);
+    drawAssignmentRoute(user, { hideMap });
 }
 
 function showTaskDetails(user) {
     const panel = document.getElementById('selectedTaskDetails');
     panel.classList.remove('hidden');
 
-    document.getElementById('selectedDriverName').textContent = user.full_name;
+    document.getElementById('selectedDriverName').textContent = user.full_name || 'Unassigned Driver';
     document.getElementById('selectedVehicle').textContent = user.vehicle_number || 'No Vehicle';
     document.getElementById('selectedDistance').textContent = user.distance_km ? `${user.distance_km} km` : '-- km';
     document.getElementById('selectedDuration').textContent = user.est_duration_min ? `${user.est_duration_min} min` : '-- min';
 
     const statusEl = document.getElementById('selectedStatus');
-    const isActive = user.assignment_status === 'active';
-    statusEl.textContent = isActive ? 'Active' : 'Pending';
-    statusEl.className = `text-sm font-bold ${isActive ? 'text-[#2DD4BF]' : 'text-yellow-400'}`;
+    const status = String(user.assignment_status || 'pending').toLowerCase();
+    let statusClass = 'text-yellow-400';
+    if (status === 'active') statusClass = 'text-[#2DD4BF]';
+    if (status === 'completed') statusClass = 'text-blue-400';
+    if (status === 'cancelled') statusClass = 'text-rose-400';
+
+    statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    statusEl.className = `text-sm font-bold ${statusClass}`;
 
     const startTime = user.assigned_at ? new Date(user.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
     document.getElementById('selectedStartTime').textContent = startTime;
 }
 
-function hideTaskDetails() {
-    const panel = document.getElementById('selectedTaskDetails');
-    const directions = document.getElementById('mapRouteDirections');
-    const content = document.getElementById('mapDirectionsContent');
+function hideTaskDetails(options = {}) {
+    const { clearSelection = false } = options;
 
-    if (panel) panel.classList.add('hidden');
-    if (directions) directions.classList.add('hidden');
-    if (content) content.classList.add('hidden');
+    hideDetailsPanelContent();
 
-    selectedAssignmentId = null;
-    clearMapMarkers();
-    clearMapRoute();
+    if (clearSelection) {
+        selectedAssignmentId = null;
+        selectedAssignment = null;
+        clearMapMarkers();
+        clearMapRoute();
+    }
+
+    setDispatchMapVisibility(true);
 }
 
-function drawAssignmentRoute(user) {
+function drawAssignmentRoute(user, options = {}) {
+    const { hideMap = false } = options;
+
     clearMapRoute();
-    if (!user || !user.pickup_lat || !user.pickup_lng || !user.dest_lat || !user.dest_lng) return;
+    if (!user || user.pickup_lat == null || user.pickup_lng == null || user.dest_lat == null || user.dest_lng == null) return;
 
     currentMapRoute = createRoutingControl(
         map,
@@ -526,17 +881,12 @@ function drawAssignmentRoute(user) {
         function(e) {
             const { summary, instructions } = e.routes[0];
             document.getElementById('mapRouteDirections').classList.remove('hidden');
+            document.getElementById('mapDirectionsContent')?.classList.remove('hidden');
             document.getElementById('mapRouteSummary').textContent = `• ${formatDistance(summary.totalDistance)} • ${formatTime(summary.totalTime)}`;
             populateMapDirections(instructions);
+            setDispatchMapVisibility(!hideMap);
         }
     );
-}
-
-function toggleMapDirections() {
-    const content = document.getElementById('mapDirectionsContent');
-    const chevron = document.getElementById('mapDirectionsChevron');
-    content.classList.toggle('hidden');
-    chevron.classList.toggle('rotate-180');
 }
 
 function populateMapDirections(instructions) {
@@ -553,6 +903,9 @@ function populateMapDirections(instructions) {
     `).join('');
 }
 
+// ===========================================
+// SECTION 4: EDIT ASSIGNMENT MODAL (UPDATE FLOW)
+// ===========================================
 let editAssignmentMap = null;
 let editAssignmentMarkers = [];
 let editMapMode = 'pickup';
@@ -560,18 +913,34 @@ let editPickupCoords = null;
 let editDestCoords = null;
 let editRoutingControl = null;
 
-function openEditAssignmentModal() {
+async function openEditAssignmentModal() {
     if (!selectedAssignmentId) return;
 
-    const user = cachedAssignedUsers.find(u => u.assignment_id == selectedAssignmentId);
+    const user = getAssignmentById(selectedAssignmentId);
     if (!user) return;
 
     clearInlineMessage(document.getElementById('editAssignmentError'));
     clearInlineMessage(document.getElementById('editAssignmentSuccess'));
     document.getElementById('editAssignmentId').value = user.assignment_id;
-    document.getElementById('editAssignmentDriver').textContent = user.full_name;
-    document.getElementById('editAssignmentVehicle').value = user.vehicle_number?.replace('RC-', '') || '0001';
+    document.getElementById('editAssignmentDriver').textContent = user.full_name || 'Unassigned Driver';
     document.getElementById('editAssignmentStatus').value = user.assignment_status || 'active';
+
+    try {
+        await loadAssignableVehicles({
+            limit: 20,
+            includeVehicleId: user.vehicle_id,
+            requireAssigned: true,
+            targetSelectId: 'editAssignmentVehicleSelect',
+            placeholder: 'Choose vehicle for this assignment...'
+        });
+    } catch (_) {
+        showInlineMessage(document.getElementById('editAssignmentError'), 'Unable to load assignable vehicles.');
+    }
+
+    const vehicleSelect = document.getElementById('editAssignmentVehicleSelect');
+    if (vehicleSelect && user.vehicle_id) {
+        vehicleSelect.value = String(user.vehicle_id);
+    }
 
     const pickupLat = parseFloat(user.pickup_lat);
     const pickupLng = parseFloat(user.pickup_lng);
@@ -633,34 +1002,53 @@ function setEditMapMode(mode) {
     const modeText = document.getElementById('editModeText');
 
     if (mode === 'pickup') {
-        modeDot.classList.remove('bg-red-500');
-        modeDot.classList.add('bg-[#2DD4BF]');
+        modeDot.className = 'w-2 h-2 rounded-full bg-[#2DD4BF] animate-pulse';
+        modeText.className = 'text-[10px] font-bold text-[#2DD4BF] uppercase tracking-widest';
         modeText.textContent = 'Set Pickup Point';
-        modeText.classList.remove('text-red-400');
-        modeText.classList.add('text-[#2DD4BF]');
     } else {
-        modeDot.classList.remove('bg-[#2DD4BF]');
-        modeDot.classList.add('bg-red-500');
+        modeDot.className = 'w-2 h-2 rounded-full bg-red-400 animate-pulse';
+        modeText.className = 'text-[10px] font-bold text-red-400 uppercase tracking-widest';
         modeText.textContent = 'Set Destination Point';
-        modeText.classList.remove('text-[#2DD4BF]');
-        modeText.classList.add('text-red-400');
     }
 }
 
-function handleEditMapClick(e) {
-    const { lat, lng } = e.latlng;
+function handleEditMapClick(e, overrideAddress = null) {
+    const { lat, lng } = e.latlng || e;
+    const coordString = overrideAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
     if (editMapMode === 'pickup') {
         editPickupCoords = { lat, lng };
-        document.getElementById('editPickupInput').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('editPickupInput').value = coordString;
         if (editAssignmentMarkers[0]) editAssignmentMap.removeLayer(editAssignmentMarkers[0]);
-        editAssignmentMarkers[0] = L.marker([lat, lng], { icon: greenIcon }).addTo(editAssignmentMap);
+        
+        // Make draggable
+        editAssignmentMarkers[0] = L.marker([lat, lng], { icon: greenIcon, draggable: true }).addTo(editAssignmentMap)
+            .bindPopup('<b class="text-slate-900">Pickup</b>').openPopup();
+        
+        editAssignmentMarkers[0].on('dragend', function(ev) {
+            const pos = ev.target.getLatLng();
+            editPickupCoords = { lat: pos.lat, lng: pos.lng };
+            document.getElementById('editPickupInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+            updateEditRoute();
+        });
+        
         setEditMapMode('dest');
     } else {
         editDestCoords = { lat, lng };
-        document.getElementById('editDestInput').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('editDestInput').value = coordString;
         if (editAssignmentMarkers[1]) editAssignmentMap.removeLayer(editAssignmentMarkers[1]);
-        editAssignmentMarkers[1] = L.marker([lat, lng], { icon: redIcon }).addTo(editAssignmentMap);
+        
+        // Make draggable
+        editAssignmentMarkers[1] = L.marker([lat, lng], { icon: redIcon, draggable: true }).addTo(editAssignmentMap)
+            .bindPopup('<b class="text-slate-900">Destination</b>').openPopup();
+        
+        editAssignmentMarkers[1].on('dragend', function(ev) {
+            const pos = ev.target.getLatLng();
+            editDestCoords = { lat: pos.lat, lng: pos.lng };
+            document.getElementById('editDestInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+            updateEditRoute();
+        });
+
         setEditMapMode('pickup');
     }
 
@@ -684,177 +1072,239 @@ function updateEditRoute() {
     });
 }
 
-/**
- * Save assignment changes - STUB (Controller removed - backend integration needed)
- */
-function saveAssignmentChanges() {
-    const vehicleInput = document.getElementById('editAssignmentVehicle').value.trim();
+async function saveAssignmentChanges() {
+    const vehicleInput = document.getElementById('editAssignmentVehicleSelect').value;
+    const assignmentId = document.getElementById('editAssignmentId').value;
     const errorEl = document.getElementById('editAssignmentError');
     const successEl = document.getElementById('editAssignmentSuccess');
+    const submitBtn = document.querySelector('#editAssignmentModal button[type="button"][onclick*="saveAssignmentChanges"]');
     
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
 
-    if (!vehicleInput) {
-        showInlineMessage(errorEl, 'Please enter a vehicle number.');
-        return;
+    // ─── SHOW LOADING STATE ───
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
     }
 
-    if (!editPickupCoords || !editDestCoords) {
-        showInlineMessage(errorEl, 'Please set both pickup and destination points.');
-        return;
-    }
+    try {
+        // ─── SEND TO BACKEND: LET SERVER VALIDATE ALL BUSINESS RULES ───
+        const response = await fetch(`${DISPATCH_API_BASE}/assignments/${assignmentId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json'
+            },
+            body: JSON.stringify({
+                vehicleId: vehicleInput ?? null,
+                pickupLat: editPickupCoords?.lat ?? null,
+                pickupLng: editPickupCoords?.lng ?? null,
+                destLat: editDestCoords?.lat ?? null,
+                destLng: editDestCoords?.lng ?? null,
+                status: document.getElementById('editAssignmentStatus').value
+            })
+        });
 
-    showInlineMessage(successEl, 'Assignment would be updated (Backend integration needed)');
-    
-    setTimeout(() => {
-        closeModal('editAssignmentModal');
-        loadMapAssignments();
-        hideTaskDetails();
-    }, 800);
+        const payload = await response.json();
+
+        if (!response.ok) {
+            // ─── WIRE SERVER VALIDATION ERROR ───
+            displayErrorFromResponse(errorEl, payload);
+            return;
+        }
+
+        // ─── SUCCESS: DISPLAY SERVER MESSAGE ───
+        showInlineMessage(successEl, payload.message || 'Assignment updated successfully.');
+
+        await loadMapAssignments();
+        hideTaskDetails({ clearSelection: true });
+
+        setTimeout(() => {
+            closeModal('editAssignmentModal');
+        }, 700);
+    } catch (error) {
+        console.error('Network or server error:', error);
+        showInlineMessage(errorEl, 'Connection error. Please check your network and try again.');
+    } finally {
+        // ─── RESTORE BUTTON STATE ───
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+    }
 }
+
+// ===========================================
+// SECTION 5: DELETE ASSIGNMENT FLOW
+// ===========================================
 
 function openDeleteAssignmentModal() {
     if (!selectedAssignmentId) return;
 
-    const user = cachedAssignedUsers.find(u => u.assignment_id == selectedAssignmentId);
+    const user = getAssignmentById(selectedAssignmentId);
     if (!user) return;
 
     clearInlineMessage(document.getElementById('deleteAssignmentError'));
     clearInlineMessage(document.getElementById('deleteAssignmentSuccess'));
     document.getElementById('deleteAssignmentId').value = user.assignment_id;
-    document.getElementById('deleteAssignmentDriverName').textContent = user.full_name;
+    document.getElementById('deleteAssignmentDriverName').textContent = user.full_name || 'Unassigned Driver';
     document.getElementById('deleteAssignmentVehicle').textContent = `Vehicle: ${user.vehicle_number || 'Not assigned'}`;
 
     openModal('deleteAssignmentModal');
 }
 
-/**
- * Confirm delete assignment - STUB (Controller removed - backend integration needed)
- */
-function confirmDeleteAssignment() {
+async function confirmDeleteAssignment() {
     const errorEl = document.getElementById('deleteAssignmentError');
     const successEl = document.getElementById('deleteAssignmentSuccess');
+    const assignmentId = document.getElementById('deleteAssignmentId').value;
+    const confirmBtn = document.querySelector('#deleteAssignmentModal button[type="button"][onclick*="confirmDeleteAssignment"]');
 
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
 
-    showInlineMessage(successEl, 'Assignment would be cancelled (Backend integration needed)');
-    
-    setTimeout(() => {
-        closeModal('deleteAssignmentModal');
-        loadMapAssignments();
-        hideTaskDetails();
-    }, 800);
-}
-
-let trackingSocket = null;
-let liveLocationMarkers = {};
-let trackingInterval = null;
-let isTrackingActive = false;
-
-/**
- * Initialize tracking WebSocket - REMOVED (Controller removed)
- * Real-time GPS tracking requires backend WebSocket endpoint
- * Re-enable when dispatch controller backend is restored
- */
-function initTrackingWebSocket() {
-    console.log('[GPS Tracking] WebSocket tracking disabled (backend required)');
-}
-
-function startPollingFallback() {
-    console.log('[GPS Tracking] Polling fallback disabled (backend required)');
-}
-
-/**
- * Fetch live locations - REMOVED (Controller removed - requires GPS/API backend)
- * This functionality requires active backend API endpoint
- */
-function fetchLiveLocations() {
-    // Live GPS tracking disabled - requires backend
-    console.log('[GPS Tracking] Live location tracking disabled (backend required)');
-}
-
-function handleLiveLocationUpdate(locationData) {
-    if (!map || !mapInitialized) return;
-
-    const { userId, fullName, latitude, longitude, speed, recordedAt } = locationData;
-    if (!latitude || !longitude) return;
-
-    const position = [latitude, longitude];
-    const popupContent = `
-        <div class="text-center">
-            <b class="text-blue-600">${fullName}</b><br>
-            <span class="text-xs text-gray-500">
-                ${speed ? `Speed: ${speed.toFixed(1)} km/h` : 'Speed: --'}<br>
-                Last update: ${new Date(recordedAt).toLocaleTimeString()}
-            </span>
-        </div>
-    `;
-
-    if (liveLocationMarkers[userId]) {
-        liveLocationMarkers[userId].setLatLng(position);
-        liveLocationMarkers[userId].setPopupContent(popupContent);
-    } else {
-        liveLocationMarkers[userId] = L.marker(position, { icon: blueIcon }).addTo(map).bindPopup(popupContent);
+    // ─── SHOW LOADING STATE ───
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.classList.add('opacity-60', 'cursor-not-allowed');
     }
 
-    updateLiveTrackingPanel(locationData);
-}
+    try {
+        // ─── SEND DELETE REQUEST TO BACKEND ───
+        const response = await fetch(`${DISPATCH_API_BASE}/assignments/${assignmentId}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' }
+        });
 
-function updateLiveTrackingPanel(locationData) {
-    const panel = document.getElementById('liveTrackingInfo');
-    if (!panel) return;
+        const payload = await response.json();
 
-    const { fullName, speed, recordedAt } = locationData;
-    panel.innerHTML = `
-        <div class="flex items-center gap-2">
-            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span class="text-xs text-gray-400">
-                ${fullName} - ${speed ? speed.toFixed(1) + ' km/h' : 'Stationary'}
-                (${new Date(recordedAt).toLocaleTimeString()})
-            </span>
-        </div>
-    `;
-}
-
-function startLiveTracking() {
-    if (isTrackingActive) return;
-    isTrackingActive = true;
-    initTrackingWebSocket();
-
-    setTimeout(() => {
-        if (!trackingSocket || trackingSocket.readyState !== WebSocket.OPEN) {
-            startPollingFallback();
+        if (!response.ok) {
+            // ─── WIRE SERVER ERROR ───
+            displayErrorFromResponse(errorEl, payload);
+            return;
         }
-    }, 2000);
+
+        // ─── SUCCESS: DISPLAY SERVER MESSAGE ───
+        showInlineMessage(successEl, payload.message || 'Assignment cancelled successfully.');
+
+        await Promise.all([loadMapAssignments(), loadAssignableVehicles()]);
+        hideTaskDetails({ clearSelection: true });
+
+        setTimeout(() => {
+            closeModal('deleteAssignmentModal');
+        }, 700);
+    } catch (error) {
+        console.error('Network or server error:', error);
+        showInlineMessage(errorEl, 'Connection error. Please check your network and try again.');
+    } finally {
+        // ─── RESTORE BUTTON STATE ───
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        }
+    }
 }
 
-function stopLiveTracking() {
-    isTrackingActive = false;
-
-    if (trackingSocket) {
-        trackingSocket.close();
-        trackingSocket = null;
-    }
-
-    if (trackingInterval) {
-        clearInterval(trackingInterval);
-        trackingInterval = null;
-    }
-
-    Object.values(liveLocationMarkers).forEach(marker => {
-        if (map) map.removeLayer(marker);
-    });
-    liveLocationMarkers = {};
-}
-
+// ===========================================
+// SECTION 6: PAGE BOOTSTRAPPING
+// ===========================================
 document.addEventListener('DOMContentLoaded', () => {
     initUsersMap();
     loadMapAssignments();
-    startLiveTracking();
 });
 
-window.addEventListener('beforeunload', () => {
-    stopLiveTracking();
-});
+
+// ===========================================
+// SECTION 7: GEOCODING & DRAGGABLE MARKERS
+// ===========================================
+async function geocodeAddress(query) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.length > 0 ? data[0] : null;
+    } catch (error) {
+        console.error("Geocoding failed:", error);
+        return null;
+    }
+}
+
+async function handleMapSearch(event, mode, context) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    
+    const inputElement = event.target;
+    const query = inputElement.value;
+    if (!query) return;
+
+    const originalPlaceholder = inputElement.placeholder;
+    inputElement.placeholder = "Searching...";
+    inputElement.value = "";
+
+    const result = await geocodeAddress(query);
+    
+    if (result) {
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        // Clean up the long OSM address
+        const cleanAddress = result.display_name.split(',').slice(0, 3).join(', '); 
+        
+        if (context === 'assign') {
+            if (!taskMap) return;
+            taskMap.flyTo([lat, lng], 15, { animate: true });
+            placeDraggableMarker(lat, lng, mode, cleanAddress);
+        } else if (context === 'edit') {
+            if (!editAssignmentMap) return;
+            editAssignmentMap.flyTo([lat, lng], 15, { animate: true });
+            if (mode === 'pickup') setEditMapMode('pickup');
+            else setEditMapMode('dest');
+            
+            handleEditMapClick({ latlng: { lat, lng } }, cleanAddress);
+        }
+    } else {
+        alert("Address not found. Please try a different search term.");
+        inputElement.value = query;
+    }
+    inputElement.placeholder = originalPlaceholder;
+}
+
+function placeDraggableMarker(lat, lng, mode, overrideAddress = null) {
+    const coordString = overrideAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+    if (mode === 'pickup') {
+        if (pickupMarker) taskMap.removeLayer(pickupMarker);
+        
+        pickupMarker = L.marker([lat, lng], { icon: greenIcon, draggable: true }).addTo(taskMap)
+            .bindPopup('<b class="text-slate-900">Pickup</b><br><span class="text-xs text-slate-600">Drag to adjust</span>').openPopup();
+        
+        document.getElementById('pickupInput').value = coordString;
+        
+        pickupMarker.on('dragend', function(e) {
+            const pos = e.target.getLatLng();
+            document.getElementById('pickupInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+            updateTaskRoute();
+        });
+
+        setTaskMode('dest');
+    } else {
+        if (destMarker) taskMap.removeLayer(destMarker);
+        
+        destMarker = L.marker([lat, lng], { icon: redIcon, draggable: true }).addTo(taskMap)
+            .bindPopup('<b class="text-slate-900">Destination</b><br><span class="text-xs text-slate-600">Drag to adjust</span>').openPopup();
+        
+        document.getElementById('destInput').value = coordString;
+        
+        destMarker.on('dragend', function(e) {
+            const pos = e.target.getLatLng();
+            document.getElementById('destInput').value = `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`;
+            updateTaskRoute();
+        });
+    }
+
+    updateTaskRoute();
+}
+
+// ===========================================
+// SECTION 8: GLOBAL EXPORTS
+// ===========================================
+window.goToAssignmentsPage = goToAssignmentsPage;

@@ -222,13 +222,13 @@ function renderFleetRows() {
                 </td>
                 <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-1">
-                        <button onclick="openViewVehicle(${vehicle.id})" class="p-2 rounded-lg border border-teal-500/30 text-teal-400 bg-teal-900/20 hover:text-teal-300 transition" title="View Vehicle">
+                        <button onclick="openViewVehicle(${vehicle.id})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-teal-900/20 hover:border-teal-500/30 hover:text-teal-300" title="View Vehicle">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                         </button>
-                        <button onclick="openEditVehicle(${vehicle.id})" class="p-2 rounded-lg border border-blue-500/30 text-blue-400 bg-blue-900/20 hover:text-blue-300 transition" title="Edit Vehicle">
+                        <button onclick="openEditVehicle(${vehicle.id})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-blue-900/20 hover:border-blue-500/30 hover:text-blue-300" title="Edit Vehicle">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
-                        <button onclick="openDeleteVehicle(${vehicle.id})" class="p-2 rounded-lg border border-red-500/30 text-red-500 bg-red-900/20 hover:text-red-400 transition" title="Delete Vehicle">
+                        <button onclick="openDeleteVehicle(${vehicle.id})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-red-900/20 hover:border-red-500/30 hover:text-red-300" title="Delete Vehicle">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>

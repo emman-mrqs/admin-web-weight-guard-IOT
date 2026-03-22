@@ -1514,8 +1514,8 @@ function buildStaffDeletedCell({ isSoftDeleted, deletedAtText, permanentDeleteEl
     return `
         <td class="px-6 py-4">
             <div class="flex flex-col gap-1">
-                <span class="text-[10px] ${isSoftDeleted ? 'text-rose-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
-                ${isSoftDeleted ? `<span class="text-[10px] ${permanentDeleteEligible ? 'text-rose-300' : 'text-amber-300'}">${deleteAvailabilityText}</span>` : ''}
+                <span class="text-[10px] ${isSoftDeleted ? 'text-slate-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
+                ${isSoftDeleted ? `<span class="text-[10px] ${permanentDeleteEligible ? 'text-slate-300' : 'text-slate-400'}">${deleteAvailabilityText}</span>` : ''}
             </div>
         </td>
     `;
@@ -1526,43 +1526,43 @@ function buildStaffActionsCell({ s, safeFullName, roleDisplay, isSoftDeleted, is
         <td class="px-6 py-4 text-right">
             <div class="flex items-center justify-end gap-2">
                 ${!s.is_verified ? `
-                    <button onclick="openVerificationForStaff('${s.email}', ${s.id}, '${s.verification_expires}')" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Send Verification">
+                    <button onclick="openVerificationForStaff('${s.email}', ${s.id}, '${s.verification_expires}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Send Verification">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </button>
                 ` : ''}
-                <button onclick="openHistoryModal(${s.id}, '${safeFullName}')" class="p-2 text-teal-400 hover:text-teal-300 transition bg-teal-900/20 rounded-lg border border-teal-500/30" title="History">
+                <button onclick="openHistoryModal(${s.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-teal-900/20 hover:border-teal-500/30 hover:text-teal-300" title="History">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                 </button>
                 ${!isSoftDeleted && !isSuspended ? `
-                    <button onclick="openEditStaffModal(${s.id})" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30" title="Edit Staff">
+                    <button onclick="openEditStaffModal(${s.id})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-blue-900/20 hover:border-blue-500/30 hover:text-blue-300" title="Edit Staff">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     </button>
                 ` : ''}
                 ${!isSoftDeleted ? `
                     ${s.is_suspended ? `
-                        <button onclick="openSuspensionDetailsModal(${s.id}, '${safeFullName}')" class="p-2 text-slate-300 hover:text-white transition bg-slate-800/70 rounded-lg border border-slate-600/70" title="Suspension Details">
+                        <button onclick="openSuspensionDetailsModal(${s.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-slate-800 hover:border-slate-500 hover:text-white" title="Suspension Details">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         </button>
-                        <button onclick="openLiftSuspensionModal(${s.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Restore Access">
+                        <button onclick="openLiftSuspensionModal(${s.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Restore Access">
                             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 109-9"></path><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v6h6"></path></svg>
                         </button>
                     ` : `
-                        <button onclick="openSuspensionModal(${s.id}, '${safeFullName}')" class="p-2 text-orange-400 hover:text-orange-300 transition bg-orange-900/20 rounded-lg border border-orange-500/30" title="Suspend Staff">
+                        <button onclick="openSuspensionModal(${s.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-orange-900/20 hover:border-orange-500/30 hover:text-orange-300" title="Suspend Staff">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><line x1="5.636" y1="18.364" x2="18.364" y2="5.636" stroke="currentColor" stroke-width="2"></line></svg>
                         </button>
                     `}
                 ` : ''}
                 ${isSoftDeleted ? `
-                    <button onclick="openRestoreDeletedStaffModal(${s.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Restore Staff">
+                    <button onclick="openRestoreDeletedStaffModal(${s.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Restore Staff">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 109-9"></path><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v6h6"></path></svg>
                     </button>
-                    ${permanentDeleteEligible ? `<button onclick="openPermanentDeleteStaffModal(${s.id}, '${safeFullName}', '${roleDisplay}')" class="p-2 text-rose-400 hover:text-rose-300 transition bg-rose-900/20 rounded-lg border border-rose-500/30" title="Permanently Delete">
+                    ${permanentDeleteEligible ? `<button onclick="openPermanentDeleteStaffModal(${s.id}, '${safeFullName}', '${roleDisplay}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-rose-900/20 hover:border-rose-500/30 hover:text-rose-300" title="Permanently Delete">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>` : `<button disabled class="p-2 text-rose-300/50 transition bg-rose-900/10 rounded-lg border border-rose-500/20 cursor-not-allowed opacity-70" title="${permanentDeleteDaysRemaining ? `Permanent delete available in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}` : 'Permanent delete not available yet'}">
+                    </button>` : `<button disabled class="p-2 rounded-lg border border-slate-700 text-slate-500 bg-slate-900/30 cursor-not-allowed opacity-70" title="${permanentDeleteDaysRemaining ? `Permanent delete available in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}` : 'Permanent delete not available yet'}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>`}
                 ` : `
-                    <button onclick="openDeleteStaffModal(${s.id}, '${safeFullName}', '${roleDisplay}')" class="p-2 text-rose-400 hover:text-rose-300 transition bg-rose-900/20 rounded-lg border border-rose-500/30" title="Delete Staff">
+                    <button onclick="openDeleteStaffModal(${s.id}, '${safeFullName}', '${roleDisplay}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-rose-900/20 hover:border-rose-500/30 hover:text-rose-300" title="Delete Staff">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
                 `}

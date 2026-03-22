@@ -136,6 +136,11 @@ const usersPagination = {
     page: 1,
     limit: 10
 };
+const historyPagination = {
+    page: 1,
+    limit: 8
+};
+let historyState = [];
 
 const USER_DOM_IDS = {
     usersSearchInput: 'usersSearchInput',
@@ -236,6 +241,160 @@ function formatDateTime(dateValue) {
         minute: '2-digit',
         hour12: true
     });
+}
+
+function getHistoryStatusBadge(status) {
+    const normalized = String(status || 'pending').toLowerCase();
+
+    if (normalized === 'active') {
+        return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold tracking-wide';
+    }
+
+    if (normalized === 'completed') {
+        return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold tracking-wide';
+    }
+
+    if (normalized === 'cancelled') {
+        return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold tracking-wide';
+    }
+
+    return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold tracking-wide';
+}
+
+function getHistoryPageData(historyEntries) {
+    const totalEntries = Array.isArray(historyEntries) ? historyEntries.length : 0;
+    const totalPages = Math.max(1, Math.ceil(totalEntries / historyPagination.limit));
+
+    if (historyPagination.page > totalPages) {
+        historyPagination.page = totalPages;
+    }
+
+    const startIndex = totalEntries === 0 ? 0 : (historyPagination.page - 1) * historyPagination.limit;
+    const endIndex = Math.min(startIndex + historyPagination.limit, totalEntries);
+    const pageRows = totalEntries === 0 ? [] : historyEntries.slice(startIndex, endIndex);
+
+    return {
+        totalEntries,
+        totalPages,
+        startIndex,
+        endIndex,
+        pageRows
+    };
+}
+
+function renderHistoryPagination(totalEntries, totalPages, startIndex, endIndex) {
+    const infoEl = document.getElementById('historyPaginationInfo');
+    const controlsEl = document.getElementById('historyPaginationControls');
+    if (!infoEl || !controlsEl) return;
+
+    if (totalEntries === 0) {
+        infoEl.textContent = 'Showing 0 to 0 of 0 entries';
+        controlsEl.classList.add('hidden');
+        controlsEl.innerHTML = '';
+        return;
+    }
+
+    infoEl.innerHTML = `Showing <span class="text-white font-bold">${startIndex + 1}</span> to <span class="text-white font-bold">${endIndex}</span> of <span class="text-white font-bold">${totalEntries}</span> entries`;
+
+    const prevDisabled = historyPagination.page <= 1;
+    const nextDisabled = historyPagination.page >= totalPages;
+
+    controlsEl.innerHTML = `
+        <button ${prevDisabled ? 'disabled' : ''} onclick="goToHistoryPage(${historyPagination.page - 1})" class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-bold ${prevDisabled ? 'text-slate-600 bg-slate-900/40 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-800 transition'}">Prev</button>
+        <span class="text-xs text-slate-400">Page <span class="text-white font-bold">${historyPagination.page}</span> of <span class="text-white font-bold">${totalPages}</span></span>
+        <button ${nextDisabled ? 'disabled' : ''} onclick="goToHistoryPage(${historyPagination.page + 1})" class="px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs font-bold ${nextDisabled ? 'text-slate-600 bg-slate-900/40 cursor-not-allowed' : 'text-slate-300 hover:bg-slate-800 transition'}">Next</button>
+    `;
+
+    controlsEl.classList.remove('hidden');
+}
+
+function renderHistoryRows(history) {
+    const tbody = document.getElementById('historyTableBody');
+    if (!tbody) return;
+
+    const { totalEntries, totalPages, startIndex, endIndex, pageRows } = getHistoryPageData(history);
+
+    if (totalEntries === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-6 py-8 text-center text-xs text-slate-500">No assignment activity history found.</td>
+            </tr>
+        `;
+        renderHistoryPagination(0, 1, 0, 0);
+        return;
+    }
+
+    tbody.innerHTML = pageRows.map((item) => {
+        const status = String(item.status || 'pending').toUpperCase();
+        const badgeClass = getHistoryStatusBadge(item.status);
+
+        return `
+            <tr class="hover:bg-slate-800/40 transition">
+                <td class="px-6 py-4 text-xs text-white">${formatDateTime(item.timestamp)}</td>
+                <td class="px-6 py-4 text-xs text-slate-300 font-bold">${item.action || 'Activity'}</td>
+                <td class="px-6 py-4 text-xs text-slate-400 font-mono">${item.details || '-'}</td>
+                <td class="px-6 py-4">
+                    <span class="${badgeClass}">${status}</span>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    renderHistoryPagination(totalEntries, totalPages, startIndex, endIndex);
+}
+
+function goToHistoryPage(page) {
+    const targetPage = Number(page);
+    if (!Number.isFinite(targetPage) || targetPage < 1) return;
+
+    historyPagination.page = targetPage;
+    renderHistoryRows(historyState);
+}
+
+async function openHistoryModal(userId, fullName) {
+    const historyUserNameEl = document.getElementById('historyModalUserName');
+    const tbody = document.getElementById('historyTableBody');
+
+    if (historyUserNameEl) {
+        historyUserNameEl.textContent = fullName || 'Selected User';
+    }
+
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-6 py-8 text-center text-xs text-slate-500">Loading activity history...</td>
+            </tr>
+        `;
+    }
+
+    openModal('historyModal');
+
+    try {
+        const response = await fetch(`/api/admin/users/${userId}/activity`);
+        const payload = await response.json();
+
+        if (!response.ok) {
+            throw new Error(payload.error || 'Unable to load user activity history.');
+        }
+
+        if (historyUserNameEl && payload.user?.fullName) {
+            historyUserNameEl.textContent = payload.user.fullName;
+        }
+
+        historyPagination.page = 1;
+        historyState = Array.isArray(payload.history) ? payload.history : [];
+        renderHistoryRows(historyState);
+    } catch (error) {
+        historyState = [];
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="px-6 py-8 text-center text-xs text-rose-400">${error.message || 'Unable to load user activity history.'}</td>
+                </tr>
+            `;
+        }
+        renderHistoryPagination(0, 1, 0, 0);
+    }
 }
 
 function upsertUserInState(user) {
@@ -1264,43 +1423,43 @@ function populateUsersTable(users) {
             </td>
             <td class="px-6 py-4">
                 <div class="flex flex-col gap-1">
-                    <span class="text-[10px] ${isSoftDeleted ? 'text-rose-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
-                    ${isSoftDeleted ? `<span class="text-[10px] ${permanentDeleteEligible ? 'text-rose-300' : 'text-amber-300'}">${deleteAvailabilityText}</span>` : ''}
+                    <span class="text-[10px] ${isSoftDeleted ? 'text-slate-300' : 'text-slate-500'} font-mono">${deletedAtText}</span>
+                    ${isSoftDeleted ? `<span class="text-[10px] ${permanentDeleteEligible ? 'text-slate-300' : 'text-slate-400'}">${deleteAvailabilityText}</span>` : ''}
                 </div>
             </td>
             <td class="px-6 py-4 text-right">
                 <div class="flex items-center justify-end gap-2">
-                    ${!isVerified && !isSoftDeleted ? `<button onclick="openVerificationForUser('${safeEmail}', ${verificationExpiresArg})" class="p-2 text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Send Verification">
+                    ${!isVerified && !isSoftDeleted ? `<button onclick="openVerificationForUser('${safeEmail}', ${verificationExpiresArg})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Send Verification">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </button>` : ''}
-                    <button onclick="openModal('historyModal')" class="p-2 text-teal-400 hover:text-teal-300 transition bg-teal-900/20 rounded-lg border border-teal-500/30" title="History">
+                    <button onclick="openHistoryModal(${user.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-teal-900/20 hover:border-teal-500/30 hover:text-teal-300" title="History">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     </button>
-                    ${!isSuspended && !isSoftDeleted ? `<button onclick="openEditUserModal(${user.id})" class="p-2 text-blue-400 hover:text-blue-300 transition bg-blue-900/20 rounded-lg border border-blue-500/30" title="Edit User">
+                    ${!isSuspended && !isSoftDeleted ? `<button onclick="openEditUserModal(${user.id})" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-blue-900/20 hover:border-blue-500/30 hover:text-blue-300" title="Edit User">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     </button>` : ''}
                     ${isSoftDeleted ? `
-                    <button onclick="openRestoreDeletedUserModal(${user.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Restore User">
+                    <button onclick="openRestoreDeletedUserModal(${user.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Restore User">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 109-9"></path><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v6h6"></path></svg>
                     </button>
-                    ${permanentDeleteEligible ? `<button onclick="openPermanentDeleteUserModal(${user.id}, '${safeFullName}')" class="p-2 text-rose-400 hover:text-rose-300 transition bg-rose-900/20 rounded-lg border border-rose-500/30" title="Permanently Delete">
+                    ${permanentDeleteEligible ? `<button onclick="openPermanentDeleteUserModal(${user.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-rose-900/20 hover:border-rose-500/30 hover:text-rose-300" title="Permanently Delete">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>` : `<button disabled class="p-2 text-rose-300/50 transition bg-rose-900/10 rounded-lg border border-rose-500/20 cursor-not-allowed opacity-70" title="${permanentDeleteDaysRemaining ? `Permanent delete available in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}` : 'Permanent delete not available yet'}">
+                    </button>` : `<button disabled class="p-2 rounded-lg border border-slate-700 text-slate-500 bg-slate-900/30 cursor-not-allowed opacity-70" title="${permanentDeleteDaysRemaining ? `Permanent delete available in ${permanentDeleteDaysRemaining} day${permanentDeleteDaysRemaining === 1 ? '' : 's'}` : 'Permanent delete not available yet'}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>`}
                     ` : isSuspended ? `
-                    <button onclick="openSuspensionDetailsModal(${user.id}, '${safeFullName}')" class="p-2 text-slate-300 hover:text-white transition bg-slate-800/70 rounded-lg border border-slate-600/70" title="Suspension Details">
+                    <button onclick="openSuspensionDetailsModal(${user.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-slate-800 hover:border-slate-500 hover:text-white" title="Suspension Details">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     </button>
-                    <button onclick="openLiftSuspensionModal(${user.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition bg-emerald-900/20 rounded-lg border border-emerald-500/30" title="Restore Access">
+                    <button onclick="openLiftSuspensionModal(${user.id}, '${safeFullName}')" class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-emerald-900/20 hover:border-emerald-500/30 hover:text-emerald-300" title="Restore Access">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 109-9"></path><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v6h6"></path></svg>
                     </button>
                     ` : `
-                    <button onclick="openSuspensionModal(${user.id}, '${safeFullName}')" class="p-2 text-orange-400 hover:text-orange-300 transition bg-orange-900/20 rounded-lg border border-orange-500/30" title="Suspend User">
+                    <button onclick="openSuspensionModal(${user.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-orange-900/20 hover:border-orange-500/30 hover:text-orange-300" title="Suspend User">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle><line x1="5.636" y1="18.364" x2="18.364" y2="5.636" stroke="currentColor" stroke-width="2"></line></svg>
                     </button>
                     `}
-                    ${!isSoftDeleted ? `<button onclick="openDeleteUserModal(${user.id}, '${safeFullName}')" class="p-2 text-red-500 hover:text-red-400 transition bg-red-900/20 rounded-lg border border-red-500/30" title="Soft Delete User">
+                    ${!isSoftDeleted ? `<button onclick="openDeleteUserModal(${user.id}, '${safeFullName}')" class="p-2 rounded-lg border border-slate-700 text-slate-400 bg-slate-900/40 transition hover:bg-red-900/20 hover:border-red-500/30 hover:text-red-300" title="Soft Delete User">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>` : ''}
                 </div>
@@ -1328,11 +1487,11 @@ function updateSummaryStats(users) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// SECTION 11: PAGE INITIALIZATION - DOM SETUP
+// SECTION 11: TABLE ROW RENDERING & SUMMARY STATS
 // ════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════
-// SECTION 12: ADD USER - ASYNC FORM SUBMISSION WITH LOADING STATE
+// SECTION 12A: ADD USER - ASYNC FORM SUBMISSION
 // ════════════════════════════════════════════════════════════════
 
 async function handleAddUserFormSubmit(e) {
@@ -1493,7 +1652,7 @@ async function handleEditUserFormSubmit(e) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// PAGE INITIALIZATION - DOM SETUP WITH EVENT LISTENERS
+// SECTION 13: PAGE INITIALIZATION & EVENT WIRING
 // ════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1541,5 +1700,11 @@ window.goToUsersPage = function goToUsersPage(page) {
     usersPagination.page = target;
     renderUsersState();
 };
+
+// ════════════════════════════════════════════════════════════════
+// SECTION 14: GLOBAL EXPORTS FOR INLINE HANDLERS
+// ════════════════════════════════════════════════════════════════
+
+window.goToHistoryPage = goToHistoryPage;
 
 window.resendVerificationCode = resendVerificationCode;

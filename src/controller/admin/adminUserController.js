@@ -59,6 +59,84 @@ class AdminUserController {
         }
     }
 
+    static async getUserActivity(req, res) {
+        const { userId } = req.params;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required.' });
+        }
+
+        try {
+            const userResult = await db.query(
+                `
+                    SELECT id, first_name, last_name
+                    FROM users
+                    WHERE id = $1
+                    LIMIT 1
+                `,
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ error: 'User not found.' });
+            }
+
+            const historyResult = await db.query(
+                `
+                    SELECT
+                        dt.id,
+                        dt.vehicle_id,
+                        dt.pickup_lat,
+                        dt.pickup_lng,
+                        dt.destination_lat,
+                        dt.destination_lng,
+                        LOWER(COALESCE(dt.status, 'pending')) AS status,
+                        dt.started_at,
+                        dt.completed_at,
+                        dt.created_at,
+                        v.plate_number
+                    FROM dispatch_tasks dt
+                    INNER JOIN vehicles v ON v.id = dt.vehicle_id
+                    WHERE v.assigned_driver_id = $1
+                    ORDER BY COALESCE(dt.started_at, dt.created_at) DESC, dt.id DESC
+                    LIMIT 100
+                `,
+                [userId]
+            );
+
+            const history = historyResult.rows.map((row) => {
+                const status = String(row.status || 'pending').toLowerCase();
+                let action = 'Assignment Updated';
+
+                if (status === 'active') action = 'Assignment Started';
+                if (status === 'pending') action = 'Assignment Pending';
+                if (status === 'completed') action = 'Assignment Completed';
+                if (status === 'cancelled') action = 'Assignment Cancelled';
+
+                return {
+                    id: row.id,
+                    timestamp: row.started_at || row.created_at,
+                    action,
+                    details: `${row.plate_number || 'NO-PLATE'} (${row.pickup_lat}, ${row.pickup_lng}) -> (${row.destination_lat}, ${row.destination_lng})`,
+                    status
+                };
+            });
+
+            const user = userResult.rows[0];
+
+            return res.status(200).json({
+                user: {
+                    id: user.id,
+                    fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                },
+                history
+            });
+        } catch (error) {
+            console.error('Error fetching user activity history:', error);
+            return res.status(500).json({ error: 'An error occurred while fetching user activity history.' });
+        }
+    }
+
     static async updateUser(req, res) {
         try {
             const { userId } = req.params;
