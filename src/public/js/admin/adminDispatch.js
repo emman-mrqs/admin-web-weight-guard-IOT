@@ -162,6 +162,11 @@ const dispatchApi = {
         return fetchDispatchJson(`/assignments?${params.toString()}`, {
             headers: { Accept: 'application/json' }
         });
+    },
+    getAssignmentById(assignmentId) {
+        return fetchDispatchJson(`/assignments/${assignmentId}`, {
+            headers: { Accept: 'application/json' }
+        });
     }
 };
 
@@ -471,16 +476,11 @@ let isDispatchMapVisible = true;
 let selectedAssignmentId = null;
 let selectedAssignment = null;
 let sidebarAssignments = [];
-let tableAssignments = [];
 const paginationState = {
     sidebarPage: 1,
-    tablePage: 1,
     sidebarPageSize: 10,
-    tablePageSize: 1,
     sidebarTotal: 0,
-    sidebarTotalPages: 1,
-    tableTotal: 0,
-    tableTotalPages: 1
+    sidebarTotalPages: 1
 };
 
 function renderPaginationControls(containerId, page, totalPages, scope) {
@@ -548,9 +548,6 @@ function getAssignmentById(assignmentId) {
     const inSidebar = sidebarAssignments.find((entry) => Number(entry.assignment_id) === Number(assignmentId));
     if (inSidebar) return inSidebar;
 
-    const inTable = tableAssignments.find((entry) => Number(entry.assignment_id) === Number(assignmentId));
-    if (inTable) return inTable;
-
     if (selectedAssignment && Number(selectedAssignment.assignment_id) === Number(assignmentId)) {
         return selectedAssignment;
     }
@@ -563,13 +560,6 @@ async function goToAssignmentsPage(scope, page) {
         const clampedPage = Math.min(Math.max(1, page), paginationState.sidebarTotalPages);
         await loadSidebarAssignments(clampedPage);
         renderAssignmentsList();
-        return;
-    }
-
-    if (scope === 'table') {
-        const clampedPage = Math.min(Math.max(1, page), paginationState.tableTotalPages);
-        await loadTableAssignments(clampedPage);
-        renderDispatchTaskTable();
     }
 }
 
@@ -586,27 +576,10 @@ async function loadSidebarAssignments(page = 1) {
     paginationState.sidebarTotalPages = Math.max(1, Number(meta.totalPages || 1));
 }
 
-async function loadTableAssignments(page = 1) {
-    const payload = await dispatchApi.getAssignments({
-        page,
-        limit: paginationState.tablePageSize
-    });
-
-    tableAssignments = payload.data || [];
-    const meta = payload.pagination || {};
-    paginationState.tablePage = Number(meta.page || page);
-    paginationState.tableTotal = Number(meta.total || 0);
-    paginationState.tableTotalPages = Math.max(1, Number(meta.totalPages || 1));
-}
-
 async function refreshAssignmentsData({ resetPages = false } = {}) {
     const sidebarTargetPage = resetPages ? 1 : paginationState.sidebarPage;
-    const tableTargetPage = resetPages ? 1 : paginationState.tablePage;
 
-    await Promise.all([
-        loadSidebarAssignments(sidebarTargetPage),
-        loadTableAssignments(tableTargetPage)
-    ]);
+    await loadSidebarAssignments(sidebarTargetPage);
 }
 
 function initUsersMap() {
@@ -667,16 +640,15 @@ function setDispatchMapVisibility(visible) {
 async function loadMapAssignments() {
     const listContainer = document.getElementById('assignmentsList');
     setDispatchMapVisibility(true);
+    resetDispatchTaskTable();
+    setDispatchTableVisibility(false);
 
     try {
         await refreshAssignmentsData({ resetPages: true });
     } catch (error) {
         sidebarAssignments = [];
-        tableAssignments = [];
         paginationState.sidebarTotal = 0;
-        paginationState.tableTotal = 0;
         listContainer.innerHTML = '<div class="p-4 text-center text-rose-400 text-xs"><p class="font-bold">Failed to load assignments</p><p class="mt-1 text-slate-500">Please refresh and try again</p></div>';
-        renderDispatchTaskTable();
         hideTaskDetails({ clearSelection: true });
         return;
     }
@@ -690,27 +662,36 @@ async function loadMapAssignments() {
         listContainer.innerHTML = '<div class="p-4 text-center text-gray-500 text-xs"><p class="font-bold">No Active Assignments</p><p class="mt-1">Dispatch a task to see routes here</p></div>';
         renderPaginationInfo('assignmentsPaginationInfo', 1, paginationState.sidebarPageSize, 0, 0);
         renderPaginationControls('assignmentsPaginationControls', 1, 1, 'sidebar');
-        renderDispatchTaskTable();
         hideTaskDetails({ clearSelection: true });
         return;
     }
 
     renderAssignmentsList();
-    renderDispatchTaskTable();
 }
 
-function renderDispatchTaskTable() {
+function setDispatchTableVisibility(visible) {
+    const tableCard = document.getElementById('dispatchTaskTableCard');
+    if (!tableCard) return;
+    tableCard.classList.toggle('hidden', !visible);
+}
+
+function resetDispatchTaskTable() {
     const tbody = document.getElementById('dispatchTaskTableBody');
     if (!tbody) return;
 
-    if (!paginationState.tableTotal) {
-        tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">No dispatch tasks found.</td></tr>';
-        renderPaginationInfo('dispatchTablePaginationInfo', 1, paginationState.tablePageSize, 0, 0);
-        renderPaginationControls('dispatchTablePaginationControls', 1, 1, 'table');
+    tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">Select an active assignment to view dispatch data.</td></tr>';
+}
+
+function renderDispatchTaskTable(items = []) {
+    const tbody = document.getElementById('dispatchTaskTableBody');
+    if (!tbody) return;
+
+    if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">No dispatch data found for this assignment.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = tableAssignments.map((item) => {
+    tbody.innerHTML = items.map((item) => {
         const status = String(item.assignment_status || 'pending').toLowerCase();
         const statusClass = status === 'active'
             ? 'text-emerald-400'
@@ -719,7 +700,10 @@ function renderDispatchTaskTable() {
         return `
             <tr class="hover:bg-slate-800/40 transition">
                 <td class="py-3 pr-4 text-white font-semibold">${item.full_name || 'Unassigned Driver'}</td>
-                <td class="py-3 pr-4 text-slate-300 font-mono">${item.vehicle_number || '--'}</td>
+                <td class="py-3 pr-4">
+                    <div class="text-slate-300 font-mono">${item.vehicle_number || '--'}</div>
+                    <div class="text-[10px] text-slate-500 font-semibold mt-0.5">${item.vehicle_name || item.vehicle_type || 'Vehicle'}</div>
+                </td>
                 <td class="py-3 pr-4 ${statusClass} font-bold uppercase">${status}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.distance_km ? `${item.distance_km} km` : '--'}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.est_duration_min ? `${item.est_duration_min} min` : '--'}</td>
@@ -729,21 +713,33 @@ function renderDispatchTaskTable() {
             </tr>
         `;
     }).join('');
+}
 
-    renderPaginationInfo(
-        'dispatchTablePaginationInfo',
-        paginationState.tablePage,
-        paginationState.tablePageSize,
-        paginationState.tableTotal,
-        tableAssignments.length
-    );
-    renderPaginationControls('dispatchTablePaginationControls', paginationState.tablePage, paginationState.tableTotalPages, 'table');
+async function loadSelectedDispatchTable(assignmentId) {
+    const parsedId = Number(assignmentId);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) {
+        setDispatchTableVisibility(false);
+        resetDispatchTaskTable();
+        return;
+    }
+
+    try {
+        const payload = await dispatchApi.getAssignmentById(parsedId);
+        const selectedRow = payload?.data ? [payload.data] : [];
+        renderDispatchTaskTable(selectedRow);
+        setDispatchTableVisibility(true);
+    } catch (_) {
+        renderDispatchTaskTable([]);
+        setDispatchTableVisibility(true);
+    }
 }
 
 function selectAssignmentById(assignmentId) {
     const user = getAssignmentById(assignmentId);
     if (!user) return;
-    selectAssignment(user, { hideMap: true, showDetails: true });
+    selectAssignment(user, { hideMap: true, showDetails: true }).catch((error) => {
+        console.error('Error selecting assignment by id:', error);
+    });
 }
 
 function renderAssignmentsList() {
@@ -761,7 +757,11 @@ function renderAssignmentsList() {
                 ? 'bg-[#2DD4BF]/10 border-[#2DD4BF]/50'
                 : 'bg-gray-800/50 hover:bg-[#2DD4BF]/10 border-transparent hover:border-[#2DD4BF]/30'
         }`;
-        assignmentDiv.onclick = () => selectAssignment(user, { hideMap: false, showDetails: false });
+        assignmentDiv.onclick = () => {
+            selectAssignment(user, { hideMap: false, showDetails: false }).catch((error) => {
+                console.error('Error selecting assignment:', error);
+            });
+        };
 
         assignmentDiv.innerHTML = `
             <div class="flex justify-between items-start">
@@ -811,7 +811,7 @@ function hideDetailsPanelContent() {
     if (directionsContent) directionsContent.classList.add('hidden');
 }
 
-function selectAssignment(user, options = {}) {
+async function selectAssignment(user, options = {}) {
     const { hideMap = false, showDetails = false } = options;
 
     selectedAssignmentId = user.assignment_id;
@@ -828,6 +828,7 @@ function selectAssignment(user, options = {}) {
 
     setDispatchMapVisibility(!hideMap);
     drawAssignmentRoute(user, { hideMap });
+    await loadSelectedDispatchTable(user.assignment_id);
 }
 
 function showTaskDetails(user) {
@@ -863,6 +864,8 @@ function hideTaskDetails(options = {}) {
         selectedAssignment = null;
         clearMapMarkers();
         clearMapRoute();
+        setDispatchTableVisibility(false);
+        resetDispatchTaskTable();
     }
 
     setDispatchMapVisibility(true);

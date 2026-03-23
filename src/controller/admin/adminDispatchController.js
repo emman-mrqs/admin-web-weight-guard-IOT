@@ -143,6 +143,7 @@ class AdminDispatchController {
                         dt.completed_at,
                         dt.created_at AS assigned_at,
                         v.plate_number,
+                        v.vehicle_type,
                         CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) AS full_name,
                         u.id AS user_id,
                         ROUND(
@@ -184,6 +185,7 @@ class AdminDispatchController {
                 return {
                     ...row,
                     vehicle_number: row.plate_number,
+                    vehicle_name: row.vehicle_type,
                     distance_km: distanceKm,
                     est_duration_min: estDurationMin
                 };
@@ -203,6 +205,82 @@ class AdminDispatchController {
         } catch (error) {
             console.error('Error fetching dispatch assignments:', error);
             return res.status(500).json({ error: 'An error occurred while fetching assignments.' });
+        }
+    }
+
+    static async getAssignmentById(req, res) {
+        try {
+            const assignmentId = Number(req.params.assignmentId);
+            if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+                return res.status(400).json({ error: 'Assignment ID must be a valid positive number.' });
+            }
+
+            const result = await db.query(
+                `
+                    SELECT
+                        dt.id AS assignment_id,
+                        dt.vehicle_id,
+                        dt.pickup_lat,
+                        dt.pickup_lng,
+                        dt.destination_lat AS dest_lat,
+                        dt.destination_lng AS dest_lng,
+                        LOWER(COALESCE(dt.status, 'pending')) AS assignment_status,
+                        dt.started_at,
+                        dt.completed_at,
+                        dt.created_at AS assigned_at,
+                        v.plate_number,
+                        v.vehicle_type,
+                        CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) AS full_name,
+                        u.id AS user_id,
+                        ROUND(
+                            (
+                                6371 * ACOS(
+                                    LEAST(
+                                        1,
+                                        GREATEST(
+                                            -1,
+                                            COS(RADIANS(dt.pickup_lat::numeric)) *
+                                            COS(RADIANS(dt.destination_lat::numeric)) *
+                                            COS(RADIANS(dt.destination_lng::numeric) - RADIANS(dt.pickup_lng::numeric)) +
+                                            SIN(RADIANS(dt.pickup_lat::numeric)) *
+                                            SIN(RADIANS(dt.destination_lat::numeric))
+                                        )
+                                    )
+                                )
+                            )::numeric,
+                            2
+                        ) AS distance_km
+                    FROM dispatch_tasks dt
+                    INNER JOIN vehicles v ON v.id = dt.vehicle_id
+                    LEFT JOIN users u ON u.id = v.assigned_driver_id
+                    WHERE dt.id = $1
+                    LIMIT 1
+                `,
+                [assignmentId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Assignment not found.' });
+            }
+
+            const row = result.rows[0];
+            const distanceKm = row.distance_km !== null ? Number(row.distance_km) : null;
+            const estDurationMin = distanceKm !== null
+                ? Math.max(1, Math.round((distanceKm / 35) * 60))
+                : null;
+
+            return res.status(200).json({
+                data: {
+                    ...row,
+                    vehicle_number: row.plate_number,
+                    vehicle_name: row.vehicle_type,
+                    distance_km: distanceKm,
+                    est_duration_min: estDurationMin
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching dispatch assignment by id:', error);
+            return res.status(500).json({ error: 'An error occurred while fetching assignment data.' });
         }
     }
 
@@ -335,10 +413,9 @@ class AdminDispatchController {
                         destination_lat,
                         destination_lng,
                         status,
-                        started_at,
                         updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5, 'active', NOW(), NOW())
+                    VALUES ($1, $2, $3, $4, $5, 'pending', NOW())
                     RETURNING id
                 `,
                 [

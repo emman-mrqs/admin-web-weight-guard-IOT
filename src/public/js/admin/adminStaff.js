@@ -1185,18 +1185,14 @@ async function confirmRestoreDeletedStaff() {
             return;
         }
 
-        if (data.staff) {
-            upsertStaffInState(data.staff);
-            updateSummaryStats();
-            applyFiltersAndSearch();
-        }
+        // Always refresh from backend after restore to keep suspension/status state consistent.
+        await loadStaffData();
 
         successEl.textContent = data.message || 'Staff member restored successfully.';
         successEl.classList.remove('hidden');
 
         setTimeout(() => {
             closeModal('restoreDeletedStaffModal');
-            loadStaffData();
         }, 1200);
     } catch (error) {
         console.error('Error restoring staff:', error);

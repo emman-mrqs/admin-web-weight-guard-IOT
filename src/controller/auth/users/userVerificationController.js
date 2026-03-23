@@ -6,47 +6,71 @@ class verificationUserController {
     static async handleUserVerification(req, res) {
         try {
             const { email, verificationCode } = req.body;
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            const normalizedCode = String(verificationCode || '').trim();
 
             // Basic validation
-            if (!email || !verificationCode) {
+            if (!normalizedEmail || !normalizedCode) {
                 return res.status(400).json({ error: "Email and verification code are required." });
             }
 
-            if (verificationCode.length !== 6) {
+            if (!/^\d{6}$/.test(normalizedCode)) {
                 return res.status(400).json({ error: "Verification code must be 6 characters long." });
             }
 
-            // verify the code and email against the database
+            // Fetch user first, then validate code/expiry explicitly.
             const checkQuery = `
-                SELECT id, first_name, last_name, verification_code, verification_expires, is_verified
+                SELECT id, first_name, last_name, status, verification_code, verification_expires, is_verified
                 FROM users
-                wHERE email = $1 AND verification_code = $2
+                WHERE LOWER(email) = $1
+                LIMIT 1
             `;
 
-            const result = await db.query(checkQuery, [email, verificationCode]);
+            const result = await db.query(checkQuery, [normalizedEmail]);
 
             if (result.rows.length === 0) {
-                return res.status(400).json({ error: "Invalid email or verification code." });
+                return res.status(404).json({ error: "User account not found." });
             }
 
             const user = result.rows[0];
 
-            // Check if the code has expired
-            if (new Date() > user.verification_expires) {
+            if (Boolean(user.is_verified)) {
+                return res.status(400).json({ error: "This account is already verified." });
+            }
+
+            if (!user.verification_code || String(user.verification_code).trim() !== normalizedCode) {
+                return res.status(400).json({ error: "Invalid verification code." });
+            }
+
+            const expiresAt = user.verification_expires ? new Date(user.verification_expires) : null;
+            if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
                 return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
             }
 
-            // set the staff as verified and clear the verification code and expiry
+            // Check if the code has expired
+            if (new Date() > expiresAt) {
+                return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+            }
+
+            // Mark user verified, activate account, and clear verification fields.
             const updateQuery = `
                 UPDATE users
-                SET is_verified = true, verification_code = NULL, verification_expires = NULL, updated_at = NOW()
+                SET
+                    is_verified = true,
+                    status = 'active',
+                    verification_code = NULL,
+                    verification_expires = NULL,
+                    updated_at = NOW()
                 WHERE id = $1
+                RETURNING id, first_name, last_name, email, status, is_verified, verification_expires, updated_at
             `;
             
-            await db.query(updateQuery, [user.id]);
+            const updateResult = await db.query(updateQuery, [user.id]);
 
-            // ADDED: Send a success response back to the frontend so the modal can close!
-            return res.status(200).json({ message: "Email verified successfully. You can now log in." });
+            return res.status(200).json({
+                message: "Email verified successfully. Account is now active.",
+                user: updateResult.rows[0]
+            });
 
         } catch (error) {
             console.error("Error during user verification:", error);

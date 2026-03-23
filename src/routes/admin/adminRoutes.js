@@ -35,6 +35,8 @@ router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
 // Admin User Routes
 router.get("/admin/users", AdminUserController.getUsers);
 router.get("/api/admin/users", AdminUserController.getAllUsers);
+router.get("/api/vehicles", AdminUserController.getVehiclesForUserAssignment);
+router.get("/api/admin/users/verification-expiry", AdminUserController.getUserVerificationExpiry);
 router.get('/api/admin/users/:userId/activity', AdminUserController.getUserActivity);
 router.put("/api/admin/users/:userId", AdminUserController.updateUser);
 router.put("/api/admin/users/:userId/soft-delete", AdminUserController.softDeleteStaff);
@@ -58,6 +60,7 @@ router.get("/api/admin/staff/:staffId/suspension-details", AdminStaffController.
 router.get("/admin/task-dispatch", AdminDispatchController.getTaskDispatch);
 router.get('/api/admin/task-dispatch/vehicles', AdminDispatchController.getAssignableVehicles);
 router.get('/api/admin/task-dispatch/assignments', AdminDispatchController.getAssignments);
+router.get('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatchController.getAssignmentById);
 router.post('/api/admin/task-dispatch/assignments', AdminDispatchController.createAssignment);
 router.put('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatchController.updateAssignment);
 router.delete('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatchController.cancelAssignment);
@@ -67,6 +70,9 @@ router.get("/admin/reports", AdminReportsController.getReports);
 
 // Admin Incidents Routes
 router.get("/admin/incidents", AdminIncidentsController.getIncidents);
+router.get("/api/admin/incidents", AdminIncidentsController.getIncidentLogs);
+router.get("/api/admin/incidents/:incidentId/timeline", AdminIncidentsController.getIncidentTimeline);
+router.patch("/api/admin/incidents/:incidentId/status", AdminIncidentsController.updateIncidentStatus);
 
 // Admin Notifications Routes
 router.get("/admin/notifications", AdminNotificationController.getNotifications);

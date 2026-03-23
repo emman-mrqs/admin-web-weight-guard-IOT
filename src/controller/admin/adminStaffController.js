@@ -2,6 +2,35 @@
 import db from '../../database/db.js';
 import nodemailerService from '../../utils/emailService.js';
 
+async function hasActiveSuspension(administratorId, queryClient = db) {
+    const result = await queryClient.query(
+        `
+            SELECT id
+            FROM suspension_logs
+            WHERE administrator_id = $1
+              AND (ended_at IS NULL OR ended_at > NOW())
+            ORDER BY started_at DESC NULLS LAST, id DESC
+            LIMIT 1
+        `,
+        [administratorId]
+    );
+
+    return result.rows.length > 0;
+}
+
+async function resolveAdministratorStatus({ administratorId, isVerified, deletedAt }, queryClient = db) {
+    if (deletedAt) {
+        return 'deleted';
+    }
+
+    const activeSuspended = await hasActiveSuspension(administratorId, queryClient);
+    if (activeSuspended) {
+        return 'suspended';
+    }
+
+    return Boolean(isVerified) ? 'active' : 'pending';
+}
+
 class AdminStaffController {
 
     static async getStaffList(req, res) {
@@ -30,18 +59,18 @@ class AdminStaffController {
                     a.created_at,
                     a.updated_at,
                     a.deleted_at,
-                    COALESCE((
-                        SELECT COUNT(*) > 0
-                        FROM suspension_logs sl
-                        WHERE sl.administrator_id = a.id
-                          AND (sl.ended_at IS NULL OR sl.ended_at > NOW())
-                        LIMIT 1
-                    ), FALSE) as is_suspended,
+                                        EXISTS (
+                                                SELECT 1
+                                                FROM suspension_logs sl
+                                                WHERE sl.administrator_id = a.id
+                                                    AND (sl.ended_at IS NULL OR sl.ended_at > NOW())
+                                        ) as is_suspended,
                     (
                         SELECT reason
                         FROM suspension_logs sl
                         WHERE sl.administrator_id = a.id
                           AND (sl.ended_at IS NULL OR sl.ended_at > NOW())
+                                                ORDER BY sl.started_at DESC NULLS LAST, sl.id DESC
                         LIMIT 1
                     ) as suspension_reason,
                     (
@@ -49,6 +78,7 @@ class AdminStaffController {
                         FROM suspension_logs sl
                         WHERE sl.administrator_id = a.id
                           AND (sl.ended_at IS NULL OR sl.ended_at > NOW())
+                                                ORDER BY sl.started_at DESC NULLS LAST, sl.id DESC
                         LIMIT 1
                     ) as suspension_started_at
                 FROM administrator a
@@ -257,7 +287,7 @@ class AdminStaffController {
         try {
             const staffResult = await db.query(
                 `
-                    SELECT id, first_name, last_name, is_verified
+                    SELECT id, first_name, last_name, is_verified, deleted_at
                     FROM administrator
                                         WHERE id = $1
                                             AND deleted_at IS NOT NULL
@@ -271,7 +301,11 @@ class AdminStaffController {
             }
 
             const staff = staffResult.rows[0];
-            const restoredStatus = staff.is_verified ? 'active' : 'pending';
+            const restoredStatus = await resolveAdministratorStatus({
+                administratorId: normalizedStaffId,
+                isVerified: staff.is_verified,
+                deletedAt: null
+            });
 
             await db.query(
                 `
@@ -285,7 +319,13 @@ class AdminStaffController {
 
             const updatedStaff = await db.query(
                 `
-                    SELECT id, first_name, last_name, email, role, is_verified, status, created_at, updated_at, deleted_at
+                    SELECT id, first_name, last_name, email, role, is_verified, status, created_at, updated_at, deleted_at,
+                           EXISTS (
+                               SELECT 1
+                               FROM suspension_logs sl
+                               WHERE sl.administrator_id = administrator.id
+                                 AND (sl.ended_at IS NULL OR sl.ended_at > NOW())
+                           ) AS is_suspended
                     FROM administrator
                                         WHERE id = $1
                                             AND role IN ('dispatch_staff', 'incident_staff')
@@ -531,7 +571,11 @@ class AdminStaffController {
             );
 
             const staff = staffResult.rows[0];
-            const restoredStatus = staff.is_verified ? 'active' : 'pending';
+            const restoredStatus = await resolveAdministratorStatus({
+                administratorId: normalizedStaffId,
+                isVerified: staff.is_verified,
+                deletedAt: null
+            }, db);
 
             const updatedStaffResult = await db.query(
                 `

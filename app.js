@@ -10,9 +10,8 @@ import { fileURLToPath } from "url";
 //======================== Import Routes =========================
 import adminRoutes from "./src/routes/admin/adminRoutes.js";
 import adminAuthRoutes from "./src/routes/admin/adminAuthRoutes.js";
-import locationRoutes from "./src/routes/api/locationRoutes.js";
-import driverRoutes from "./src/routes/api/driverRoutes.js";
-import incidentRoutes from "./src/routes/api/incidentRoutes.js";
+import userMobileRoutes from "./src/routes/api/userMobileRoutes.js";
+import userMobileAuthRoutes from "./src/routes/api/userMobileAuthRoutes.js";
 // import { setWsConnections } from "./src/controller/api/locationController.js";
 // import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
 import { initTrackingWebSocket } from "./src/realtime/trackingWebSocket.js";
@@ -54,10 +53,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // ================ Declare Routes ===============
 app.use("/", adminRoutes);
 app.use("/", adminAuthRoutes);
-app.use("/api", locationRoutes);
-app.use("/api", incidentRoutes);
-app.use("/api/driver", driverRoutes);
-
+app.use("/api/mobile", userMobileRoutes);
+app.use("/api/mobile/auth", userMobileAuthRoutes);
 
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);

@@ -59,6 +59,114 @@ class AdminUserController {
         }
     }
 
+    static async getVehiclesForUserAssignment(req, res) {
+        try {
+            const requestedUserId = req.query.userId;
+            const normalizedUserId = requestedUserId !== undefined && requestedUserId !== null && requestedUserId !== ''
+                ? Number(requestedUserId)
+                : null;
+
+            if (normalizedUserId !== null && (!Number.isFinite(normalizedUserId) || normalizedUserId <= 0)) {
+                return res.status(400).json({
+                    error: 'Validation failed.',
+                    fieldErrors: {
+                        userId: 'User ID must be a valid positive number.'
+                    }
+                });
+            }
+
+            const result = await db.query(
+                `
+                    SELECT
+                        v.id,
+                        v.plate_number,
+                        v.vehicle_type,
+                        v.current_state,
+                        v.assigned_driver_id,
+                        u.first_name,
+                        u.last_name
+                    FROM vehicles v
+                    LEFT JOIN users u ON u.id = v.assigned_driver_id
+                    ORDER BY v.created_at DESC, v.id DESC
+                `
+            );
+
+            const vehicles = result.rows.map((row) => {
+                const assignedDriverId = row.assigned_driver_id !== null ? Number(row.assigned_driver_id) : null;
+                const isCurrentUserVehicle = normalizedUserId !== null && assignedDriverId === normalizedUserId;
+                const isAssigned = assignedDriverId !== null;
+
+                let assignmentStatus = 'available';
+                if (isAssigned && isCurrentUserVehicle) {
+                    assignmentStatus = 'current';
+                } else if (isAssigned) {
+                    assignmentStatus = 'assigned';
+                }
+
+                return {
+                    id: row.id,
+                    plateNumber: row.plate_number,
+                    vehicleType: row.vehicle_type,
+                    currentState: row.current_state,
+                    assignedDriverId,
+                    assignedDriverName: assignedDriverId
+                        ? `${row.first_name || ''} ${row.last_name || ''}`.trim() || null
+                        : null,
+                    assignmentStatus,
+                    isAvailable: assignmentStatus !== 'assigned'
+                };
+            });
+
+            return res.status(200).json({ data: vehicles });
+        } catch (error) {
+            console.error('Error fetching vehicles for user assignment:', error);
+            return res.status(500).json({ error: 'An error occurred while fetching vehicles.' });
+        }
+    }
+
+    static async getUserVerificationExpiry(req, res) {
+        try {
+            const email = String(req.query.email || '').trim().toLowerCase();
+            if (!email) {
+                return res.status(400).json({
+                    error: 'Validation failed.',
+                    fieldErrors: {
+                        email: 'Email is required.'
+                    }
+                });
+            }
+
+            const result = await db.query(
+                `
+                    SELECT id, email, status, is_verified, verification_expires
+                    FROM users
+                    WHERE LOWER(email) = $1
+                    LIMIT 1
+                `,
+                [email]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'User not found.' });
+            }
+
+            const user = result.rows[0];
+
+            return res.status(200).json({
+                data: {
+                    id: user.id,
+                    email: user.email,
+                    status: user.status,
+                    isVerified: Boolean(user.is_verified),
+                    verificationExpiresAt: user.verification_expires
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching user verification expiry:', error);
+            return res.status(500).json({ error: 'An error occurred while fetching verification expiry.' });
+        }
+    }
+
     static async getUserActivity(req, res) {
         const { userId } = req.params;
 
@@ -140,7 +248,7 @@ class AdminUserController {
     static async updateUser(req, res) {
         try {
             const { userId } = req.params;
-            const { firstName, lastName, status } = req.body;
+            const { firstName, lastName, status, vehicleId } = req.body;
 
             // ─── VALIDATION ───
             if (!userId) {
@@ -153,10 +261,24 @@ class AdminUserController {
 
             const firstNameTrimmed = String(firstName).trim();
             const lastNameTrimmed = String(lastName).trim();
+            const normalizedUserId = Number(userId);
+            const normalizedVehicleId = vehicleId === undefined || vehicleId === null || vehicleId === ''
+                ? null
+                : Number(vehicleId);
 
             if (firstNameTrimmed.length === 0 || lastNameTrimmed.length === 0) {
                 return res.status(400).json({ error: "First name and last name cannot be empty." });
             }
+
+            if (!Number.isFinite(normalizedUserId) || normalizedUserId <= 0) {
+                return res.status(400).json({ error: "User ID must be a valid positive number." });
+            }
+
+            if (normalizedVehicleId !== null && (!Number.isFinite(normalizedVehicleId) || normalizedVehicleId <= 0)) {
+                return res.status(400).json({ error: "Vehicle must be a valid positive number." });
+            }
+
+            await db.query('BEGIN');
 
             // ─── CHECK USER EXISTS ───
             const checkQuery = `
@@ -170,15 +292,17 @@ class AdminUserController {
                 FROM users 
                 WHERE id = $1 AND deleted_at IS NULL
             `;
-            const checkResult = await db.query(checkQuery, [userId]);
+            const checkResult = await db.query(checkQuery, [normalizedUserId]);
 
             if (checkResult.rows.length === 0) {
+                await db.query('ROLLBACK');
                 return res.status(404).json({ error: "User not found." });
             }
 
             const user = checkResult.rows[0];
 
             if (Boolean(user.is_suspended)) {
+                await db.query('ROLLBACK');
                 return res.status(400).json({ error: "Suspended users cannot be edited until suspension is lifted." });
             }
 
@@ -189,11 +313,13 @@ class AdminUserController {
                 
                 // Only allow 'active' or 'inactive' - NOT 'pending'
                 if (!['active', 'inactive'].includes(statusLower)) {
+                    await db.query('ROLLBACK');
                     return res.status(400).json({ error: "Invalid status. Allowed values: active, inactive." });
                 }
 
                 // Only allow status change if user is verified
                 if (!user.is_verified) {
+                    await db.query('ROLLBACK');
                     return res.status(400).json({ error: "Cannot change status for unverified users. User must be verified first." });
                 }
 
@@ -201,25 +327,129 @@ class AdminUserController {
             }
 
             // ─── UPDATE USER ───
-            const updateQuery = `
-                UPDATE users
-                SET first_name = $1, last_name = $2, status = $3, updated_at = NOW()
-                WHERE id = $4
-                RETURNING id, first_name, last_name, email, status, is_verified, created_at, updated_at
-            `;
+            if (normalizedVehicleId !== null) {
+                const vehicleResult = await db.query(
+                    `
+                        SELECT id, assigned_driver_id
+                        FROM vehicles
+                        WHERE id = $1
+                        LIMIT 1
+                    `,
+                    [normalizedVehicleId]
+                );
 
-            const updateResult = await db.query(updateQuery, [firstNameTrimmed, lastNameTrimmed, newStatus, userId]);
-            const updatedUser = {
-                ...updateResult.rows[0],
-                is_suspended: false
-            };
+                if (vehicleResult.rows.length === 0) {
+                    await db.query('ROLLBACK');
+                    return res.status(404).json({ error: 'Selected vehicle not found.' });
+                }
+
+                const selectedVehicle = vehicleResult.rows[0];
+                const assignedDriverId = selectedVehicle.assigned_driver_id !== null
+                    ? Number(selectedVehicle.assigned_driver_id)
+                    : null;
+
+                if (assignedDriverId !== null && assignedDriverId !== normalizedUserId) {
+                    await db.query('ROLLBACK');
+                    return res.status(400).json({
+                        error: 'Selected vehicle is already assigned to another user.'
+                    });
+                }
+            }
+
+            const updateUserResult = await db.query(
+                `
+                    UPDATE users
+                    SET first_name = $1, last_name = $2, status = $3, updated_at = NOW()
+                    WHERE id = $4
+                `,
+                [firstNameTrimmed, lastNameTrimmed, newStatus, normalizedUserId]
+            );
+
+            if (updateUserResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return res.status(404).json({ error: 'User not found.' });
+            }
+
+            if (normalizedVehicleId === null) {
+                await db.query(
+                    `
+                        UPDATE vehicles
+                        SET assigned_driver_id = NULL
+                        WHERE assigned_driver_id = $1
+                    `,
+                    [normalizedUserId]
+                );
+            } else {
+                await db.query(
+                    `
+                        UPDATE vehicles
+                        SET assigned_driver_id = NULL
+                        WHERE assigned_driver_id = $1
+                          AND id <> $2
+                    `,
+                    [normalizedUserId, normalizedVehicleId]
+                );
+
+                await db.query(
+                    `
+                        UPDATE vehicles
+                        SET assigned_driver_id = $1
+                        WHERE id = $2
+                    `,
+                    [normalizedUserId, normalizedVehicleId]
+                );
+            }
+
+            const updatedUserResult = await db.query(
+                `
+                    SELECT
+                        u.id,
+                        u.first_name,
+                        u.last_name,
+                        u.email,
+                        u.status,
+                        u.is_verified,
+                        u.verification_expires,
+                        u.created_at,
+                        u.updated_at,
+                        u.deleted_at,
+                        v.id AS vehicle_id,
+                        v.vehicle_type,
+                        v.plate_number AS vehicle_plate_number,
+                        v.current_state AS vehicle_state,
+                        EXISTS (
+                            SELECT 1
+                            FROM suspension_logs s
+                            WHERE s.user_id = u.id
+                              AND (s.ended_at IS NULL OR s.ended_at > NOW())
+                        ) AS is_suspended
+                    FROM users u
+                    LEFT JOIN LATERAL (
+                        SELECT id, vehicle_type, plate_number, current_state
+                        FROM vehicles
+                        WHERE assigned_driver_id = u.id
+                        ORDER BY id DESC
+                        LIMIT 1
+                    ) v ON TRUE
+                    WHERE u.id = $1
+                    LIMIT 1
+                `,
+                [normalizedUserId]
+            );
+
+            await db.query('COMMIT');
 
             return res.status(200).json({
                 message: "User updated successfully.",
-                user: updatedUser
+                user: updatedUserResult.rows[0]
             });
 
         } catch (error) {
+            try {
+                await db.query('ROLLBACK');
+            } catch (rollbackError) {
+                console.error('Error rolling back user update transaction:', rollbackError);
+            }
             console.error("Error updating user:", error);
             res.status(500).json({ error: "An error occurred while updating the user." });
         }

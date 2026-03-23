@@ -130,6 +130,7 @@ function generateRandomPassword() {
 
 let verificationTimerInterval = null;
 let verificationInputsInitialized = false;
+const verificationExpiryCacheByEmail = new Map();
 let usersState = [];
 let filteredUsersState = [];
 const usersPagination = {
@@ -190,6 +191,75 @@ function displaySuccess(successElement, message) {
 function clearMessages(errorElement, successElement) {
     if (errorElement) errorElement.classList.add('hidden');
     if (successElement) successElement.classList.add('hidden');
+}
+
+async function fetchEditableVehiclesForUser(userId) {
+    const normalizedUserId = Number(userId);
+    const params = new URLSearchParams();
+    if (Number.isFinite(normalizedUserId) && normalizedUserId > 0) {
+        params.set('userId', String(normalizedUserId));
+    }
+
+    const response = await fetch(`/api/vehicles?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load vehicles.');
+    }
+
+    return Array.isArray(payload?.data) ? payload.data : [];
+}
+
+function renderEditableVehicleOptions(vehicles, currentVehicleId = null) {
+    const vehicleSelect = document.getElementById('editVehicle');
+    if (!vehicleSelect) return;
+
+    const normalizedCurrentVehicleId = currentVehicleId !== null && currentVehicleId !== undefined && currentVehicleId !== ''
+        ? Number(currentVehicleId)
+        : null;
+
+    vehicleSelect.innerHTML = '';
+
+    const unassignedOption = document.createElement('option');
+    unassignedOption.value = '';
+    unassignedOption.textContent = 'Unassigned';
+    vehicleSelect.appendChild(unassignedOption);
+
+    vehicles.forEach((vehicle) => {
+        const option = document.createElement('option');
+        const vehicleId = Number(vehicle.id);
+        const status = String(vehicle.assignmentStatus || '').toLowerCase();
+        const assignedDriverName = String(vehicle.assignedDriverName || '').trim();
+
+        let statusLabel = 'Available';
+        if (status === 'current') {
+            statusLabel = 'Currently Assigned';
+        } else if (status === 'assigned') {
+            statusLabel = assignedDriverName
+                ? `Assigned to ${assignedDriverName}`
+                : 'Assigned';
+        }
+
+        option.value = String(vehicleId);
+        option.textContent = `${vehicle.plateNumber || 'NO-PLATE'} • ${vehicle.vehicleType || 'Vehicle'} • ${statusLabel}`;
+
+        const isCurrentVehicle = Number.isFinite(normalizedCurrentVehicleId) && vehicleId === normalizedCurrentVehicleId;
+        if (status === 'assigned' && !isCurrentVehicle) {
+            option.disabled = true;
+        }
+
+        if (isCurrentVehicle) {
+            option.selected = true;
+        }
+
+        vehicleSelect.appendChild(option);
+    });
+
+    if (!Number.isFinite(normalizedCurrentVehicleId)) {
+        vehicleSelect.value = '';
+    }
 }
 
 function formatLongDate(dateValue) {
@@ -654,20 +724,30 @@ function resetVerificationCode() {
 }
 
 function startVerificationTimer(expiresAtFromDb) {
-    const fallbackExpiry = new Date(Date.now() + 5 * 60 * 1000);
-    const expiresAt = expiresAtFromDb ? new Date(expiresAtFromDb) : fallbackExpiry;
-
-    if (Number.isNaN(expiresAt.getTime())) {
-        return startVerificationTimer();
-    }
-
+    const expiresAt = expiresAtFromDb ? new Date(expiresAtFromDb) : null;
     const timerDisplay = document.getElementById('verificationTimer');
     const timerBar = document.getElementById('verificationTimerBar');
-    const totalDurationSeconds = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
-    
+
     if (verificationTimerInterval) {
         clearInterval(verificationTimerInterval);
+        verificationTimerInterval = null;
     }
+
+    if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
+        if (timerDisplay) {
+            timerDisplay.textContent = '0:00';
+            timerDisplay.classList.remove('text-emerald-300');
+            timerDisplay.classList.add('text-amber-300');
+        }
+        if (timerBar) {
+            timerBar.style.width = '0%';
+            timerBar.classList.remove('bg-emerald-400');
+            timerBar.classList.add('bg-amber-400');
+        }
+        return;
+    }
+
+    const totalDurationSeconds = Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
 
     function updateDisplay() {
         const timeLeft = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
@@ -720,6 +800,24 @@ function startVerificationTimer(expiresAtFromDb) {
             }
         }
     }, 1000);
+}
+
+async function fetchVerificationExpiryByEmail(email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+        return null;
+    }
+
+    const response = await fetch(`/api/admin/users/verification-expiry?email=${encodeURIComponent(normalizedEmail)}`, {
+        headers: { Accept: 'application/json' }
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data?.error || 'Unable to fetch verification expiry.');
+    }
+
+    return data?.data || null;
 }
 
 async function submitVerificationCode() {
@@ -776,6 +874,9 @@ async function submitVerificationCode() {
                 const userInState = usersState.find(u => String(u.email).toLowerCase() === email.toLowerCase());
                 if (userInState) {
                     userInState.is_verified = true;
+                    userInState.status = 'active';
+                    userInState.verification_expires = null;
+                    verificationExpiryCacheByEmail.set(String(email).toLowerCase(), null);
                     renderUsersState();
                 }
             }, 1200);
@@ -826,7 +927,16 @@ async function resendVerificationCode() {
             // ─── SUCCESS: WIRE BACKEND SUCCESS MESSAGE ───
             displaySuccess(successEl, data.message);
             resetVerificationCode();
-            startVerificationTimer(data.verificationExpiresAt);
+            const normalizedEmail = String(email || '').toLowerCase();
+            const newExpiry = data.verificationExpiresAt || null;
+            verificationExpiryCacheByEmail.set(normalizedEmail, newExpiry);
+
+            const userInState = usersState.find(u => String(u.email || '').toLowerCase() === normalizedEmail);
+            if (userInState) {
+                userInState.verification_expires = newExpiry;
+            }
+
+            startVerificationTimer(newExpiry);
             setTimeout(() => document.getElementById('verifyDigit1')?.focus(), 300);
         }
     } catch (error) {
@@ -837,7 +947,7 @@ async function resendVerificationCode() {
     }
 }
 
-function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
+async function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
     let resolvedEmail = '';
     let resolvedVerificationExpiresAt = verificationExpiresAt;
 
@@ -863,6 +973,28 @@ function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
         verificationEmail.textContent = resolvedEmail;
     }
 
+    // Always ask backend for latest expiry on modal open to keep timer in sync with DB.
+    try {
+        const verificationMeta = await fetchVerificationExpiryByEmail(resolvedEmail);
+        if (verificationMeta) {
+            resolvedVerificationExpiresAt = verificationMeta.verificationExpiresAt || null;
+            verificationExpiryCacheByEmail.set(String(resolvedEmail).toLowerCase(), resolvedVerificationExpiresAt);
+
+            const userInState = usersState.find(u => String(u.email || '').toLowerCase() === String(resolvedEmail).toLowerCase());
+            if (userInState) {
+                userInState.verification_expires = resolvedVerificationExpiresAt;
+                userInState.is_verified = Boolean(verificationMeta.isVerified);
+                userInState.status = verificationMeta.status || userInState.status;
+            }
+        }
+    } catch (error) {
+        const cachedExpiry = verificationExpiryCacheByEmail.get(String(resolvedEmail).toLowerCase());
+        if (cachedExpiry !== undefined) {
+            resolvedVerificationExpiresAt = cachedExpiry;
+        }
+        console.warn('Using cached verification expiry due to fetch error:', error);
+    }
+
     resetVerificationCode();
     setupVerificationCodeInputs();
     openModal('verificationModal');
@@ -874,7 +1006,7 @@ function openVerificationForUser(userEmailOrId, verificationExpiresAt = null) {
 // SECTION 4: EDIT USER MODAL - FORM MANAGEMENT
 // ════════════════════════════════════════════════════════════════
 
-function openEditUserModal(userId) {
+async function openEditUserModal(userId) {
     const user = usersState.find(u => Number(u.id) === Number(userId));
     if (!user) return;
 
@@ -884,6 +1016,10 @@ function openEditUserModal(userId) {
     document.getElementById('editFirstName').value = user.first_name;
     document.getElementById('editLastName').value = user.last_name;
     document.getElementById('editEmail').value = user.email;
+    const editVehicle = document.getElementById('editVehicle');
+    if (editVehicle) {
+        editVehicle.innerHTML = '<option value="">Loading vehicles...</option>';
+    }
 
     const statusEl = document.getElementById('editStatus');
 
@@ -903,6 +1039,16 @@ function openEditUserModal(userId) {
             statusEl.value = 'pending';
             statusEl.disabled = true;
         }
+    }
+
+    try {
+        const vehicles = await fetchEditableVehiclesForUser(user.id);
+        renderEditableVehicleOptions(vehicles, user.vehicle_id || null);
+    } catch (error) {
+        if (editVehicle) {
+            editVehicle.innerHTML = '<option value="">Unable to load vehicles</option>';
+        }
+        console.error('Error loading vehicles for edit modal:', error);
     }
 
     openModal('editUserModal');
@@ -1579,6 +1725,7 @@ async function handleEditUserFormSubmit(e) {
     const firstName = document.getElementById('editFirstName').value.trim();
     const lastName = document.getElementById('editLastName').value.trim();
     const statusEl = document.getElementById('editStatus');
+    const editVehicleEl = document.getElementById('editVehicle');
 
     const errorEl = document.getElementById('editFormError');
     const successEl = document.getElementById('editFormSuccess');
@@ -1598,7 +1745,8 @@ async function handleEditUserFormSubmit(e) {
         // ─── BUILD REQUEST BODY ───
         const requestBody = {
             firstName: firstName,
-            lastName: lastName
+            lastName: lastName,
+            vehicleId: editVehicleEl && editVehicleEl.value !== '' ? Number(editVehicleEl.value) : null
         };
 
         const userInState = usersState.find(u => Number(u.id) === Number(userId));
@@ -1636,8 +1784,9 @@ async function handleEditUserFormSubmit(e) {
             // Update local state with returning user data
             if (data.user) {
                 upsertUserInState(data.user);
-                renderUsersState();
             }
+
+            await fetchAllUsers();
 
             setTimeout(() => {
                 closeModal('editUserModal');

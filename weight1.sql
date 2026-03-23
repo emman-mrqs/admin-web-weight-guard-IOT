@@ -72,15 +72,17 @@ CREATE TABLE dispatch_tasks (
 -- 4. INCIDENTS
 CREATE TABLE incidents (
     id BIGSERIAL PRIMARY KEY,
+    managed_by BIGINT REFERENCES administrator(id) ON DELETE SET NULL,
     vehicle_id BIGINT REFERENCES vehicles(id) ON DELETE CASCADE,
     driver_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     task_id BIGINT REFERENCES dispatch_tasks(id) ON DELETE CASCADE,
     incident_type VARCHAR(50),
     severity VARCHAR(20),
+    status VARCHAR(50),
     weight_impact_kg DECIMAL(10, 2),
+    description TEXT,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
-    status VARCHAR(50),
     resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
