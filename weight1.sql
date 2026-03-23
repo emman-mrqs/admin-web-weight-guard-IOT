@@ -80,7 +80,6 @@ CREATE TABLE incidents (
     severity VARCHAR(20),
     status VARCHAR(50),
     weight_impact_kg DECIMAL(10, 2),
-    description TEXT,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     resolved_at TIMESTAMPTZ,

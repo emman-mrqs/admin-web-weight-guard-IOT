@@ -94,7 +94,7 @@ async function upsertDetectedIncident({
 				status,
 				created_at
 			)
-			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW())
+			VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, 'open', NOW())
 			RETURNING id
 		`,
 		[vehicleId, driverId, taskId, incidentType, severity, weightImpactKg, latitude, longitude]
@@ -285,7 +285,7 @@ class IncidentApiController {
 						vehicleId: normalizedVehicleId,
 						driverId: vehicle.assigned_driver_id || null,
 						incidentType: 'overload',
-						severity: 'warning',
+						severity: 'medium',
 						weightImpactKg: overloadImpact,
 						latitude: normalizedLatitude,
 						longitude: normalizedLongitude
@@ -300,8 +300,8 @@ class IncidentApiController {
 							taskId: selectedTask.id,
 							vehicleId: normalizedVehicleId,
 							driverId: vehicle.assigned_driver_id || null,
-							incidentType: 'cargo_loss',
-							severity: 'critical',
+							incidentType: 'loss',
+							severity: 'high',
 							weightImpactKg: lostKg,
 							latitude: normalizedLatitude,
 							longitude: normalizedLongitude

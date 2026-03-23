@@ -695,7 +695,10 @@ function renderDispatchTaskTable(items = []) {
         const status = String(item.assignment_status || 'pending').toLowerCase();
         const statusClass = status === 'active'
             ? 'text-emerald-400'
-            : (status === 'pending' ? 'text-yellow-400' : 'text-slate-400');
+            : (status === 'in_transit'
+                ? 'text-sky-400'
+                : (status === 'pending' ? 'text-yellow-400' : 'text-slate-400'));
+        const statusLabel = status.replace(/_/g, ' ');
 
         return `
             <tr class="hover:bg-slate-800/40 transition">
@@ -704,7 +707,7 @@ function renderDispatchTaskTable(items = []) {
                     <div class="text-slate-300 font-mono">${item.vehicle_number || '--'}</div>
                     <div class="text-[10px] text-slate-500 font-semibold mt-0.5">${item.vehicle_name || item.vehicle_type || 'Vehicle'}</div>
                 </td>
-                <td class="py-3 pr-4 ${statusClass} font-bold uppercase">${status}</td>
+                <td class="py-3 pr-4 ${statusClass} font-bold uppercase">${statusLabel}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.distance_km ? `${item.distance_km} km` : '--'}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.est_duration_min ? `${item.est_duration_min} min` : '--'}</td>
                 <td class="py-3 pr-0">
@@ -749,7 +752,8 @@ function renderAssignmentsList() {
     sidebarAssignments.forEach(user => {
         const initials = getInitials(user.full_name || 'ND');
         const isSelected = selectedAssignmentId == user.assignment_id;
-        const isActive = user.assignment_status === 'active';
+        const normalizedStatus = String(user.assignment_status || '').toLowerCase();
+        const isActive = normalizedStatus === 'active' || normalizedStatus === 'in_transit';
 
         const assignmentDiv = document.createElement('div');
         assignmentDiv.className = `p-3 rounded-lg cursor-pointer border transition group ${
@@ -844,10 +848,16 @@ function showTaskDetails(user) {
     const status = String(user.assignment_status || 'pending').toLowerCase();
     let statusClass = 'text-yellow-400';
     if (status === 'active') statusClass = 'text-[#2DD4BF]';
+    if (status === 'in_transit') statusClass = 'text-sky-400';
     if (status === 'completed') statusClass = 'text-blue-400';
     if (status === 'cancelled') statusClass = 'text-rose-400';
 
-    statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    const statusLabel = status
+        .split('_')
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(' ');
+
+    statusEl.textContent = statusLabel;
     statusEl.className = `text-sm font-bold ${statusClass}`;
 
     const startTime = user.assigned_at ? new Date(user.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';

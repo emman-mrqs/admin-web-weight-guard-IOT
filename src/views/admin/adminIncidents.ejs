@@ -44,7 +44,7 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Critical</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">High</p>
                         <p id="statCritical" class="text-2xl font-extrabold text-rose-400 leading-none">0</p>
                     </div>
                 </div>
@@ -54,7 +54,7 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Warnings</p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Medium</p>
                         <p id="statWarning" class="text-2xl font-extrabold text-amber-400 leading-none">0</p>
                     </div>
                 </div>
@@ -93,9 +93,9 @@
                 
                 <div class="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-3 rounded-xl shadow-xl">
                     <div class="flex items-center gap-4 text-xs font-bold tracking-wide">
-                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.8)]"></span> Critical</span>
-                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(251,191,36,0.8)]"></span> Warning</span>
-                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></span> Info</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.8)]"></span> High</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(251,191,36,0.8)]"></span> Medium</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></span> Normal</span>
                     </div>
                 </div>
             </div>
@@ -106,7 +106,7 @@
                     <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                         <select id="filterType" class="bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer shadow-inner flex-1">
                             <option value="">All Types</option>
-                            <option value="cargo_loss">Cargo Loss</option>
+                            <option value="loss">Cargo Loss</option>
                             <option value="overload">Overload</option>
                             <option value="route_deviation">Route Deviation</option>
                             <option value="unauthorized_stop">Unauthorized Stop</option>
@@ -143,10 +143,14 @@
                         </thead>
                         <tbody id="incidentTableBody" class="divide-y divide-slate-800/50">
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-slate-500 text-xs">Loading incidents...</td>
+                                <td colspan="8" class="px-6 py-8 text-center text-slate-500 text-xs">Loading incidents...</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                    <p class="text-xs text-slate-500 font-medium" id="incidentPaginationInfo">Loading entries...</p>
+                    <div class="flex items-center gap-1.5" id="incidentPaginationControls"></div>
                 </div>
             </section>
         </div>
@@ -198,7 +202,12 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
-                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Incident Location</p>
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Incident Location</p>
+                            <button id="btnFocusIncidentMap" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-sky-500/30 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition">
+                                Show On Main Map
+                            </button>
+                        </div>
                         <div id="modalMap" class="flex-1 min-h-[250px] rounded-lg border border-slate-700/50 z-0"></div>
                     </div>
                     <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
@@ -210,6 +219,11 @@
                 </div>
 
                 <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Incident Lifecycle History</p>
+                    <div id="modalHistoryContainer" class="space-y-2 text-xs"></div>
+                </div>
+
+                <div id="statusUpdateSection" class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
                     <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Update Resolution Status</p>
                     <div id="statusUpdateError" class="hidden mb-3 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2"></div>
                     <div class="flex gap-3 flex-wrap mb-4">
@@ -218,9 +232,20 @@
                         <button data-status="resolved" class="status-btn px-5 py-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-500/20 hover:border-emerald-500 transition shadow-sm uppercase tracking-wide">Resolve</button>
                         <button data-status="false_alarm" class="status-btn px-5 py-2.5 bg-slate-800 border border-slate-600 text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-700 transition shadow-sm uppercase tracking-wide">False Alarm</button>
                     </div>
-                    <textarea id="resolutionNotes" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-inner transition" rows="2" placeholder="Add resolution notes or investigation details..."></textarea>
-                    <p id="resolutionNotesError" class="hidden mt-2 text-xs text-rose-300"></p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="statusConfirmModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[2100] hidden flex items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-2xl border border-slate-700/50 bg-slate-900 shadow-2xl overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-800">
+                <h4 class="text-lg font-extrabold text-white tracking-tight">Confirm Status Change</h4>
+                <p id="statusConfirmMessage" class="mt-1 text-sm text-slate-300">Are you sure?</p>
+            </div>
+            <div class="px-6 py-4 flex justify-end gap-3">
+                <button id="btnCancelStatusConfirm" class="px-4 py-2 text-xs font-bold uppercase tracking-wide rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+                <button id="btnConfirmStatusChange" class="px-4 py-2 text-xs font-bold uppercase tracking-wide rounded-lg border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition">Confirm</button>
             </div>
         </div>
     </div>

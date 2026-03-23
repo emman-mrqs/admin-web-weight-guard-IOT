@@ -17,7 +17,8 @@ const fleetState = {
     search: '',
     selectedVehicleId: null,
     searchTimer: null,
-    sparklineCharts: []
+    sparklineCharts: [],
+    autoRefreshTimer: null
 };
 
 function formatNumber(value) {
@@ -39,6 +40,7 @@ function normalizeState(state) {
     const value = String(state || '').toLowerCase();
     if (value.includes('maintenance')) return 'maintenance';
     if (value.includes('alert')) return 'alert';
+    if (value.includes('loading')) return 'loading';
     if (value.includes('transit')) return 'in_transit';
     if (value.includes('idle')) return 'idle';
     return 'available';
@@ -48,7 +50,7 @@ function getStatusBadge(state, loadStatus) {
     const normalized = normalizeState(state);
     const lowerLoad = String(loadStatus || '').toLowerCase();
 
-    if (lowerLoad.includes('loss') || normalized === 'alert') {
+    if (lowerLoad.includes('loss') || lowerLoad.includes('overload') || normalized === 'alert') {
         return {
             label: 'ALERT',
             className: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
@@ -61,6 +63,14 @@ function getStatusBadge(state, loadStatus) {
             label: 'MAINTENANCE',
             className: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
             dotClass: 'bg-amber-500'
+        };
+    }
+
+    if (normalized === 'loading') {
+        return {
+            label: 'LOADING',
+            className: 'bg-sky-500/10 text-sky-300 border-sky-500/30',
+            dotClass: 'bg-sky-400'
         };
     }
 
@@ -77,6 +87,44 @@ function getStatusBadge(state, loadStatus) {
         className: 'bg-slate-800 text-slate-300 border-slate-700',
         dotClass: 'bg-slate-500'
     };
+}
+
+function getCurrentLoadKg(vehicle) {
+    const loadStatusText = String(vehicle.current_load_status || 'empty');
+    const dispatchWeightKg = Number(vehicle.initial_reference_weight_kg);
+    const numericFromStatus = Number((loadStatusText.match(/\d+(\.\d+)?/) || [])[0] || 0);
+
+    if (Number.isFinite(dispatchWeightKg) && dispatchWeightKg >= 0) {
+        return dispatchWeightKg;
+    }
+
+    if (Number.isFinite(numericFromStatus) && numericFromStatus > 0) {
+        return numericFromStatus;
+    }
+
+    return 0;
+}
+
+function buildWeightTrendData(vehicle, currentLoadKg, maxCapacityKg) {
+    const safeCurrentLoad = Number.isFinite(currentLoadKg) ? currentLoadKg : 0;
+    const safeCapacity = Number.isFinite(maxCapacityKg) ? maxCapacityKg : 0;
+    const overloadCeiling = safeCapacity > 0 ? safeCapacity * 1.25 : 200;
+    const scaleMax = Math.max(overloadCeiling, safeCurrentLoad * 1.1, 100);
+    const scaleMin = 0;
+
+    // Deterministic small oscillation by vehicle id so chart does not look random on each refresh.
+    const seed = Number(vehicle.id || 0) % 10;
+    const variance = Math.max(scaleMax * 0.02, 8);
+    const multipliers = [0.94, 0.98, 0.96, 1.01, 0.99, 1.0];
+
+    const data = multipliers.map((multiplier, idx) => {
+        const direction = ((seed + idx) % 2 === 0) ? 1 : -1;
+        const offset = direction * variance * (0.45 + (idx / 10));
+        const point = (safeCurrentLoad * multiplier) + offset;
+        return Math.max(scaleMin, Math.min(scaleMax, point));
+    });
+
+    return { data, scaleMin, scaleMax };
 }
 
 function closeAllModals() {
@@ -170,11 +218,7 @@ function renderFleetRows() {
         const type = vehicle.vehicle_type || 'Unknown Vehicle';
         const maxCapacity = Number(vehicle.max_capacity_kg || 0);
 
-        const loadStatusText = String(vehicle.current_load_status || 'empty');
-        const numericFromStatus = Number((loadStatusText.match(/\d+(\.\d+)?/) || [])[0] || 0);
-        const currentLoadKg = Number.isFinite(numericFromStatus) && numericFromStatus > 0
-            ? numericFromStatus
-            : (loadStatusText.toLowerCase().includes('empty') ? 0 : 0);
+        const currentLoadKg = getCurrentLoadKg(vehicle);
         const loadPercent = maxCapacity > 0 ? Math.max(0, Math.min(100, (currentLoadKg / maxCapacity) * 100)) : 0;
 
         const routeLine = String(vehicle.current_state || 'Unknown').replace(/_/g, ' ');
@@ -250,15 +294,9 @@ function renderRowSparklines() {
 
         const isAlert = getStatusBadge(vehicle.current_state, vehicle.current_load_status).label === 'ALERT';
         const color = isAlert ? '#fb7185' : '#34d399';
-        const base = Number(vehicle.max_capacity_kg || 1000) / 10;
-        const data = [
-            Math.max(0, base * 0.62),
-            Math.max(0, base * 0.75),
-            Math.max(0, base * 0.7),
-            Math.max(0, base * 0.84),
-            Math.max(0, base * 0.78),
-            Math.max(0, base * 0.9)
-        ];
+        const maxCapacityKg = Number(vehicle.max_capacity_kg || 0);
+        const currentLoadKg = getCurrentLoadKg(vehicle);
+        const { data, scaleMin, scaleMax } = buildWeightTrendData(vehicle, currentLoadKg, maxCapacityKg);
 
         const gradient = ctx.createLinearGradient(0, 0, 0, 40);
         gradient.addColorStop(0, `${color}40`);
@@ -282,7 +320,14 @@ function renderRowSparklines() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                scales: { x: { display: false }, y: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        display: false,
+                        min: scaleMin,
+                        max: scaleMax
+                    }
+                },
                 layout: { padding: 2 }
             }
         });
@@ -410,9 +455,7 @@ function fillViewModal(vehicle) {
     const createdAt = document.getElementById('viewCreatedAt');
     const lastMaintenance = document.getElementById('viewLastMaintenance');
 
-    const loadStatusText = String(vehicle.current_load_status || 'empty');
-    const numericFromStatus = Number((loadStatusText.match(/\d+(\.\d+)?/) || [])[0] || 0);
-    const currentLoadKg = Number.isFinite(numericFromStatus) && numericFromStatus > 0 ? numericFromStatus : 0;
+    const currentLoadKg = getCurrentLoadKg(vehicle);
     const maxCapacityKg = Number(vehicle.max_capacity_kg || 0);
     const loadPercent = maxCapacityKg > 0
         ? Math.max(0, Math.min(100, (currentLoadKg / maxCapacityKg) * 100))

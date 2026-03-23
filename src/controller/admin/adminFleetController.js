@@ -1,9 +1,69 @@
 // Admin Fleet Controller
 import db from '../../database/db.js';
+import AdminIncidentsController from './adminIncidentsController.js';
 
 class AdminFleetController {
-    static getFleet(req, res) {
+    static async syncFleetStateFromDispatch() {
+        await db.query(`
+            WITH latest_dispatch AS (
+                SELECT DISTINCT ON (dt.vehicle_id)
+                    dt.vehicle_id,
+                    LOWER(COALESCE(dt.status, '')) AS dispatch_status,
+                    dt.initial_reference_weight_kg
+                FROM dispatch_tasks dt
+                ORDER BY dt.vehicle_id, dt.created_at DESC, dt.id DESC
+            )
+            UPDATE vehicles v
+            SET
+                current_state = CASE
+                    WHEN ld.dispatch_status = 'active' THEN 'loading'
+                    WHEN ld.dispatch_status = 'in_transit' THEN 'in_transit'
+                    ELSE v.current_state
+                END,
+                current_load_status = CASE
+                    WHEN ld.dispatch_status = 'active' THEN
+                        CASE
+                            WHEN COALESCE(ld.initial_reference_weight_kg, 0)::numeric > COALESCE(v.max_capacity_kg, 0)::numeric
+                                THEN 'overload'
+                            ELSE 'normal'
+                        END
+                    ELSE v.current_load_status
+                END
+            FROM latest_dispatch ld
+            WHERE v.id = ld.vehicle_id
+              AND ld.dispatch_status IN ('active', 'in_transit')
+        `);
+
+        const hasCurrentStatusColumn = await db.query(`
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'vehicles'
+              AND column_name = 'current_status'
+            LIMIT 1
+        `);
+
+        if (hasCurrentStatusColumn.rows.length > 0) {
+            await db.query(`
+                WITH latest_dispatch AS (
+                    SELECT DISTINCT ON (dt.vehicle_id)
+                        dt.vehicle_id,
+                        LOWER(COALESCE(dt.status, '')) AS dispatch_status
+                    FROM dispatch_tasks dt
+                    ORDER BY dt.vehicle_id, dt.created_at DESC, dt.id DESC
+                )
+                UPDATE vehicles v
+                SET current_status = 'in_transit'
+                FROM latest_dispatch ld
+                WHERE v.id = ld.vehicle_id
+                  AND ld.dispatch_status = 'in_transit'
+            `);
+        }
+    }
+
+    static async getFleet(req, res) {
         try {
+            await AdminIncidentsController.syncIncidentLogsFromDispatch();
+
             res.render('admin/adminFleet', {
                 currentPage: 'fleet'
             });
@@ -15,6 +75,9 @@ class AdminFleetController {
 
     static async getAllFleet(req, res) {
         try {
+            await AdminFleetController.syncFleetStateFromDispatch();
+            await AdminIncidentsController.syncIncidentLogsFromDispatch();
+
             const page = Math.max(1, Number(req.query.page) || 1);
             const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
             const search = String(req.query.search || '').trim();
@@ -40,6 +103,7 @@ class AdminFleetController {
                 conditions.push(`(
                     LOWER(COALESCE(v.current_state, '')) LIKE '%alert%'
                     OR LOWER(COALESCE(v.current_load_status, '')) LIKE '%loss%'
+                    OR LOWER(COALESCE(v.current_load_status, '')) LIKE '%overload%'
                 )`);
             } else if (filter === 'active') {
                 conditions.push(`LOWER(COALESCE(v.current_state, '')) NOT LIKE '%maintenance%'`);
@@ -50,6 +114,15 @@ class AdminFleetController {
             const baseFrom = `
                 FROM vehicles v
                 LEFT JOIN users u ON u.id = v.assigned_driver_id
+                LEFT JOIN LATERAL (
+                    SELECT
+                        LOWER(COALESCE(dt.status, '')) AS dispatch_status,
+                        dt.initial_reference_weight_kg
+                    FROM dispatch_tasks dt
+                    WHERE dt.vehicle_id = v.id
+                    ORDER BY dt.created_at DESC, dt.id DESC
+                    LIMIT 1
+                ) dt ON true
             `;
 
             const countQuery = `
@@ -74,6 +147,8 @@ class AdminFleetController {
                     v.max_capacity_kg,
                     v.current_state,
                     v.current_load_status,
+                    dt.dispatch_status,
+                    dt.initial_reference_weight_kg,
                     v.created_at,
                     u.first_name AS driver_first_name,
                     u.last_name AS driver_last_name,
@@ -94,6 +169,7 @@ class AdminFleetController {
                     COUNT(*) FILTER (
                         WHERE LOWER(COALESCE(current_state, '')) LIKE '%alert%'
                            OR LOWER(COALESCE(current_load_status, '')) LIKE '%loss%'
+                           OR LOWER(COALESCE(current_load_status, '')) LIKE '%overload%'
                     )::int AS alert_count,
                     AVG(max_capacity_kg)::numeric(10,2) AS avg_capacity
                 FROM vehicles
@@ -256,6 +332,33 @@ class AdminFleetController {
             const existingResult = await db.query('SELECT id FROM vehicles WHERE id = $1', [vehicleId]);
             if (existingResult.rows.length === 0) {
                 return res.status(404).json({ error: 'Vehicle not found.' });
+            }
+
+            const assignmentCountResult = await db.query(
+                `
+                    SELECT
+                        COUNT(*)::int AS total_assignments,
+                        COUNT(*) FILTER (
+                            WHERE LOWER(COALESCE(status, '')) IN ('pending', 'active', 'in_transit')
+                        )::int AS open_assignments
+                    FROM dispatch_tasks
+                    WHERE vehicle_id = $1
+                `,
+                [vehicleId]
+            );
+
+            const assignmentInfo = assignmentCountResult.rows[0] || {};
+            const totalAssignments = Number(assignmentInfo.total_assignments || 0);
+            const openAssignments = Number(assignmentInfo.open_assignments || 0);
+
+            if (totalAssignments > 0) {
+                const openAssignmentHint = openAssignments > 0
+                    ? ` It has ${openAssignments} open assignment(s).`
+                    : '';
+
+                return res.status(409).json({
+                    error: `Vehicle cannot be deleted because it already has dispatch assignment record(s).${openAssignmentHint}`
+                });
             }
 
             // Permanent delete is supported by SQL schema. Related rows cascade via FK constraints.

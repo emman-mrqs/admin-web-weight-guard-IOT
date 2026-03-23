@@ -19,7 +19,7 @@ class AdminDispatchController {
                       SELECT 1
                       FROM dispatch_tasks dt
                       WHERE dt.vehicle_id = v.id
-                        AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending')
+                                                AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending', 'in_transit')
                   )
                 ORDER BY v.created_at DESC, v.id DESC
                 LIMIT 5
@@ -74,7 +74,7 @@ class AdminDispatchController {
                             SELECT 1
                             FROM dispatch_tasks dt
                             WHERE dt.vehicle_id = v.id
-                              AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending')
+                                                            AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending', 'in_transit')
                         )
                     )
                     ${includeVehicleClause}
@@ -104,8 +104,8 @@ class AdminDispatchController {
             const params = [];
             let statusFilter = '';
             if (!includeCompleted) {
-                params.push('active', 'pending');
-                statusFilter = `AND LOWER(COALESCE(dt.status, '')) IN ($1, $2)`;
+                params.push('active', 'pending', 'in_transit');
+                statusFilter = `AND LOWER(COALESCE(dt.status, '')) IN ($1, $2, $3)`;
             }
 
             const countParams = [...params];
@@ -374,7 +374,7 @@ class AdminDispatchController {
                         FROM dispatch_tasks dt
                         INNER JOIN vehicles v ON v.id = dt.vehicle_id
                         WHERE v.assigned_driver_id = $1
-                          AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending')
+                                                    AND LOWER(COALESCE(dt.status, '')) IN ('active', 'pending', 'in_transit')
                         LIMIT 1
                     `,
                     [selectedVehicle.assigned_driver_id]
@@ -386,7 +386,7 @@ class AdminDispatchController {
                     SELECT id
                     FROM dispatch_tasks
                     WHERE vehicle_id = $1
-                      AND LOWER(COALESCE(status, '')) IN ('active', 'pending')
+                                            AND LOWER(COALESCE(status, '')) IN ('active', 'pending', 'in_transit')
                     LIMIT 1
                 `,
                 [normalizedVehicleId]
@@ -484,7 +484,7 @@ class AdminDispatchController {
                 fieldErrors.vehicleId = 'Vehicle must be a valid positive number.';
             }
 
-            const allowedStatuses = ['active', 'pending', 'completed', 'cancelled'];
+            const allowedStatuses = ['active', 'pending', 'in_transit', 'completed', 'cancelled'];
             if (normalizedStatus && !allowedStatuses.includes(normalizedStatus)) {
                 fieldErrors.status = `Status must be one of: ${allowedStatuses.join(', ')}.`;
             }
@@ -547,7 +547,7 @@ class AdminDispatchController {
                     FROM dispatch_tasks
                     WHERE vehicle_id = $1
                       AND id <> $2
-                      AND LOWER(COALESCE(status, '')) IN ('active', 'pending')
+                                            AND LOWER(COALESCE(status, '')) IN ('active', 'pending', 'in_transit')
                     LIMIT 1
                 `,
                 [normalizedVehicleId, assignmentId]

@@ -68,7 +68,7 @@
                 <svg class="w-5 h-5 mr-3 <%= currentPage === 'incidents' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Incident Logs</span>
             </div>
-            <span class="bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">3</span>
+            <span id="incidentSidebarBadge" class="hidden bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">0</span>
         </a>
 
         <a href="/admin/notifications" class="<%= currentPage === 'notifications' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent' %> flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group">
@@ -116,3 +116,41 @@
         </div>
     </div>
 </aside>
+
+<script>
+    (function () {
+        const badge = document.getElementById('incidentSidebarBadge');
+        if (!badge) {
+            return;
+        }
+
+        const applyCount = (value) => {
+            const count = Number(value);
+            if (!Number.isFinite(count) || count <= 0) {
+                badge.textContent = '0';
+                badge.classList.add('hidden');
+                return;
+            }
+
+            badge.textContent = String(count > 99 ? '99+' : count);
+            badge.classList.remove('hidden');
+        };
+
+        fetch('/api/admin/incidents/count', {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Failed to load incident count');
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                applyCount(payload?.count || 0);
+            })
+            .catch(() => {
+                badge.classList.add('hidden');
+            });
+    })();
+</script>
