@@ -1,96 +1,270 @@
-        let pendingAction = null; // 'email' or 'password'
+(function () {
+    const notificationArea = document.getElementById('notification-area');
+    const notificationText = document.getElementById('notification-text');
+    const securityModal = document.getElementById('security-modal');
+    const securityModalBackdrop = document.getElementById('securityModalBackdrop');
+    const securityModalError = document.getElementById('securityModalError');
+    const openSecurityModalBtn = document.getElementById('openSecurityModalBtn');
+    const cancelSecurityModalBtn = document.getElementById('cancelSecurityModalBtn');
+    const confirmSecurityModalBtn = document.getElementById('confirmSecurityModalBtn');
 
-        // 1. Trigger the Modal
-        function initiateSecurityCheck(event, actionType) {
-            event.preventDefault();
-            pendingAction = actionType;
-            
-            // Show Notification simulating Email Send
-            showNotification('Sending verification code to admin@weighguard.io...', 'info');
-            
-            // Simulate API delay then open modal
-            setTimeout(() => {
-                const modal = document.getElementById('security-modal');
-                modal.classList.remove('hidden', 'pointer-events-none');
-                // Small timeout to allow display:block to apply before opacity transition
-                setTimeout(() => {
-                    modal.classList.remove('opacity-0');
-                    document.body.classList.add('modal-active');
-                    document.querySelector('.otp-field').focus();
-                }, 50);
-            }, 1000);
+    const el = {
+        initials: document.getElementById('settingsAvatarInitials'),
+        fullName: document.getElementById('settingsFullName'),
+        roleLabel: document.getElementById('settingsRoleLabel'),
+        roleValue: document.getElementById('settingsRoleValue'),
+        memberSinceTop: document.getElementById('settingsMemberSinceTop'),
+        memberSinceCard: document.getElementById('settingsMemberSinceCard'),
+        statusTop: document.getElementById('settingsStatusTop'),
+        statusDotTop: document.getElementById('settingsStatusDotTop'),
+        statusTextTop: document.getElementById('settingsStatusTextTop'),
+        statusCard: document.getElementById('settingsStatusCard'),
+        firstName: document.getElementById('settingsFirstName'),
+        lastName: document.getElementById('settingsLastName'),
+        email: document.getElementById('settingsEmail'),
+        verifiedBadge: document.getElementById('settingsVerifiedBadge'),
+        verifiedText: document.getElementById('settingsVerifiedText'),
+        currentPassword: document.getElementById('settingsCurrentPassword'),
+        newPassword: document.getElementById('settingsNewPassword'),
+        confirmPassword: document.getElementById('settingsConfirmPassword'),
+        toggleCurrentPassword: document.getElementById('toggleSettingsCurrentPassword'),
+        toggleNewPassword: document.getElementById('toggleSettingsNewPassword'),
+        toggleConfirmPassword: document.getElementById('toggleSettingsConfirmPassword')
+    };
+
+    const getStatusLabel = (status) => {
+        const normalized = String(status || 'inactive').toLowerCase();
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    };
+
+    const setStatusStyles = (status) => {
+        const isActive = String(status || '').toLowerCase() === 'active';
+
+        el.statusTop?.classList.toggle('text-emerald-400', isActive);
+        el.statusTop?.classList.toggle('text-amber-400', !isActive);
+
+        el.statusDotTop?.classList.toggle('bg-emerald-400', isActive);
+        el.statusDotTop?.classList.toggle('bg-amber-400', !isActive);
+
+        el.statusCard?.classList.toggle('text-emerald-400', isActive);
+        el.statusCard?.classList.toggle('text-amber-400', !isActive);
+    };
+
+    const setVerifiedStyles = (isVerified) => {
+        el.verifiedBadge?.classList.toggle('bg-emerald-500/10', isVerified);
+        el.verifiedBadge?.classList.toggle('text-emerald-400', isVerified);
+        el.verifiedBadge?.classList.toggle('border-emerald-500/20', isVerified);
+
+        el.verifiedBadge?.classList.toggle('bg-amber-500/10', !isVerified);
+        el.verifiedBadge?.classList.toggle('text-amber-400', !isVerified);
+        el.verifiedBadge?.classList.toggle('border-amber-500/20', !isVerified);
+    };
+
+    const showNotification = (message) => {
+        if (!notificationArea || !notificationText) {
+            return;
         }
 
-        // 2. Close Modal
-        function closeModal() {
-            const modal = document.getElementById('security-modal');
-            modal.classList.add('opacity-0');
-            document.body.classList.remove('modal-active');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden', 'pointer-events-none');
-                // Reset OTP fields
-                document.querySelectorAll('.otp-field').forEach(input => input.value = '');
-            }, 300);
+        notificationText.textContent = message;
+        notificationArea.classList.remove('hidden');
+        notificationArea.classList.add('opacity-100');
+
+        setTimeout(() => {
+            notificationArea.classList.remove('opacity-100');
+            setTimeout(() => notificationArea.classList.add('hidden'), 300);
+        }, 3000);
+    };
+
+    const clearSecurityModalError = () => {
+        if (!securityModalError) {
+            return;
         }
 
-        // 3. Verify OTP Logic
-        function verifyAndSave() {
-            // Collect OTP
-            let otp = '';
-            document.querySelectorAll('.otp-field').forEach(field => otp += field.value);
+        securityModalError.textContent = '';
+        securityModalError.classList.add('hidden');
+    };
 
-            if (otp.length < 6) {
-                alert('Please enter the full 6-digit code.');
-                return;
+    const showSecurityModalError = (message) => {
+        if (!securityModalError) {
+            return;
+        }
+
+        securityModalError.textContent = message;
+        securityModalError.classList.remove('hidden');
+    };
+
+    const openSecurityModal = () => {
+        if (!securityModal) {
+            return;
+        }
+
+        clearSecurityModalError();
+        securityModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    };
+
+    const closeSecurityModal = () => {
+        if (!securityModal) {
+            return;
+        }
+
+        clearSecurityModalError();
+        securityModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    };
+
+    const resetPasswordFields = () => {
+        if (el.currentPassword) el.currentPassword.value = '';
+        if (el.newPassword) el.newPassword.value = '';
+        if (el.confirmPassword) el.confirmPassword.value = '';
+    };
+
+    const togglePasswordVisibility = (inputEl, toggleBtn) => {
+        if (!inputEl || !toggleBtn) {
+            return;
+        }
+
+        const isPassword = inputEl.type === 'password';
+        inputEl.type = isPassword ? 'text' : 'password';
+        toggleBtn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+    };
+
+    const handleConfirmPasswordChange = async () => {
+        const currentPassword = String(el.currentPassword?.value || '');
+        const newPassword = String(el.newPassword?.value || '');
+        const confirmPassword = String(el.confirmPassword?.value || '');
+
+        clearSecurityModalError();
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showSecurityModalError('Please complete all password fields first.');
+            return;
+        }
+
+        const originalButtonText = confirmSecurityModalBtn?.innerHTML || 'Confirm Change';
+
+        if (confirmSecurityModalBtn) {
+            confirmSecurityModalBtn.disabled = true;
+            confirmSecurityModalBtn.classList.add('opacity-80', 'cursor-not-allowed');
+            confirmSecurityModalBtn.textContent = 'Updating...';
+        }
+
+        try {
+            const response = await fetch('/api/admin/settings/password-change', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json'
+                },
+                body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload?.success === false) {
+                throw new Error(payload?.message || 'Failed to change password.');
             }
 
-            // Simulate Verification Success
-            showNotification('Verifying code...', 'info');
-            
-            setTimeout(() => {
-                closeModal();
-                if (pendingAction === 'email') {
-                    const newEmail = document.getElementById('new-email-input').value;
-                    showNotification(`Success: Admin email updated to ${newEmail}`, 'success');
-                    // In real app, you'd reload or update the UI here
-                } else if (pendingAction === 'password') {
-                    showNotification('Success: Admin password changed successfully', 'success');
-                }
-            }, 1000);
+            closeSecurityModal();
+            resetPasswordFields();
+            showNotification(payload?.message || 'Password changed successfully.');
+        } catch (error) {
+            showSecurityModalError(error?.message || 'Failed to change password.');
+        } finally {
+            if (confirmSecurityModalBtn) {
+                confirmSecurityModalBtn.disabled = false;
+                confirmSecurityModalBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+                confirmSecurityModalBtn.innerHTML = originalButtonText;
+            }
         }
+    };
 
-        // 4. Helper: Notification System
-        function showNotification(message, type) {
-            const notif = document.getElementById('notification-area');
-            const notifText = document.getElementById('notification-text');
-            
-            notifText.innerText = message;
-            notif.classList.remove('hidden');
-            notif.classList.add('opacity-100');
-            
-            // Auto hide after 3 seconds
-            setTimeout(() => {
-                notif.classList.remove('opacity-100');
-                setTimeout(() => notif.classList.add('hidden'), 500);
-            }, 4000);
-        }
+    const applyAccount = (account) => {
+        el.initials.textContent = account.initials || 'AD';
+        el.fullName.textContent = account.fullName || 'Administrator';
+        el.roleLabel.textContent = account.roleLabel || 'Administrator';
+        el.roleValue.textContent = account.roleLabel || 'Administrator';
 
-        function resendCode() {
-            showNotification('New code sent to admin@weighguard.io', 'info');
-        }
+        el.memberSinceTop.textContent = account.memberSince || 'N/A';
+        el.memberSinceCard.textContent = account.memberSince || 'N/A';
 
-        // 5. Auto-focus next OTP field
-        const otpInputs = document.querySelectorAll('.otp-field');
-        otpInputs.forEach((input, index) => {
-            input.addEventListener('input', (e) => {
-                if (e.target.value.length === 1 && index < otpInputs.length - 1) {
-                    otpInputs[index + 1].focus();
-                }
-            });
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && e.target.value.length === 0 && index > 0) {
-                    otpInputs[index - 1].focus();
+        el.firstName.value = account.firstName || '';
+        el.lastName.value = account.lastName || '';
+        el.email.value = account.email || 'N/A';
+
+        const statusLabel = getStatusLabel(account.status);
+        el.statusTextTop.textContent = statusLabel;
+        el.statusCard.textContent = statusLabel;
+        setStatusStyles(account.status);
+
+        const isVerified = Boolean(account.isVerified);
+        el.verifiedText.textContent = isVerified ? 'Verified' : 'Pending';
+        setVerifiedStyles(isVerified);
+    };
+
+    const loadAccountSettings = async () => {
+        try {
+            const response = await fetch('/api/admin/settings/account', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json'
                 }
             });
+
+            if (!response.ok) {
+                throw new Error('Unable to load account settings.');
+            }
+
+            const payload = await response.json();
+            if (!payload?.account) {
+                throw new Error('Account payload is missing.');
+            }
+
+            applyAccount(payload.account);
+        } catch (error) {
+            console.error('Settings account load error:', error);
+            showNotification('Failed to load account information.');
+        }
+    };
+
+    if (openSecurityModalBtn) {
+        openSecurityModalBtn.addEventListener('click', openSecurityModal);
+    }
+
+    if (cancelSecurityModalBtn) {
+        cancelSecurityModalBtn.addEventListener('click', closeSecurityModal);
+    }
+
+    if (securityModalBackdrop) {
+        securityModalBackdrop.addEventListener('click', closeSecurityModal);
+    }
+
+    if (confirmSecurityModalBtn) {
+        confirmSecurityModalBtn.addEventListener('click', handleConfirmPasswordChange);
+    }
+
+    if (el.toggleNewPassword) {
+        el.toggleNewPassword.addEventListener('click', () => {
+            togglePasswordVisibility(el.newPassword, el.toggleNewPassword);
         });
+    }
+
+    if (el.toggleCurrentPassword) {
+        el.toggleCurrentPassword.addEventListener('click', () => {
+            togglePasswordVisibility(el.currentPassword, el.toggleCurrentPassword);
+        });
+    }
+
+    if (el.toggleConfirmPassword) {
+        el.toggleConfirmPassword.addEventListener('click', () => {
+            togglePasswordVisibility(el.confirmPassword, el.toggleConfirmPassword);
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeSecurityModal();
+        }
+    });
+
+    loadAccountSettings();
+})();

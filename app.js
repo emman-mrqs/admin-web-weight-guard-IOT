@@ -3,6 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import { createServer } from "http";
 
+
 // =========== Import Controllers =============
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -15,6 +16,8 @@ import userMobileAuthRoutes from "./src/routes/api/userMobileAuthRoutes.js";
 // import { setWsConnections } from "./src/controller/api/locationController.js";
 // import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
 import { initTrackingWebSocket } from "./src/realtime/trackingWebSocket.js";
+import passport from "passport";
+import PassportConfig from './src/config/passport.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -26,10 +29,17 @@ const port = process.env.PORT || 3000;
 }
 
 // Import Middleware
-// this is where you would import any custom middleware, e.g. for authentication, logging, etc.
+import authMiddleware from "./src/middleware/auth.js";
 
 // Express session Middleware 
-// This is where you would set up express-session if you were using it for authentication/session management. 
+app.use(authMiddleware.sessionMiddleware);
+PassportConfig.initialize();
+app.use(passport.initialize());
+app.use(passport.session());
+app.use((req, res, next) => {
+    res.locals.currentAdmin = req.user || null;
+    next();
+});
 
 // Create HTTP server for both Express and WebSocket
 const server = createServer(app);

@@ -13,8 +13,61 @@ import AdminIncidentsController from '../../controller/admin/adminIncidentsContr
 import AdminNotificationController from '../../controller/admin/adminNotificationController.js';
 import AdminSettingsController from '../../controller/admin/adminSettingsController.js';
 import AdminAuditLogsController from '../../controller/admin/adminAuditLogsController.js';
+import authMiddleware from '../../middleware/auth.js';
 
 const router = express.Router();
+
+const normalizeRoleLabel = (role) => {
+	const value = String(role || '').trim().toLowerCase().replace(/[_\s-]+/g, ' ');
+	if (!value) {
+		return 'Administrator';
+	}
+
+	return value
+		.split(' ')
+		.filter(Boolean)
+		.map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+		.join(' ');
+};
+
+const buildInitials = (firstName, lastName) => {
+	const first = String(firstName || '').trim().charAt(0);
+	const last = String(lastName || '').trim().charAt(0);
+	return `${first}${last}`.toUpperCase() || 'AD';
+};
+
+router.use((req, res, next) => {
+	const targetPath = String(req.path || '').toLowerCase();
+	const needsAuth = targetPath === '/admin'
+		|| targetPath.startsWith('/admin/')
+		|| targetPath === '/api/admin'
+		|| targetPath.startsWith('/api/admin/');
+
+	if (!needsAuth) {
+		return next();
+	}
+
+	return authMiddleware.ensureAuthenticated(req, res, next);
+});
+
+router.use((req, res, next) => {
+	if (!(req.isAuthenticated && req.isAuthenticated()) || !req.user) {
+		res.locals.sidebarAccount = null;
+		return next();
+	}
+
+	const firstName = String(req.user.first_name || '').trim();
+	const lastName = String(req.user.last_name || '').trim();
+	const fullName = `${firstName} ${lastName}`.trim() || 'Administrator';
+
+	res.locals.sidebarAccount = {
+		fullName,
+		roleLabel: normalizeRoleLabel(req.user.role),
+		initials: buildInitials(firstName, lastName)
+	};
+
+	return next();
+});
 
 // Admin Dashboard Routes
 router.get("/admin", AdminDashboardController.getDashboard);
@@ -81,6 +134,8 @@ router.get("/admin/notifications", AdminNotificationController.getNotifications)
 
 // Admin Settings Routes
 router.get("/admin/settings", AdminSettingsController.getSettings);
+router.get('/api/admin/settings/account', AdminSettingsController.getCurrentAccount);
+router.post('/api/admin/settings/password-change', AdminSettingsController.changePassword);
 
 // Admin Audit Logs Routes
 router.get("/admin/audit-logs", AdminAuditLogsController.getAuditLogs);
