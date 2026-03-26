@@ -139,5 +139,6 @@ router.post('/api/admin/settings/password-change', AdminSettingsController.chang
 
 // Admin Audit Logs Routes
 router.get("/admin/audit-logs", AdminAuditLogsController.getAuditLogs);
+router.get('/api/admin/audit-logs', AdminAuditLogsController.getAuditLogsData);
 
 export default router;

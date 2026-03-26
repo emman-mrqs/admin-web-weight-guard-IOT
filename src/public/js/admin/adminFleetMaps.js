@@ -11,9 +11,15 @@ let showZones = true;
 // Define Base Layers
 const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const satTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const satLabelTileUrl = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
 
 const darkLayer = L.tileLayer(darkTileUrl, { maxZoom: 19, subdomains: 'abcd' });
 const satLayer = L.tileLayer(satTileUrl, { maxZoom: 19 });
+const satLabelLayer = L.tileLayer(satLabelTileUrl, {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    opacity: 0.9
+});
 
 // Sample highly-detailed vehicle data
 const liveVehicles = [
@@ -75,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         attributionControl: false
     }).setView([14.7298, 121.1423], 14);
 
-    // Add Dark Mode Default
+    // Add dark map default
     darkLayer.addTo(map);
 
     // Groups for filtering
@@ -271,12 +277,14 @@ function toggleMapStyle(style) {
     if (style === 'sat' && isDarkMap) {
         map.removeLayer(darkLayer);
         satLayer.addTo(map);
+        satLabelLayer.addTo(map);
         isDarkMap = false;
         
         btnSat.className = "px-4 py-1.5 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition";
         btnMap.className = "px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 rounded-lg transition";
     } else if (style === 'dark' && !isDarkMap) {
         map.removeLayer(satLayer);
+        map.removeLayer(satLabelLayer);
         darkLayer.addTo(map);
         isDarkMap = true;
 

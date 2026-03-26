@@ -383,6 +383,25 @@ class AdminLoginController {
 
     static async handleLogout(req, res, next) {
         try {
+            const adminId = Number(req.user?.id || req.session?.passport?.user);
+
+            if (Number.isFinite(adminId) && adminId > 0) {
+                try {
+                    await db.query(
+                        `
+                            UPDATE administrator
+                            SET logout_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = $1
+                              AND deleted_at IS NULL;
+                        `,
+                        [adminId]
+                    );
+                } catch (logoutTimestampError) {
+                    console.error('Failed to update administrator logout timestamp:', logoutTimestampError);
+                }
+            }
+
             await AdminLoginController.passportLogout(req);
 
             const finish = () => {

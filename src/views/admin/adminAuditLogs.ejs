@@ -27,9 +27,9 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-hidden p-8 flex flex-col space-y-6">
+        <div class="flex-1 overflow-y-auto p-8 flex flex-col space-y-6 custom-scrollbar">
             
-            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg flex flex-col overflow-hidden flex-1">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg flex flex-col overflow-hidden">
                 
                 <div class="p-5 border-b border-slate-800 bg-slate-900/50 flex flex-col gap-4 shrink-0">
                     <div class="flex flex-col md:flex-row gap-4 w-full">
@@ -37,54 +37,47 @@
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
                                 <svg class="w-4 h-4 text-slate-500 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             </span>
-                            <input type="text" placeholder="Search by actor, action, IP, or description..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
+                            <input id="auditSearchInput" type="text" placeholder="Search by actor, action, IP, or description..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
                         </div>
-                        <button class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-500/20 transition shadow-sm whitespace-nowrap">
+                        <button id="auditResetFiltersBtn" class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-500/20 transition shadow-sm whitespace-nowrap">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                            Auth Activity Today
+                            Reset Filters
                         </button>
                     </div>
 
                     <div class="flex flex-wrap md:flex-nowrap gap-3 w-full">
                         <div class="relative w-full md:w-auto flex-1">
-                            <select class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
-                                <option>All Priorities</option>
-                                <option>High (Critical)</option>
-                                <option>Medium (Warning)</option>
-                                <option>Low (Info)</option>
+                            <select id="auditSeverityFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
+                                <option value="">All Priorities</option>
+                                <option value="High">High (Critical)</option>
+                                <option value="Medium">Medium (Warning)</option>
+                                <option value="Low">Low (Info)</option>
                             </select>
                             <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
                         </div>
                         <div class="relative w-full md:w-auto flex-1">
-                            <select class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
-                                <option>All Modules</option>
-                                <option>Authentication</option>
-                                <option>User Management</option>
-                                <option>Fleet Dispatch</option>
-                                <option>System Settings</option>
+                            <select id="auditModuleFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
+                                <option value="">All Modules</option>
                             </select>
                             <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
                         </div>
                         <div class="relative w-full md:w-auto flex-1">
-                            <select class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
-                                <option>All Events</option>
-                                <option>Login/Logout</option>
-                                <option>Create/Update</option>
-                                <option>Delete Operations</option>
+                            <select id="auditActionFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 appearance-none shadow-inner cursor-pointer">
+                                <option value="">All Events</option>
                             </select>
                             <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
                         </div>
                         <div class="relative w-full md:w-auto flex-1">
-                            <input type="date" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 shadow-inner cursor-pointer" style="color-scheme: dark;">
+                            <input id="auditDateFromFilter" type="date" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 shadow-inner cursor-pointer" style="color-scheme: dark;">
                         </div>
                         <div class="relative w-full md:w-auto flex-1">
-                            <input type="date" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 shadow-inner cursor-pointer" style="color-scheme: dark;">
+                            <input id="auditDateToFilter" type="date" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 shadow-inner cursor-pointer" style="color-scheme: dark;">
                         </div>
                     </div>
                 </div>
 
-                <div class="overflow-y-auto custom-scrollbar flex-1">
-                    <table class="w-full text-left border-collapse whitespace-nowrap min-w-[1000px]">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse table-auto">
                         <thead class="sticky top-0 bg-slate-900/90 backdrop-blur border-b border-slate-800 z-10">
                             <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
                                 <th class="px-6 py-4">Event Name</th>
@@ -96,111 +89,20 @@
                                 <th class="px-6 py-4 text-right">View</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/50">
-                            
-                            <tr class="hover:bg-slate-800/40 transition-colors group cursor-pointer" onclick="openAuditModal('Admin Login Success', 'Super Admin', '180.191.180.224:2394', 'Mar 16, 2026, 10:03 PM', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...', 'Administrator Super Admin logged in successfully.')">
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-white">Admin Login Success</div>
-                                    <div class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">AUTH</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-medium text-slate-300">Super Admin</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5 items-start">
-                                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold border border-blue-500/20">Admin Authentication</span>
-                                        <p class="text-xs text-slate-400"><span class="text-white font-medium">Target:</span> Super Admin</p>
-                                        <p class="text-[10px] text-slate-500 truncate max-w-xs">ID: 1 • Email: admin@weighguard.io • Role: Super-Admin</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-xs font-mono text-slate-400">180.191.180.224:2394</td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold tracking-wide">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Low
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-xs text-slate-400 font-mono">Mar 16, 2026, 10:03 PM</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button class="text-slate-500 hover:text-white transition p-2 rounded-lg hover:bg-slate-800" title="View Context"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                </td>
-                            </tr>
-
-                            <tr class="hover:bg-slate-800/40 transition-colors group cursor-pointer border-l-2 border-rose-500 bg-rose-500/5" onclick="openAuditModal('Hard Delete Record', 'Super Admin', '180.191.180.224:4076', 'Mar 15, 2026, 6:41 PM', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)...', 'Vehicle assignment #RC-0034 was permanently deleted from the database.')">
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-white">Hard Delete Record</div>
-                                    <div class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">FLEET_MANAGEMENT</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-medium text-slate-300">Super Admin</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5 items-start">
-                                        <span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold border border-rose-500/20">Hard Delete</span>
-                                        <p class="text-xs text-slate-400"><span class="text-white font-medium">Target:</span> Assignment RC-0034</p>
-                                        <p class="text-[10px] text-slate-500 truncate max-w-xs">Assignment record was permanently removed by super admin.</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-xs font-mono text-slate-400">180.191.180.224:4076</td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[10px] font-bold tracking-wide">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse"></span> High
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-xs text-slate-400 font-mono">Mar 15, 2026, 6:41 PM</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button class="text-slate-500 hover:text-white transition p-2 rounded-lg hover:bg-slate-800" title="View Context"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                </td>
-                            </tr>
-
-                            <tr class="hover:bg-slate-800/40 transition-colors group cursor-pointer" onclick="openAuditModal('Settings Updated', 'System Manager', '::ffff:169.254.132.1', 'Mar 14, 2026, 2:15 PM', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...', 'Alert routing preferences updated. Overload SMS disabled.')">
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-bold text-white">Settings Updated</div>
-                                    <div class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">SYSTEM_CONFIG</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm font-medium text-slate-300">System Manager</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1.5 items-start">
-                                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">Config Update</span>
-                                        <p class="text-xs text-slate-400"><span class="text-white font-medium">Target:</span> Alert Routing</p>
-                                        <p class="text-[10px] text-slate-500 truncate max-w-xs">Overload SMS notifications were toggled off.</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-xs font-mono text-slate-400">::ffff:169.254.132.1</td>
-                                <td class="px-6 py-4">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold tracking-wide">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Medium
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-xs text-slate-400 font-mono">Mar 14, 2026, 2:15 PM</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button class="text-slate-500 hover:text-white transition p-2 rounded-lg hover:bg-slate-800" title="View Context"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
-                                </td>
-                            </tr>
-                        </tbody>
+                        <tbody id="auditLogsTableBody" class="divide-y divide-slate-800/50"></tbody>
                     </table>
                 </div>
 
                 <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between shrink-0">
-                    <p class="text-xs text-slate-500 font-medium">
-                        Showing <span class="text-white font-bold">1</span> to <span class="text-white font-bold">3</span> of <span class="text-white font-bold">1,042</span> entries
-                    </p>
-                    <div class="flex items-center gap-1.5">
-                        <button class="p-2 rounded-lg border border-slate-700 text-slate-400 opacity-50 cursor-not-allowed bg-slate-800/50"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
-                        <button class="w-8 h-8 flex items-center justify-center rounded-lg border bg-blue-500/10 border-blue-500/30 text-blue-400 text-xs font-bold">1</button>
-                        <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold">2</button>
-                        <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition text-xs font-bold">3</button>
-                        <span class="w-8 h-8 flex items-center justify-center text-slate-600 text-xs font-bold">...</span>
-                        <button class="p-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
-                    </div>
+                    <p id="auditLogsSummary" class="text-xs text-slate-500 font-medium">Loading audit logs...</p>
+                    <div id="auditLogsPagination" class="flex items-center gap-1.5"></div>
                 </div>
 
             </div>
         </div>
     </main>
 
-    <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeAuditModal()"></div>
+    <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
 
     <div id="auditContextModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
         
@@ -211,7 +113,7 @@
                 </div>
                 <h2 class="text-xl font-extrabold text-white tracking-tight">Audit Context</h2>
             </div>
-            <button onclick="closeAuditModal()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <button id="closeAuditModalBtn" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
 
         <div class="p-8 space-y-4">
@@ -223,7 +125,7 @@
                 </div>
                 <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
                     <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Actor</p>
-                    <p id="modal-actor" class="text-sm font-bold text-white">Super Admin</p>
+                    <p id="modal-actor" class="text-sm font-bold text-blue-300">Super Admin</p>
                 </div>
             </div>
 
@@ -251,7 +153,7 @@
         </div>
         
         <div class="px-8 py-5 border-t border-slate-800 bg-slate-900/50 flex justify-end">
-            <button onclick="closeAuditModal()" class="px-6 py-2.5 bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition tracking-widest uppercase shadow-sm">
+            <button id="closeAuditModalFooterBtn" class="px-6 py-2.5 bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition tracking-widest uppercase shadow-sm">
                 Close
             </button>
         </div>
