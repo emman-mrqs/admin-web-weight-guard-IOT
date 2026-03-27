@@ -57,7 +57,10 @@ class verificationUserController {
                 UPDATE users
                 SET
                     is_verified = true,
-                    status = 'active',
+                    status = CASE
+                        WHEN LOWER(COALESCE(status, 'pending')) = 'pending' THEN 'active'
+                        ELSE status
+                    END,
                     verification_code = NULL,
                     verification_expires = NULL,
                     updated_at = NOW()

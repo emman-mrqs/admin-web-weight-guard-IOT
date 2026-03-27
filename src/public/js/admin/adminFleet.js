@@ -83,7 +83,7 @@ function getStatusBadge(state, loadStatus) {
     }
 
     return {
-        label: 'IDLE',
+        label: 'AVAILABLE',
         className: 'bg-slate-800 text-slate-300 border-slate-700',
         dotClass: 'bg-slate-500'
     };

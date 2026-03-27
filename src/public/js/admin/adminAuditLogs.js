@@ -46,6 +46,12 @@
 
     const normalizeText = (value) => String(value || '').toLowerCase().trim();
 
+    const truncateText = (value, maxLength = 120) => {
+        const text = String(value || '').trim();
+        if (text.length <= maxLength) return text;
+        return `${text.slice(0, maxLength - 1)}...`;
+    };
+
     const severityClasses = (severity) => {
         const normalized = normalizeText(severity);
         if (normalized === 'high') {
@@ -192,7 +198,11 @@
         el.modalIp.textContent = log.ipAddress || 'N/A';
         el.modalTime.textContent = formatDateTime(log.createdAt);
         el.modalAgent.textContent = log.userAgent || 'N/A';
-        el.modalDesc.textContent = log.description || 'No details available.';
+        const description = String(log.description || 'No details available.').trim();
+        const contextMessage = log.details && typeof log.details === 'object'
+            ? String(log.details.contextMessage || '').trim()
+            : '';
+        el.modalDesc.textContent = contextMessage || description;
 
         el.overlay.classList.remove('hidden');
         el.modal.classList.remove('hidden');
@@ -235,12 +245,7 @@
         const rowsHtml = pagedLogs.map((log) => {
             const severity = String(log.severity || 'Medium');
             const styles = severityClasses(severity);
-            const detailsText = log.details && typeof log.details === 'object'
-                ? Object.entries(log.details)
-                    .slice(0, 2)
-                    .map(([key, value]) => `${key}: ${String(value)}`)
-                    .join(' • ')
-                : '';
+            const shortDescription = truncateText(log.description || 'No details available.', 140);
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors group">
@@ -252,8 +257,7 @@
                         <div class="text-sm font-semibold ${actorTextClass(log.actor)} break-words">${log.actor}</div>
                     </td>
                     <td class="px-6 py-4 align-top">
-                        <div class="text-xs text-slate-400 break-words">${log.description}</div>
-                        ${detailsText ? `<p class="text-[10px] text-slate-500 mt-1 break-words">${detailsText}</p>` : ''}
+                        <div class="text-xs text-slate-300 break-words leading-relaxed">${shortDescription}</div>
                     </td>
                     <td class="px-6 py-4 text-xs font-mono text-slate-400 align-top break-all">${log.ipAddress || 'N/A'}</td>
                     <td class="px-6 py-4 align-top">

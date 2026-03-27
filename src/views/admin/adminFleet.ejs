@@ -40,7 +40,7 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                     </div>
                     <div>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Active</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Operational</p>
                         <p id="fleetStatActive" class="text-2xl font-extrabold text-white leading-none">0</p>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
                             All Vehicles
                         </button>
                         <button onclick="filterFleet('active', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-400 text-xs font-bold rounded-lg border border-transparent hover:text-slate-200 transition">
-                            Active (<span id="fleetActiveCount">0</span>)
+                            Operational (<span id="fleetActiveCount">0</span>)
                         </button>
                         <button onclick="filterFleet('maintenance', this)" class="filter-btn px-4 py-2 bg-transparent text-amber-400 text-xs font-bold rounded-lg border border-transparent hover:bg-amber-500/10 transition flex items-center gap-2">
                             Maintenance (<span id="fleetMaintenanceCount">0</span>)
@@ -101,7 +101,7 @@
                             <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold bg-slate-900/80 border-b border-slate-800">
                                 <th class="px-6 py-4">Vehicle Details</th>
                                 <th class="px-6 py-4">Status</th>
-                                <th class="px-6 py-4">Route / Location</th>
+                                <th class="px-6 py-4">State / Assignment</th>
                                 <th class="px-6 py-4">Current Load</th>
                                 <th class="px-6 py-4">Weight Trend (1h)</th>
                                 <th class="px-6 py-4 text-right">Actions</th>

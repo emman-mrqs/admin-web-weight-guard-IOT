@@ -1,4 +1,17 @@
 import db from '../../database/db.js';
+import AuditLogService from '../../utils/auditLogService.js';
+
+function formatCoordinate(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return numeric.toFixed(5);
+}
+
+function resolveActorName(req) {
+    const first = String(req?.user?.first_name || '').trim();
+    const last = String(req?.user?.last_name || '').trim();
+    return `${first} ${last}`.trim() || req?.user?.email || `#${req?.user?.id || 'Unknown'}`;
+}
 
 class AdminDispatchController {
     static async getTaskDispatch(req, res) {
@@ -142,10 +155,12 @@ class AdminDispatchController {
                         dt.started_at,
                         dt.completed_at,
                         dt.created_at AS assigned_at,
+                        dt.created_by AS created_by_id,
                         v.plate_number,
                         v.vehicle_type,
                         CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) AS full_name,
                         u.id AS user_id,
+                        CONCAT(COALESCE(a.first_name, ''), ' ', COALESCE(a.last_name, '')) AS created_by_name,
                         ROUND(
                             (
                                 6371 * ACOS(
@@ -167,6 +182,7 @@ class AdminDispatchController {
                     FROM dispatch_tasks dt
                     INNER JOIN vehicles v ON v.id = dt.vehicle_id
                     LEFT JOIN users u ON u.id = v.assigned_driver_id
+                    LEFT JOIN administrator a ON a.id = dt.created_by
                     WHERE 1 = 1
                     ${statusFilter}
                     ORDER BY dt.created_at DESC, dt.id DESC
@@ -228,10 +244,12 @@ class AdminDispatchController {
                         dt.started_at,
                         dt.completed_at,
                         dt.created_at AS assigned_at,
+                        dt.created_by AS created_by_id,
                         v.plate_number,
                         v.vehicle_type,
                         CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) AS full_name,
                         u.id AS user_id,
+                        CONCAT(COALESCE(a.first_name, ''), ' ', COALESCE(a.last_name, '')) AS created_by_name,
                         ROUND(
                             (
                                 6371 * ACOS(
@@ -253,6 +271,7 @@ class AdminDispatchController {
                     FROM dispatch_tasks dt
                     INNER JOIN vehicles v ON v.id = dt.vehicle_id
                     LEFT JOIN users u ON u.id = v.assigned_driver_id
+                    LEFT JOIN administrator a ON a.id = dt.created_by
                     WHERE dt.id = $1
                     LIMIT 1
                 `,
@@ -404,6 +423,11 @@ class AdminDispatchController {
                 return res.status(400).json({ error: 'Validation failed.', fieldErrors });
             }
 
+            const sessionAdministratorId = Number(req.user?.id);
+            const createdByAdminId = Number.isFinite(sessionAdministratorId) && sessionAdministratorId > 0
+                ? sessionAdministratorId
+                : null;
+
             const createResult = await db.query(
                 `
                     INSERT INTO dispatch_tasks (
@@ -412,10 +436,11 @@ class AdminDispatchController {
                         pickup_lng,
                         destination_lat,
                         destination_lng,
+                        created_by,
                         status,
                         updated_at
                     )
-                    VALUES ($1, $2, $3, $4, $5, 'pending', NOW())
+                    VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
                     RETURNING id
                 `,
                 [
@@ -423,9 +448,41 @@ class AdminDispatchController {
                     normalizedPickupLat,
                     normalizedPickupLng,
                     normalizedDestLat,
-                    normalizedDestLng
+                    normalizedDestLng,
+                    createdByAdminId
                 ]
             );
+
+            try {
+                const actorName = resolveActorName(req);
+                const pickupDisplay = `${formatCoordinate(normalizedPickupLat)}, ${formatCoordinate(normalizedPickupLng)}`;
+                const destinationDisplay = `${formatCoordinate(normalizedDestLat)}, ${formatCoordinate(normalizedDestLng)}`;
+                const vehiclePlate = selectedVehicle?.plate_number || `#${normalizedVehicleId}`;
+                const contextMessage = `Administrator ${actorName} created dispatch task #${createResult.rows[0].id}: vehicle ${vehiclePlate}, route (${pickupDisplay}) to (${destinationDisplay}), status pending.`;
+
+                await AuditLogService.logAdminAction(db, req, {
+                    action: 'DISPATCH_TASK_CREATED',
+                    module: 'DISPATCH',
+                    description: `${actorName} created task for vehicle ${vehiclePlate}.`,
+                    severity: 'Medium',
+                    details: {
+                        contextMessage,
+                        eventType: 'dispatch_task',
+                        dispatchOutcome: 'created',
+                        assignmentId: createResult.rows[0].id,
+                        vehicleId: normalizedVehicleId,
+                        vehiclePlateNumber: selectedVehicle?.plate_number || null,
+                        createdByAdminId,
+                        pickupLat: normalizedPickupLat,
+                        pickupLng: normalizedPickupLng,
+                        destinationLat: normalizedDestLat,
+                        destinationLng: normalizedDestLng,
+                        statusAfter: 'pending'
+                    }
+                });
+            } catch (auditError) {
+                console.error('Failed to write dispatch creation audit log:', auditError);
+            }
 
             return res.status(201).json({
                 message: 'Task dispatched successfully.',
@@ -510,9 +567,18 @@ class AdminDispatchController {
 
             const assignmentResult = await db.query(
                 `
-                    SELECT id, vehicle_id
-                    FROM dispatch_tasks
-                    WHERE id = $1
+                    SELECT
+                        dt.id,
+                        dt.vehicle_id,
+                        dt.pickup_lat,
+                        dt.pickup_lng,
+                        dt.destination_lat,
+                        dt.destination_lng,
+                        LOWER(COALESCE(dt.status, 'pending')) AS status,
+                        v.plate_number AS vehicle_plate_number
+                    FROM dispatch_tasks dt
+                    LEFT JOIN vehicles v ON v.id = dt.vehicle_id
+                    WHERE dt.id = $1
                     LIMIT 1
                 `,
                 [assignmentId]
@@ -524,7 +590,7 @@ class AdminDispatchController {
 
             const vehicleResult = await db.query(
                 `
-                    SELECT id, assigned_driver_id, current_state
+                    SELECT id, assigned_driver_id, current_state, plate_number
                     FROM vehicles
                     WHERE id = $1
                     LIMIT 1
@@ -576,7 +642,7 @@ class AdminDispatchController {
                             ELSE NULL
                         END
                     WHERE id = $7
-                    RETURNING id
+                    RETURNING id, status
                 `,
                 [
                     normalizedVehicleId,
@@ -588,6 +654,48 @@ class AdminDispatchController {
                     assignmentId
                 ]
             );
+
+            try {
+                const actorName = resolveActorName(req);
+                const previous = assignmentResult.rows[0];
+                const updatedStatus = String(updateResult.rows[0]?.status || normalizedStatus || '').toLowerCase() || null;
+
+                const beforePickup = `${formatCoordinate(previous.pickup_lat)}, ${formatCoordinate(previous.pickup_lng)}`;
+                const beforeDestination = `${formatCoordinate(previous.destination_lat)}, ${formatCoordinate(previous.destination_lng)}`;
+                const afterPickup = `${formatCoordinate(normalizedPickupLat)}, ${formatCoordinate(normalizedPickupLng)}`;
+                const afterDestination = `${formatCoordinate(normalizedDestLat)}, ${formatCoordinate(normalizedDestLng)}`;
+                const beforeVehicleLabel = previous.vehicle_plate_number || `#${previous.vehicle_id}`;
+                const afterVehicleLabel = selectedVehicle?.plate_number || `#${normalizedVehicleId}`;
+                const contextMessage = `Administrator ${actorName} updated dispatch task #${assignmentId}: vehicle ${beforeVehicleLabel} -> ${afterVehicleLabel}, route (${beforePickup}) to (${beforeDestination}) -> (${afterPickup}) to (${afterDestination}), status ${previous.status || 'pending'} -> ${updatedStatus || 'pending'}.`;
+
+                await AuditLogService.logAdminAction(db, req, {
+                    action: 'DISPATCH_TASK_UPDATED',
+                    module: 'DISPATCH',
+                    description: `${actorName} updated task for vehicle ${afterVehicleLabel}.`,
+                    severity: 'Medium',
+                    details: {
+                        contextMessage,
+                        eventType: 'dispatch_task',
+                        dispatchOutcome: 'updated',
+                        assignmentId,
+                        vehicleIdBefore: previous.vehicle_id,
+                        vehicleIdAfter: normalizedVehicleId,
+                        vehiclePlateNumberBefore: previous.vehicle_plate_number || null,
+                        pickupLatBefore: previous.pickup_lat,
+                        pickupLngBefore: previous.pickup_lng,
+                        destinationLatBefore: previous.destination_lat,
+                        destinationLngBefore: previous.destination_lng,
+                        statusBefore: previous.status || 'pending',
+                        pickupLatAfter: normalizedPickupLat,
+                        pickupLngAfter: normalizedPickupLng,
+                        destinationLatAfter: normalizedDestLat,
+                        destinationLngAfter: normalizedDestLng,
+                        statusAfter: updatedStatus || 'pending'
+                    }
+                });
+            } catch (auditError) {
+                console.error('Failed to write dispatch update audit log:', auditError);
+            }
 
             return res.status(200).json({
                 message: 'Assignment updated successfully.',
@@ -606,6 +714,31 @@ class AdminDispatchController {
                 return res.status(400).json({ error: 'Invalid assignment ID.' });
             }
 
+            const existingAssignmentResult = await db.query(
+                `
+                    SELECT
+                        dt.id,
+                        dt.vehicle_id,
+                        LOWER(COALESCE(dt.status, 'pending')) AS status,
+                        dt.pickup_lat,
+                        dt.pickup_lng,
+                        dt.destination_lat,
+                        dt.destination_lng,
+                        v.plate_number
+                    FROM dispatch_tasks dt
+                    LEFT JOIN vehicles v ON v.id = dt.vehicle_id
+                    WHERE dt.id = $1
+                    LIMIT 1
+                `,
+                [assignmentId]
+            );
+
+            if (existingAssignmentResult.rows.length === 0) {
+                return res.status(404).json({ error: 'Assignment not found.' });
+            }
+
+            const existingAssignment = existingAssignmentResult.rows[0];
+
             const result = await db.query(
                 `
                     UPDATE dispatch_tasks
@@ -613,13 +746,40 @@ class AdminDispatchController {
                         completed_at = NOW(),
                         updated_at = NOW()
                     WHERE id = $1
-                    RETURNING id
+                    RETURNING id, status
                 `,
                 [assignmentId]
             );
 
-            if (result.rows.length === 0) {
-                return res.status(404).json({ error: 'Assignment not found.' });
+            try {
+                const actorName = resolveActorName(req);
+                const pickupDisplay = `${formatCoordinate(existingAssignment.pickup_lat)}, ${formatCoordinate(existingAssignment.pickup_lng)}`;
+                const destinationDisplay = `${formatCoordinate(existingAssignment.destination_lat)}, ${formatCoordinate(existingAssignment.destination_lng)}`;
+                const vehicleLabel = existingAssignment.plate_number || `#${existingAssignment.vehicle_id}`;
+                const contextMessage = `Administrator ${actorName} cancelled dispatch task #${assignmentId}: vehicle ${vehicleLabel}, route (${pickupDisplay}) to (${destinationDisplay}), status ${existingAssignment.status || 'pending'} -> cancelled.`;
+
+                await AuditLogService.logAdminAction(db, req, {
+                    action: 'DISPATCH_TASK_CANCELLED',
+                    module: 'DISPATCH',
+                    description: `${actorName} cancelled task for vehicle ${vehicleLabel}.`,
+                    severity: 'Medium',
+                    details: {
+                        contextMessage,
+                        eventType: 'dispatch_task',
+                        dispatchOutcome: 'cancelled',
+                        assignmentId,
+                        vehicleId: existingAssignment.vehicle_id,
+                        vehiclePlateNumber: existingAssignment.plate_number || null,
+                        pickupLat: existingAssignment.pickup_lat,
+                        pickupLng: existingAssignment.pickup_lng,
+                        destinationLat: existingAssignment.destination_lat,
+                        destinationLng: existingAssignment.destination_lng,
+                        statusBefore: existingAssignment.status || 'pending',
+                        statusAfter: String(result.rows[0]?.status || 'cancelled').toLowerCase()
+                    }
+                });
+            } catch (auditError) {
+                console.error('Failed to write dispatch cancellation audit log:', auditError);
             }
 
             return res.status(200).json({ message: 'Assignment cancelled successfully.' });

@@ -13,10 +13,22 @@ const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.p
 const satTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const satLabelTileUrl = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
 
-const darkLayer = L.tileLayer(darkTileUrl, { maxZoom: 19, subdomains: 'abcd' });
-const satLayer = L.tileLayer(satTileUrl, { maxZoom: 19 });
+const MAP_MAX_ZOOM = 22;
+const BASE_LAYER_MAX_NATIVE_ZOOM = 19;
+const LABEL_LAYER_MAX_NATIVE_ZOOM = 20;
+
+const darkLayer = L.tileLayer(darkTileUrl, {
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: BASE_LAYER_MAX_NATIVE_ZOOM,
+    subdomains: 'abcd'
+});
+const satLayer = L.tileLayer(satTileUrl, {
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: BASE_LAYER_MAX_NATIVE_ZOOM
+});
 const satLabelLayer = L.tileLayer(satLabelTileUrl, {
-    maxZoom: 20,
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: LABEL_LAYER_MAX_NATIVE_ZOOM,
     subdomains: 'abcd',
     opacity: 0.9
 });
@@ -78,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. INITIALIZE MAP (Centered on Rodriguez, Rizal)
     map = L.map('live-fleet-map', {
         zoomControl: false, 
-        attributionControl: false
+        attributionControl: false,
+        maxZoom: MAP_MAX_ZOOM
     }).setView([14.7298, 121.1423], 14);
 
     // Add dark map default

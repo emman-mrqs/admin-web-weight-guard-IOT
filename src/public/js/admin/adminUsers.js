@@ -488,9 +488,10 @@ function getUserUiFlags(user) {
     const isSuspended = Boolean(user?.is_suspended) || normalizedStatus === 'suspended';
     const isInactive = normalizedStatus === 'inactive';
     const isVerified = Boolean(user?.is_verified);
+    const baseStatus = ['active', 'inactive', 'pending'].includes(normalizedStatus) ? normalizedStatus : 'pending';
     const derivedStatus = isSoftDeleted
         ? 'deleted'
-        : (isSuspended ? 'suspended' : (normalizedStatus || (isVerified ? 'active' : 'pending')));
+        : (isSuspended ? 'suspended' : baseStatus);
 
     return {
         normalizedStatus,
@@ -1478,36 +1479,37 @@ function populateUsersTable(users) {
             normalizedStatus,
             isSoftDeleted,
             isSuspended,
-            isInactive
+            isInactive,
+            derivedStatus
         } = getUserUiFlags(user);
         const hasAssignment = Boolean(user.vehicle_id);
         const { permanentDeleteEligible, permanentDeleteDaysRemaining } = isSoftDeleted
             ? getSoftDeleteRetentionState(user.deleted_at)
             : { permanentDeleteEligible: false, permanentDeleteDaysRemaining: null };
 
-        const statusText = isSoftDeleted ? 'DELETED' : (isSuspended ? 'SUSPENDED' : (isInactive ? 'INACTIVE' : (isVerified ? 'ACTIVE' : 'PENDING')));
-        const statusBg = isSoftDeleted
+        const statusText = String(derivedStatus || 'pending').toUpperCase();
+        const statusBg = derivedStatus === 'deleted'
             ? 'bg-slate-800/90'
-            : (isSuspended
+            : (derivedStatus === 'suspended'
             ? 'bg-rose-500/10'
-            : (isInactive ? 'bg-slate-800/80' : (isVerified ? 'bg-emerald-500/10' : 'bg-amber-500/10')));
-        const statusBorder = isSoftDeleted
+            : (derivedStatus === 'inactive' ? 'bg-slate-800/80' : (derivedStatus === 'active' ? 'bg-emerald-500/10' : 'bg-amber-500/10')));
+        const statusBorder = derivedStatus === 'deleted'
             ? 'border-slate-600/60'
-            : (isSuspended
+            : (derivedStatus === 'suspended'
             ? 'border-rose-500/30'
-            : (isInactive ? 'border-slate-600/60' : (isVerified ? 'border-emerald-500/20' : 'border-amber-500/20')));
-        const statusTextColor = isSoftDeleted
+            : (derivedStatus === 'inactive' ? 'border-slate-600/60' : (derivedStatus === 'active' ? 'border-emerald-500/20' : 'border-amber-500/20')));
+        const statusTextColor = derivedStatus === 'deleted'
             ? 'text-slate-300'
-            : (isSuspended
+            : (derivedStatus === 'suspended'
             ? 'text-rose-400'
-            : (isInactive ? 'text-slate-300' : (isVerified ? 'text-emerald-400' : 'text-amber-400')));
-        const dot = isSoftDeleted
+            : (derivedStatus === 'inactive' ? 'text-slate-300' : (derivedStatus === 'active' ? 'text-emerald-400' : 'text-amber-400')));
+        const dot = derivedStatus === 'deleted'
             ? 'bg-slate-400'
-            : (isSuspended
+            : (derivedStatus === 'suspended'
             ? 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.8)]'
-            : (isInactive
+            : (derivedStatus === 'inactive'
                 ? 'bg-slate-400'
-                : (isVerified ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-amber-400')));
+                : (derivedStatus === 'active' ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-amber-400')));
 
         const assignmentBadgeClass = hasAssignment
             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'

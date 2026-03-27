@@ -237,9 +237,10 @@ function getStaffUiFlags(staff) {
     const isSuspended = Boolean(staff?.is_suspended) || normalizedStatus === 'suspended';
     const isInactive = normalizedStatus === 'inactive';
     const isVerified = Boolean(staff?.is_verified);
+    const baseStatus = ['active', 'inactive', 'pending'].includes(normalizedStatus) ? normalizedStatus : 'pending';
     const derivedStatus = isSoftDeleted
         ? 'deleted'
-        : (isSuspended ? 'suspended' : (normalizedStatus || (isVerified ? 'active' : 'pending')));
+        : (isSuspended ? 'suspended' : baseStatus);
 
     return {
         normalizedStatus,
@@ -1432,32 +1433,32 @@ function getSoftDeleteRetentionState(deletedAt) {
     };
 }
 
-function getStaffStatusPresentation({ isSoftDeleted, isSuspended, isInactive, isVerified }) {
-    const statusText = isSoftDeleted
-        ? 'DELETED'
-        : (isSuspended ? 'SUSPENDED' : (isInactive ? 'INACTIVE' : (isVerified ? 'ACTIVE' : 'PENDING')));
-    const statusBg = isSoftDeleted
+function getStaffStatusPresentation(derivedStatus) {
+    const status = String(derivedStatus || 'pending').toLowerCase();
+
+    const statusText = status.toUpperCase();
+    const statusBg = status === 'deleted'
         ? 'bg-slate-800/90'
-        : (isSuspended
+        : (status === 'suspended'
         ? 'bg-rose-500/10'
-        : (isInactive ? 'bg-slate-800/80' : (isVerified ? 'bg-emerald-500/10' : 'bg-amber-500/10')));
-    const statusBorder = isSoftDeleted
+        : (status === 'inactive' ? 'bg-slate-800/80' : (status === 'active' ? 'bg-emerald-500/10' : 'bg-amber-500/10')));
+    const statusBorder = status === 'deleted'
         ? 'border-slate-600/60'
-        : (isSuspended
+        : (status === 'suspended'
         ? 'border-rose-500/30'
-        : (isInactive ? 'border-slate-600/60' : (isVerified ? 'border-emerald-500/20' : 'border-amber-500/20')));
-    const statusTextColor = isSoftDeleted
+        : (status === 'inactive' ? 'border-slate-600/60' : (status === 'active' ? 'border-emerald-500/20' : 'border-amber-500/20')));
+    const statusTextColor = status === 'deleted'
         ? 'text-slate-300'
-        : (isSuspended
+        : (status === 'suspended'
         ? 'text-rose-400'
-        : (isInactive ? 'text-slate-300' : (isVerified ? 'text-emerald-400' : 'text-amber-400')));
-    const statusDotColor = isSoftDeleted
+        : (status === 'inactive' ? 'text-slate-300' : (status === 'active' ? 'text-emerald-400' : 'text-amber-400')));
+    const statusDotColor = status === 'deleted'
         ? 'bg-slate-400'
-        : (isSuspended
+        : (status === 'suspended'
         ? 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.8)]'
-        : (isInactive
+        : (status === 'inactive'
             ? 'bg-slate-400'
-            : (isVerified ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-amber-400')));
+            : (status === 'active' ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.8)]' : 'bg-amber-400')));
 
     return {
         statusText,
@@ -1591,7 +1592,8 @@ function populateStaffTable(staff) {
             isSoftDeleted,
             isSuspended,
             isInactive,
-            isVerified
+            isVerified,
+            derivedStatus
         } = getStaffUiFlags(s);
         const { permanentDeleteEligible, permanentDeleteDaysRemaining } = isSoftDeleted
             ? getSoftDeleteRetentionState(s.deleted_at)
@@ -1602,7 +1604,7 @@ function populateStaffTable(staff) {
             statusBorder,
             statusTextColor,
             statusDotColor
-        } = getStaffStatusPresentation({ isSoftDeleted, isSuspended, isInactive, isVerified });
+        } = getStaffStatusPresentation(derivedStatus);
         const createdAtText = formatLongDate(s.created_at);
         const updatedAtText = formatRelativeTime(s.updated_at);
         const deletedAtText = isSoftDeleted ? formatDateTime(s.deleted_at) : '-';

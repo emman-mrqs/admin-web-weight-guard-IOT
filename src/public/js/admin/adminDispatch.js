@@ -679,7 +679,7 @@ function resetDispatchTaskTable() {
     const tbody = document.getElementById('dispatchTaskTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">Select an active assignment to view dispatch data.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="py-5 text-center text-slate-500 text-xs">Select an active assignment to view dispatch data.</td></tr>';
 }
 
 function renderDispatchTaskTable(items = []) {
@@ -687,7 +687,7 @@ function renderDispatchTaskTable(items = []) {
     if (!tbody) return;
 
     if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-center text-slate-500 text-xs">No dispatch data found for this assignment.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="py-5 text-center text-slate-500 text-xs">No dispatch data found for this assignment.</td></tr>';
         return;
     }
 
@@ -699,6 +699,7 @@ function renderDispatchTaskTable(items = []) {
                 ? 'text-sky-400'
                 : (status === 'pending' ? 'text-yellow-400' : 'text-slate-400'));
         const statusLabel = status.replace(/_/g, ' ');
+        const createdByName = String(item.created_by_name || '').trim() || 'Unknown Admin';
 
         return `
             <tr class="hover:bg-slate-800/40 transition">
@@ -710,6 +711,7 @@ function renderDispatchTaskTable(items = []) {
                 <td class="py-3 pr-4 ${statusClass} font-bold uppercase">${statusLabel}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.distance_km ? `${item.distance_km} km` : '--'}</td>
                 <td class="py-3 pr-4 text-slate-300">${item.est_duration_min ? `${item.est_duration_min} min` : '--'}</td>
+                <td class="py-3 pr-4 text-slate-300">${createdByName}</td>
                 <td class="py-3 pr-0">
                     <button type="button" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition" onclick="selectAssignmentById(${item.assignment_id})">View</button>
                 </td>

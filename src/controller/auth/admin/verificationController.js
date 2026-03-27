@@ -19,7 +19,7 @@ class VerificationController {
 
             // Verify the code and email against the database
             const checkQuery = `
-                SELECT id, first_name, last_name, verification_code, verification_expires, is_verified
+                SELECT id, first_name, last_name, verification_code, verification_expires, is_verified, status
                 FROM administrator
                 wHERE email = $1 AND verification_code = $2
             `;
@@ -40,7 +40,15 @@ class VerificationController {
             // Set the user as verified and clear the verification code and expiry
             const updateQuery = `
                 UPDATE administrator
-                SET is_verified = true, verification_code = NULL, verification_expires = NULL, updated_at = NOW()
+                SET
+                    is_verified = true,
+                    status = CASE
+                        WHEN LOWER(COALESCE(status, 'pending')) = 'pending' THEN 'active'
+                        ELSE status
+                    END,
+                    verification_code = NULL,
+                    verification_expires = NULL,
+                    updated_at = NOW()
                 WHERE id = $1
             `;
 
