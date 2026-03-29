@@ -2,7 +2,7 @@ import express from "express";
 
 // Admin authentication routes
 import AdminLoginController from "../../controller/auth/auth/loginController.js";
-// import forgetPasswordController from "../../controller/auth/auth/forgetPasswordController.js";
+import forgetPasswordController from "../../controller/auth/auth/forgetPasswordController.js";
 import SignUpUserController from "../../controller/auth/users/userSignupController.js";
 import SignUpAdminController from "../../controller/auth/admin/signupController.js";
 import UserVerificationController from "../../controller/auth/users/userVerificationController.js";
@@ -18,10 +18,11 @@ router.post("/login", AdminLoginController.handleLogin);
 router.post("/logout", authMiddleware.ensureAuthenticated, AdminLoginController.handleLogout);
 
 // Forget Password Routes
-// router.get("/forget-password", authMiddleware.redirectIfAuthenticated, forgetPasswordController.forgetPassword);
-// router.post('/forget-password/send-code', forgetPasswordController.requestResetCode);
-// router.post('/forget-password/verify-code', forgetPasswordController.verifyResetCode);
-// router.post('/forget-password/reset-password', forgetPasswordController.resetPassword);
+router.get("/forget-password",forgetPasswordController.getForgetPassword);
+router.post("/forget-password", forgetPasswordController.handleForgetPassword);
+router.post("/forget/resend-code", forgetPasswordController.handleResendCode);
+router.post("/forget/verify-code", forgetPasswordController.handleVerifyCode);
+router.post("/forget/reset-password", forgetPasswordController.handleResetPassword);
 
 // ============ SignUp Routes =============
 // (Users) 
