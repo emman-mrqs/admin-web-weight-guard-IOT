@@ -6,6 +6,7 @@
     <title>WeighGuard - Reports & Analytics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="/css/admin/adminReports.css">
 </head>
 <body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
@@ -21,10 +22,10 @@
             </div>
             <div class="flex items-center gap-5">
                 <div class="flex bg-slate-950 rounded-xl p-1.5 border border-slate-800 shadow-inner">
-                    <button class="px-5 py-2 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition">WEEKLY</button>
-                    <button class="px-5 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 rounded-lg transition">MONTHLY</button>
+                    <button id="btnReportsWeekly" data-range="weekly" class="px-5 py-2 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition">WEEKLY</button>
+                    <button id="btnReportsMonthly" data-range="monthly" class="px-5 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 rounded-lg transition">MONTHLY</button>
                 </div>
-                <button class="bg-emerald-500 text-slate-900 px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 hover:bg-emerald-400 transition shadow-[0_0_15px_rgba(52,211,153,0.4)] tracking-wide uppercase">
+                <button id="btnExportPdf" class="bg-emerald-500 text-slate-900 px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 hover:bg-emerald-400 transition shadow-[0_0_15px_rgba(52,211,153,0.4)] tracking-wide uppercase">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     EXPORT PDF
                 </button>
@@ -32,6 +33,7 @@
         </header>
 
         <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+            <div id="reportsErrorBanner" class="hidden rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"></div>
             
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
@@ -40,7 +42,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Total Cargo Moved</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">14.2 <span class="text-sm font-semibold text-slate-500">tons</span></p>
+                        <p class="text-2xl font-extrabold text-white leading-none"><span id="statTotalCargo">14.2</span> <span class="text-sm font-semibold text-slate-500">tons</span></p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
@@ -50,7 +52,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Avg Efficiency</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">94<span class="text-sm font-semibold text-slate-500">%</span></p>
+                        <p class="text-2xl font-extrabold text-white leading-none"><span id="statAvgEfficiency">94</span><span class="text-sm font-semibold text-slate-500">%</span></p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
@@ -59,7 +61,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Avg Transit Time</p>
-                        <p class="text-2xl font-extrabold text-white leading-none">42 <span class="text-sm font-semibold text-slate-500">mins</span></p>
+                        <p class="text-2xl font-extrabold text-white leading-none"><span id="statAvgTransitTime">42</span> <span class="text-sm font-semibold text-slate-500">mins</span></p>
                     </div>
                 </div>
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
@@ -69,7 +71,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Active Alerts</p>
-                        <p class="text-2xl font-extrabold text-rose-400 leading-none">3</p>
+                        <p id="statActiveAlerts" class="text-2xl font-extrabold text-rose-400 leading-none">3</p>
                     </div>
                 </div>
             </div>
@@ -111,28 +113,28 @@
                         <div>
                             <div class="flex justify-between items-center text-xs font-bold mb-1.5">
                                 <span class="text-slate-400 uppercase tracking-wide">Cargo Loss</span>
-                                <span class="text-rose-400">12%</span>
+                                <span id="incidentLossPct" class="text-rose-400">12%</span>
                             </div>
                             <div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden shadow-inner border border-slate-800">
-                                <div class="bg-rose-500 h-full w-[12%] rounded-full shadow-[0_0_10px_rgba(244,63,94,0.8)]"></div>
+                                <div id="incidentLossBar" class="bg-rose-500 h-full w-[12%] rounded-full shadow-[0_0_10px_rgba(244,63,94,0.8)]"></div>
                             </div>
                         </div>
                         <div>
                             <div class="flex justify-between items-center text-xs font-bold mb-1.5">
                                 <span class="text-slate-400 uppercase tracking-wide">Overload Warning</span>
-                                <span class="text-amber-400">34%</span>
+                                <span id="incidentOverloadPct" class="text-amber-400">34%</span>
                             </div>
                             <div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden shadow-inner border border-slate-800">
-                                <div class="bg-amber-400 h-full w-[34%] rounded-full shadow-[0_0_10px_rgba(251,191,36,0.8)]"></div>
+                                <div id="incidentOverloadBar" class="bg-amber-400 h-full w-[34%] rounded-full shadow-[0_0_10px_rgba(251,191,36,0.8)]"></div>
                             </div>
                         </div>
                         <div>
                             <div class="flex justify-between items-center text-xs font-bold mb-1.5">
                                 <span class="text-slate-400 uppercase tracking-wide">Normal Operation</span>
-                                <span class="text-emerald-400">54%</span>
+                                <span id="incidentNormalPct" class="text-emerald-400">54%</span>
                             </div>
                             <div class="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden shadow-inner border border-slate-800">
-                                <div class="bg-emerald-400 h-full w-[54%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)]"></div>
+                                <div id="incidentNormalBar" class="bg-emerald-400 h-full w-[54%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)]"></div>
                             </div>
                         </div>
                     </div>
@@ -160,10 +162,10 @@
                             <div class="relative inline-flex items-center justify-center">
                                 <svg class="w-28 h-28 transform -rotate-90">
                                     <circle cx="56" cy="56" r="50" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-950" />
-                                    <circle cx="56" cy="56" r="50" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="314" stroke-dashoffset="18" class="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.6)]" stroke-linecap="round" />
+                                    <circle id="safetyScoreCircle" cx="56" cy="56" r="50" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="314" stroke-dashoffset="18" class="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.6)]" stroke-linecap="round" />
                                 </svg>
                                 <div class="absolute flex flex-col items-center">
-                                    <p class="text-4xl font-extrabold text-white">94<span class="text-xl text-emerald-400">%</span></p>
+                                    <p class="text-4xl font-extrabold text-white"><span id="safetyScoreValue">94</span><span class="text-xl text-emerald-400">%</span></p>
                                 </div>
                             </div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-4">Safety Score</p>
@@ -173,25 +175,25 @@
                             <div>
                                 <div class="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-2">
                                     <span class="text-slate-400">Delivery Speed</span>
-                                    <span class="text-emerald-400 font-extrabold">88%</span>
+                                    <span id="deliverySpeedPct" class="text-emerald-400 font-extrabold">88%</span>
                                 </div>
                                 <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-800">
-                                    <div class="bg-emerald-400 h-full w-[88%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)]"></div>
+                                    <div id="deliverySpeedBar" class="bg-emerald-400 h-full w-[88%] rounded-full shadow-[0_0_10px_rgba(52,211,153,0.8)]"></div>
                                 </div>
                             </div>
                             <div>
                                 <div class="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-2">
                                     <span class="text-slate-400">Fuel Efficiency</span>
-                                    <span class="text-blue-400 font-extrabold">76%</span>
+                                    <span id="fuelEfficiencyPct" class="text-blue-400 font-extrabold">76%</span>
                                 </div>
                                 <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-800">
-                                    <div class="bg-blue-500 h-full w-[76%] rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+                                    <div id="fuelEfficiencyBar" class="bg-blue-500 h-full w-[76%] rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <button class="w-full py-4 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-700 hover:text-white transition uppercase tracking-widest flex items-center justify-center gap-2 shadow-md">
+                    <button id="btnExportCsv" class="w-full py-4 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-700 hover:text-white transition uppercase tracking-widest flex items-center justify-center gap-2 shadow-md">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Download Full Dataset (CSV)
                     </button>

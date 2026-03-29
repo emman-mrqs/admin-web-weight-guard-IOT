@@ -1,4 +1,5 @@
 // Admin Dashboard Controller
+import db from '../../database/db.js';
 
 
 class AdminDashboardController {

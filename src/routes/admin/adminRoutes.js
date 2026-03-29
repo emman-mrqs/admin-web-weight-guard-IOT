@@ -72,6 +72,7 @@ router.use((req, res, next) => {
 // Admin Dashboard Routes
 router.get("/admin", AdminDashboardController.getDashboard);
 
+
 // Admin Fleet Routes
 router.get("/admin/fleet", AdminFleetController.getFleet);
 router.get("/admin/fleet/add", AdminAddFleetController.getAddFleet);
@@ -120,6 +121,9 @@ router.delete('/api/admin/task-dispatch/assignments/:assignmentId', AdminDispatc
 
 // Admin Reports Routes
 router.get("/admin/reports", AdminReportsController.getReports);
+router.get('/api/admin/reports/analytics', AdminReportsController.getReportsAnalytics);
+router.get('/api/admin/reports/details', AdminReportsController.getReportsDetails);
+router.get('/api/admin/reports/dataset.csv', AdminReportsController.exportDatasetCsv);
 
 // Admin Incidents Routes
 router.get("/admin/incidents", AdminIncidentsController.getIncidents);
