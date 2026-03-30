@@ -71,6 +71,7 @@ router.use((req, res, next) => {
 
 // Admin Dashboard Routes
 router.get("/admin", AdminDashboardController.getDashboard);
+router.get('/api/admin/dashboard/analytics', AdminDashboardController.getDashboardAnalytics);
 
 
 // Admin Fleet Routes
