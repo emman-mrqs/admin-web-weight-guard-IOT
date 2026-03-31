@@ -8,23 +8,23 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/css/admin/adminFleet.css">
 </head>
-<body class="flex h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
+<body class="flex min-h-screen lg:h-screen overflow-x-hidden lg:overflow-hidden bg-slate-950 font-sans text-slate-300">
 
     <%- include('../partials/adminHeaderSidebar',  { currentPage: currentPage }) %>
 
-    <main class="flex-1 flex flex-col overflow-hidden bg-slate-950 relative">
+    <main class="flex-1 flex flex-col overflow-hidden bg-slate-950 relative min-w-0">
         
-        <header class="h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 shrink-0 z-10 sticky top-0">
+        <header class="min-h-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 shrink-0 z-10 sticky top-0">
             <div>
-                <h1 class="text-2xl font-extrabold text-white tracking-tight">Fleet Directory</h1>
+                <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Fleet Directory</h1>
                 <p class="text-xs text-slate-400 font-medium mt-0.5">Manage and analyze your entire vehicle roster</p>
             </div>
 
         </header>
 
-        <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 custom-scrollbar">
             <!-- Fleet Stats -->
-            <div class="grid grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 sm:gap-6">
                 <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg shadow-black/20 flex items-center gap-4">
                     <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
@@ -68,8 +68,8 @@
 
             <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-black/20 flex flex-col overflow-hidden">
                 <!-- Fleet Controls Filter -->
-                <div class="p-5 px-6 flex justify-between items-center border-b border-slate-800 bg-slate-900/50">
-                    <div class="flex gap-2" id="filter-buttons">
+                <div class="p-4 sm:p-5 sm:px-6 flex flex-col xl:flex-row justify-between xl:items-center gap-3 border-b border-slate-800 bg-slate-900/50">
+                    <div class="flex gap-2 flex-wrap" id="filter-buttons">
                         <button onclick="filterFleet('all', this)" class="filter-btn px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border border-slate-700 hover:bg-slate-700 transition shadow-md">
                             All Vehicles
                         </button>
@@ -84,11 +84,11 @@
                             <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span></span>
                         </button>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="relative">
-                            <input id="fleetSearchInput" type="text" placeholder="Search plate, type, driver..." class="w-64 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto">
+                        <div class="relative w-full sm:w-72">
+                            <input id="fleetSearchInput" type="text" placeholder="Search plate, type, driver..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
                         </div>
-                        <a href="/admin/fleet/add" class="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 hover:bg-emerald-500/20 transition">
+                        <a href="/admin/fleet/add" class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 hover:bg-emerald-500/20 transition whitespace-nowrap">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             Add Vehicle
                         </a>
@@ -117,7 +117,7 @@
                     </table>
                 </div>
 
-                <div class="p-4 px-6 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+                <div class="p-4 sm:px-6 border-t border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <p class="text-xs text-slate-500 font-medium" id="pagination-info">
                         Loading entries...
                     </p>
@@ -134,8 +134,8 @@
 
     <div id="modalOverlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="closeAllModals()"></div>
 
-    <div id="viewModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
-        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start">
+    <div id="viewModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl mx-4 bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div class="px-5 sm:px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start gap-4">
             <div>
                 <div class="flex items-center gap-3 mb-1">
                     <h2 id="viewVehicleType" class="text-2xl font-extrabold text-white tracking-tight">Trailer Truck</h2>
@@ -149,8 +149,8 @@
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
 
-        <div class="p-8 space-y-6">
-            <div class="grid grid-cols-2 gap-6">
+        <div class="p-5 sm:p-8 space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-800 bg-slate-950/50">
                     <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">ML</div>
                     <div>
@@ -185,7 +185,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-4 border-t border-slate-800 pt-6">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-800 pt-6">
                 <div>
                     <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Class</p>
                     <p id="viewVehicleClass" class="text-sm font-bold text-slate-300">Class 8 Heavy Duty</p>
@@ -202,9 +202,9 @@
         </div>
     </div>
 
-    <div id="editModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
+    <div id="editModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl mx-4 bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden max-h-[90vh] overflow-y-auto">
         
-        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start">
+        <div class="px-5 sm:px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start gap-4">
             <div>
                 <div class="flex items-center gap-3 mb-1">
                     <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
@@ -217,7 +217,7 @@
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
 
-        <form id="editFleetForm" class="p-8 space-y-6">
+        <form id="editFleetForm" class="p-5 sm:p-8 space-y-6">
             <input type="hidden" id="editVehicleId" name="vehicleId">
             <div id="editFleetFormFeedback" class="hidden rounded-xl border px-4 py-3 text-sm font-medium"></div>
             
@@ -297,8 +297,8 @@
         </form>
     </div>
 
-    <div id="deleteModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden">
-        <div class="px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+    <div id="deleteModal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md mx-4 bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl hidden opacity-0 scale-95 transition-all duration-300 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div class="px-5 sm:px-8 py-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -308,7 +308,7 @@
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
 
-        <div class="p-8 space-y-6">
+        <div class="p-5 sm:p-8 space-y-6">
             <div class="bg-rose-950/20 border border-rose-500/20 rounded-xl p-4 text-left">
                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Target Vehicle</p>
                 <p class="text-white font-bold mb-2 font-mono" id="deletePlateNumber">RC-8802</p>

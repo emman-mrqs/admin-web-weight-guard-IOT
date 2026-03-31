@@ -412,6 +412,42 @@ function initializeAddFleetForm() {
     const form = document.getElementById('fleetAddForm');
     if (!form) return;
 
+    initializeFleetSidebarCollapse();
     form.addEventListener('submit', handleAddFleetSubmit);
     loadAssignableDrivers();
+}
+
+function initializeFleetSidebarCollapse() {
+    const shell = document.getElementById('fleet-config-shell');
+    const toggle = document.getElementById('fleet-sidebar-toggle');
+    const icon = document.getElementById('fleet-sidebar-icon');
+    const sidebar = document.getElementById('fleet-config-sidebar');
+
+    if (!shell || !toggle || !icon || !sidebar) return;
+
+    let isExpanded = window.innerWidth >= 1024;
+
+    const applyState = () => {
+        toggle.setAttribute('aria-expanded', String(isExpanded));
+
+        if (isExpanded) {
+            shell.style.transform = 'translateX(0)';
+            icon.classList.remove('rotate-180');
+            return;
+        }
+
+        shell.style.transform = `translateX(${sidebar.offsetWidth}px)`;
+        icon.classList.add('rotate-180');
+    };
+
+    applyState();
+
+    toggle.addEventListener('click', () => {
+        isExpanded = !isExpanded;
+        applyState();
+    });
+
+    window.addEventListener('resize', () => {
+        applyState();
+    });
 }
