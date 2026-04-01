@@ -102,7 +102,7 @@
                 <svg class="w-5 h-5 mr-3 <%= currentPage === 'notifications' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300' %> transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                 <span class="font-semibold text-sm transform transition-transform group-hover:translate-x-0.5">Notifications</span>
             </div>
-            <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">NEW</span>
+            <span id="notificationSidebarBadge" class="hidden bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">0</span>
         </a>
 
         <div class="text-[10px] font-bold text-slate-500 tracking-[0.15em] mb-3 mt-8 px-3 uppercase">System</div>
@@ -288,6 +288,57 @@
             .catch(() => {
                 badge.classList.add('hidden');
             });
+    })();
+
+    (function () {
+        const badge = document.getElementById('notificationSidebarBadge');
+        if (!badge) {
+            return;
+        }
+
+        const applyCount = (value) => {
+            const count = Number(value);
+            if (!Number.isFinite(count) || count <= 0) {
+                badge.textContent = '0';
+                badge.classList.add('hidden');
+                return;
+            }
+
+            badge.textContent = String(count > 99 ? '99+' : count);
+            badge.classList.remove('hidden');
+        };
+
+        const refreshNotificationBadge = async () => {
+            try {
+                const response = await fetch('/api/admin/notifications/inbox', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load notification count');
+                }
+
+                const payload = await response.json();
+                applyCount(payload?.unreadCount || 0);
+            } catch (error) {
+                badge.classList.add('hidden');
+            }
+        };
+
+        window.refreshSidebarNotificationBadge = refreshNotificationBadge;
+
+        refreshNotificationBadge();
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                refreshNotificationBadge();
+            }
+        });
+
+        window.addEventListener('notification:inbox-updated', () => {
+            refreshNotificationBadge();
+        });
     })();
 
     (function () {

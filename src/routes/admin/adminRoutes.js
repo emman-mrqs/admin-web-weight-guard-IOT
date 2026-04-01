@@ -136,6 +136,11 @@ router.patch("/api/admin/incidents/:incidentId/status", AdminIncidentsController
 
 // Admin Notifications Routes
 router.get("/admin/notifications", AdminNotificationController.getNotifications);
+router.get('/api/admin/notifications/capabilities', AdminNotificationController.getSendCapabilities);
+router.get('/api/admin/notifications/inbox', AdminNotificationController.getInboxNotifications);
+router.get('/api/admin/notifications/sent', AdminNotificationController.getSentNotifications);
+router.patch('/api/admin/notifications/inbox/mark-all-read', AdminNotificationController.markInboxAsRead);
+router.post('/api/admin/notifications/send', authMiddleware.authorizeRoles('super_admin', 'incident_staff', 'dispatch_staff'), AdminNotificationController.sendNotification);
 
 // Admin Settings Routes
 router.get("/admin/settings", AdminSettingsController.getSettings);
