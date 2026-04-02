@@ -393,7 +393,7 @@ class nodemailerService {
     }
 
     // Password Reset Email (For Staff - dispatch_staff, admin_staff)
-    static async sendPasswordResetEmail(email, firstName, lastName, resetCode) {
+    static async sendStaffPasswordResetEmail(email, firstName, lastName, resetCode) {
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,

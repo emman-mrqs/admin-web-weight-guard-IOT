@@ -46,7 +46,7 @@ class forgetPasswordController {
             );
 
             // 5. Send the email using your specific service method
-            const emailResult = await nodemailerService.sendPasswordResetEmail(
+            const emailResult = await nodemailerService.sendStaffPasswordResetEmail(
                 email, 
                 admin.first_name, 
                 admin.last_name, 
@@ -103,7 +103,7 @@ class forgetPasswordController {
             );
 
             // 5. Send the new email
-            const emailResult = await nodemailerService.sendPasswordResetEmail(
+            const emailResult = await nodemailerService.sendStaffPasswordResetEmail(
                 email, 
                 admin.first_name, 
                 admin.last_name, 

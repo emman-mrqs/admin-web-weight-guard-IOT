@@ -160,3 +160,13 @@ CREATE TABLE password_reset (
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 9. LIVE TELEMETRY STATE (1-to-1 relationship with vehicles)
+CREATE TABLE vehicle_live_state (
+    vehicle_id BIGINT PRIMARY KEY REFERENCES vehicles(id) ON DELETE CASCADE,
+    current_latitude DECIMAL(10, 8),
+    current_longitude DECIMAL(11, 8),
+    current_speed_kmh INTEGER,
+    current_heading INTEGER,
+    last_ping_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);

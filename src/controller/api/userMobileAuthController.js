@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import db from '../../database/db.js';
+import nodemailerService from '../../utils/emailService.js';
 
 class UserMobileAuthController {
   static buildTokenPayload(user) {
@@ -107,6 +108,218 @@ class UserMobileAuthController {
       return res.status(500).json({
         success: false,
         message: 'An error occurred while logging in.'
+      });
+    }
+  }
+
+  static async forgotPassword(req, res) {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required.'
+        });
+      }
+
+      const userQuery = `
+        SELECT id, first_name, last_name, email, status, is_verified, deleted_at
+        FROM users
+        WHERE LOWER(email) = $1
+        LIMIT 1;
+      `;
+
+      const { rows } = await db.query(userQuery, [email]);
+
+      // Prevent email enumeration: always return a generic success response.
+      if (!rows.length) {
+        return res.status(200).json({
+          success: true,
+          message: 'If an account exists, a 6-digit code has been sent.'
+        });
+      }
+
+      const user = rows[0];
+      const status = UserMobileAuthController.normalizeStatus(user.status);
+
+      if (user.deleted_at || !user.is_verified || ['inactive', 'suspended', 'banned', 'pending'].includes(status)) {
+        return res.status(200).json({
+          success: true,
+          message: 'If an account exists, a 6-digit code has been sent.'
+        });
+      }
+
+      const resetCode = nodemailerService.generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      await db.query('DELETE FROM password_reset WHERE email = $1 AND user_type = $2', [email, 'user']);
+
+      await db.query(
+        `
+          INSERT INTO password_reset (user_type, email, reset_code, expires_at)
+          VALUES ($1, $2, $3, $4);
+        `,
+        ['user', email, resetCode, expiresAt]
+      );
+
+      await nodemailerService.sendPasswordResetEmail(
+        email,
+        resetCode,
+        user.first_name,
+        user.last_name
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists, a 6-digit code has been sent.'
+      });
+    } catch (error) {
+      console.error('Error in mobile forgotPassword:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'An error occurred while sending reset code.'
+      });
+    }
+  }
+
+  static async verifyForgotPasswordCode(req, res) {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      const code = String(req.body?.code || '').trim();
+
+      if (!email || !code) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and code are required.'
+        });
+      }
+
+      const query = `
+        SELECT id
+        FROM password_reset
+        WHERE email = $1
+          AND user_type = $2
+          AND reset_code = $3
+          AND expires_at > NOW()
+        LIMIT 1;
+      `;
+
+      const { rows } = await db.query(query, [email, 'user', code]);
+      if (!rows.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired code.'
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Code verified successfully.'
+      });
+    } catch (error) {
+      console.error('Error in mobile verifyForgotPasswordCode:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'An error occurred while verifying reset code.'
+      });
+    }
+  }
+
+  static async resetForgotPassword(req, res) {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      const code = String(req.body?.code || '').trim();
+      const newPassword = String(req.body?.newPassword || '');
+      const confirmPassword = String(req.body?.confirmPassword || '');
+
+      if (!email || !code || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email, code, and password fields are required.'
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password must be at least 8 characters.'
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'New password and confirm password do not match.'
+        });
+      }
+
+      const codeQuery = `
+        SELECT id
+        FROM password_reset
+        WHERE email = $1
+          AND user_type = $2
+          AND reset_code = $3
+          AND expires_at > NOW()
+        LIMIT 1;
+      `;
+
+      const codeResult = await db.query(codeQuery, [email, 'user', code]);
+      if (!codeResult.rows.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired code.'
+        });
+      }
+
+      const userQuery = `
+        SELECT id, status, is_verified, deleted_at
+        FROM users
+        WHERE LOWER(email) = $1
+        LIMIT 1;
+      `;
+
+      const userResult = await db.query(userQuery, [email]);
+      if (!userResult.rows.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unable to reset password for this account.'
+        });
+      }
+
+      const user = userResult.rows[0];
+      const status = UserMobileAuthController.normalizeStatus(user.status);
+      if (user.deleted_at || !user.is_verified || ['inactive', 'suspended', 'banned', 'pending'].includes(status)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not allowed to reset password.'
+        });
+      }
+
+      const saltRounds = 12;
+      const newHashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      await db.query(
+        `
+          UPDATE users
+          SET password = $1,
+              updated_at = NOW()
+          WHERE id = $2;
+        `,
+        [newHashedPassword, user.id]
+      );
+
+      await db.query('DELETE FROM password_reset WHERE email = $1 AND user_type = $2', [email, 'user']);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Password reset successful. Please login with your new password.'
+      });
+    } catch (error) {
+      console.error('Error in mobile resetForgotPassword:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'An error occurred while resetting password.'
       });
     }
   }

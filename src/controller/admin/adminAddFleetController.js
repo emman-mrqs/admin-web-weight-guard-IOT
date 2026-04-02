@@ -112,27 +112,60 @@ class AdminAddFleetController {
                 });
             }
 
-            const insertResult = await db.query(
-                `
-                    INSERT INTO vehicles (
-                        assigned_driver_id,
-                        vehicle_type,
-                        plate_number,
-                        max_capacity_kg,
-                        current_state,
-                        current_load_status
-                    )
-                    VALUES ($1, $2, $3, $4, 'available', 'empty')
-                    RETURNING id, assigned_driver_id, vehicle_type, plate_number, max_capacity_kg, current_state, current_load_status, created_at
-                `,
-                [normalizedDriverId, normalizedVehicleType, normalizedPlateNumber, normalizedCapacity]
-            );
+            const client = await db.connect();
+            let insertResult;
+
+            try {
+                await client.query('BEGIN');
+
+                insertResult = await client.query(
+                    `
+                        INSERT INTO vehicles (
+                            assigned_driver_id,
+                            vehicle_type,
+                            plate_number,
+                            max_capacity_kg,
+                            current_state,
+                            current_load_status
+                        )
+                        VALUES ($1, $2, $3, $4, 'available', 'empty')
+                        RETURNING id, assigned_driver_id, vehicle_type, plate_number, max_capacity_kg, current_state, current_load_status, created_at
+                    `,
+                    [normalizedDriverId, normalizedVehicleType, normalizedPlateNumber, normalizedCapacity]
+                );
+
+                const createdVehicle = insertResult.rows[0];
+
+                await client.query(
+                    `
+                        INSERT INTO vehicle_live_state (vehicle_id)
+                        VALUES ($1)
+                    `,
+                    [createdVehicle.id]
+                );
+
+                await client.query('COMMIT');
+            } catch (transactionError) {
+                await client.query('ROLLBACK');
+                throw transactionError;
+            } finally {
+                client.release();
+            }
 
             return res.status(201).json({
                 message: 'Vehicle added successfully.',
                 vehicle: insertResult.rows[0]
             });
         } catch (error) {
+            if (error?.code === '23505') {
+                return res.status(400).json({
+                    error: 'Validation failed.',
+                    fieldErrors: {
+                        plateNumber: 'Plate number already exists.'
+                    }
+                });
+            }
+
             console.error("Error creating vehicle:", error);
             return res.status(500).json({ error: "An error occurred while creating the vehicle." });
         }
