@@ -6,6 +6,7 @@
     <title>WeighGuard - Live Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="/css/admin/adminFleet.css">
     <style>
         /* Ensure map fills the entire container */
@@ -14,7 +15,7 @@
         
         /* Custom Leaflet Popup Styling to match Theme */
         .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.95) !important; backdrop-filter: blur(10px) !important; border: 1px solid rgba(51, 65, 85, 0.8) !important; border-radius: 1rem !important; padding: 0 !important; overflow: hidden !important; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.8) !important; }
-        .leaflet-popup-content { margin: 0 !important; width: 300px !important; }
+        .leaflet-popup-content { margin: 0 !important; width: 340px !important; max-width: 90vw !important; }
         .leaflet-popup-tip { background: rgba(15, 23, 42, 0.95) !important; border: 1px solid rgba(51, 65, 85, 0.8) !important; border-top: none !important; border-left: none !important; }
         .leaflet-popup-close-button { color: #94a3b8 !important; right: 12px !important; top: 12px !important; background: rgba(15,23,42,0.5) !important; border-radius: 50% !important; padding: 4px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
         .leaflet-popup-close-button:hover { color: #f8fafc !important; background: rgba(51,65,85,0.8) !important; }
@@ -43,38 +44,76 @@
                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest"><span id="activeUnitCount">114</span> Active Units</p>
                 </div>
 
+                <div class="glass-panel px-4 py-2 rounded-xl w-max">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Route Status</p>
+                    <p id="routeRerouteStatus" class="text-xs text-emerald-300 font-bold mt-1">Waiting for task</p>
+                </div>
+
                 <div class="flex bg-slate-900/80 backdrop-blur-md rounded-xl p-1 border border-slate-700/50 shadow-lg w-max">
                     <button id="btnMapStyle" class="px-4 py-1.5 text-xs font-bold uppercase tracking-widest bg-slate-800 text-white rounded-lg shadow-sm transition">Map</button>
                     <button id="btnSatStyle" class="px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 rounded-lg transition">Satellite</button>
                 </div>
             </div>
 
-            <div class="glass-panel p-5 rounded-2xl w-80 pointer-events-auto">
-                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Filter Live Map</h3>
+            <div class="glass-panel p-5 rounded-2xl w-[24rem] pointer-events-auto border border-slate-700/60">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fleet Filters</h3>
+                        <p class="text-xs text-slate-500 mt-1">Filter by truck class, then jump to assigned tasks.</p>
+                    </div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full border border-emerald-400/20">Dynamic</span>
+                </div>
+
                 <div class="space-y-4">
                     <div class="relative group">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
                             <svg class="w-4 h-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </span>
-                        <input type="text" id="vehicleSearch" placeholder="Track vehicle ID..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
+                        <input type="text" id="vehicleSearch" placeholder="Search vehicle or driver..." class="w-full bg-slate-950 border border-slate-700 text-sm rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 text-slate-200 transition-all placeholder-slate-500 shadow-inner">
                     </div>
-                    <div class="relative">
-                        <select id="categoryFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors">
-                            <option value="all">All Categories</option>
-                            <option value="Trailer Truck">Trailer Trucks (Class 8)</option>
-                            <option value="Reefer Truck">Reefer Trucks (Class 6)</option>
-                            <option value="Small Truck">Small Trucks (Class 4)</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+
+                    <div>
+                        <label for="truckClassFilter" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Truck Class</label>
+                        <div class="relative">
+                            <select id="truckClassFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors">
+                                <option value="">-- Select Truck Classification --</option>
+                                <% vehicleClasses.forEach((truckClass) => { %>
+                                    <option value="<%= truckClass.value %>"><%= truckClass.label %> (<%= truckClass.description %>)</option>
+                                <% }) %>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                        </div>
                     </div>
-                    <div class="relative">
-                        <select id="statusFilter" class="w-full bg-slate-950 border border-slate-700 text-xs font-bold text-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors">
-                            <option value="all">All Statuses</option>
-                            <option value="in_transit" class="text-emerald-400">In Transit (Normal)</option>
-                            <option value="loss" class="text-rose-400">Cargo Loss Detected</option>
-                            <option value="overload" class="text-amber-400">Overload Warning</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+
+                    <div>
+                        <label for="assignedTaskFilter" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Assigned Task</label>
+                        <div class="relative">
+                            <select id="assignedTaskFilter" disabled class="w-full bg-slate-950 border border-slate-800 text-xs font-bold text-slate-500 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none shadow-inner cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60">
+                                <option value="">Select a truck class first</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                        </div>
+                    </div>
+
+                    <div id="taskDetailCard" class="hidden rounded-2xl border border-slate-700/70 bg-slate-950/70 p-4">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">Selected Task</p>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex items-center justify-between gap-3">
+                                <span id="taskPlateLabel" class="font-mono text-white font-extrabold">--</span>
+                                <span id="taskStatusLabel" class="text-[10px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full border border-emerald-400/20">--</span>
+                            </div>
+                            <p id="taskDriverLabel" class="text-slate-400 text-xs">--</p>
+                            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-2.5">
+                                    <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold mb-1">Pickup</p>
+                                    <p id="taskPickupLabel" class="text-slate-200 font-mono leading-snug">--</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-2.5">
+                                    <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold mb-1">Destination</p>
+                                    <p id="taskDestinationLabel" class="text-slate-200 font-mono leading-snug">--</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -110,6 +149,7 @@
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
     <script src="/js/admin/adminFleetMaps.js"></script>
 </body>
 </html>

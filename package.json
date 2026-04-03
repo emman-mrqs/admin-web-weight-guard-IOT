@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node app.js",
+    "mock:gps": "node scripts/mockEsp32Tracker.js",
     "test": "echo \"No tests\""
   },
   "keywords": [],

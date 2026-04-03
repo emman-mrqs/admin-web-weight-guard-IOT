@@ -1,4 +1,29 @@
-import { WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
+
+const wsConnections = new Map();
+let connectionIdCounter = 0;
+
+function safeSend(ws, payload) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        return false;
+    }
+
+    try {
+        ws.send(JSON.stringify(payload));
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+export function broadcastTrackingUpdate(payload) {
+    for (const [connectionId, ws] of wsConnections.entries()) {
+        const sent = safeSend(ws, payload);
+        if (!sent) {
+            wsConnections.delete(connectionId);
+        }
+    }
+}
 
 /**
  * Initialize the tracking WebSocket server and connection registry.
@@ -6,9 +31,6 @@ import { WebSocketServer } from 'ws';
  */
 export function initTrackingWebSocket(server) {
     const wss = new WebSocketServer({ server, path: '/ws/tracking' });
-
-    const wsConnections = new Map();
-    let connectionIdCounter = 0;
 
     wss.on('connection', (ws) => {
         const connectionId = ++connectionIdCounter;

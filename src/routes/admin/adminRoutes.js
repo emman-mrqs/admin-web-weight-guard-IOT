@@ -86,6 +86,8 @@ router.delete("/api/admin/fleet/:vehicleId", AdminFleetController.deleteFleet);
 
 // Admin Fleet Maps Routes
 router.get("/admin/fleet-maps", AdminFleetMapsController.getFleetMaps);
+router.get('/api/admin/fleet-maps/live', AdminFleetMapsController.getFleetMapLiveData);
+router.get('/api/admin/fleet-maps/tasks', AdminFleetMapsController.getFleetMapTasks);
 
 // Admin User Routes
 router.get("/admin/users", AdminUserController.getUsers);

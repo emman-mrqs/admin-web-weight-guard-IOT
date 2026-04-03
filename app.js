@@ -13,6 +13,7 @@ import adminRoutes from "./src/routes/admin/adminRoutes.js";
 import adminAuthRoutes from "./src/routes/admin/adminAuthRoutes.js";
 import userMobileRoutes from "./src/routes/api/userMobileRoutes.js";
 import userMobileAuthRoutes from "./src/routes/api/userMobileAuthRoutes.js";
+import vehicleTelemetryRoutes from "./src/routes/api/vehicleTelemetryRoutes.js";
 // import { setWsConnections } from "./src/controller/api/locationController.js";
 // import { setIncidentWsConnections } from "./src/controller/api/incidentController.js";
 import { initTrackingWebSocket } from "./src/realtime/trackingWebSocket.js";
@@ -65,6 +66,7 @@ app.use("/", adminRoutes);
 app.use("/", adminAuthRoutes);
 app.use("/api/mobile", userMobileRoutes);
 app.use("/api/mobile/auth", userMobileAuthRoutes);
+app.use("/api/realtime", vehicleTelemetryRoutes);
 
 server.listen(port, () => {
     console.log(`Server running on port ${port}`);
