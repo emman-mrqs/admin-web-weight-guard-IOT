@@ -168,5 +168,6 @@ CREATE TABLE vehicle_live_state (
     current_longitude DECIMAL(11, 8),
     current_speed_kmh INTEGER,
     current_heading INTEGER,
+    current_weight_kg DECIMAL(10, 2),
     last_ping_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

@@ -8,8 +8,10 @@ const fleetState = {
     },
     stats: {
         totalFleet: 0,
-        activeCount: 0,
-        maintenanceCount: 0,
+        operationalCount: 0,
+        aboveRefCount: 0,
+        lossCount: 0,
+        overloadCount: 0,
         avgCapacityKg: 0,
         alertCount: 0
     },
@@ -36,63 +38,256 @@ function formatDate(value) {
     });
 }
 
-function normalizeState(state) {
+function getProfileInitials(fullName, fallback = 'AD') {
+    const normalized = String(fullName || '').trim();
+    if (!normalized || normalized.toLowerCase() === 'unassigned') {
+        return fallback;
+    }
+
+    const parts = normalized.split(/\s+/).filter(Boolean);
+    if (!parts.length) return fallback;
+
+    const first = parts[0].charAt(0) || '';
+    const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    const initials = `${first}${second}`.toUpperCase();
+    return initials || fallback;
+}
+
+function applyDriverProfileBadge(fullName) {
+    const initialsEl = document.getElementById('viewDriverInitials');
+    const badgeEl = document.getElementById('viewDriverInitialsBadge');
+    if (!initialsEl || !badgeEl) return;
+
+    const isUnassigned = String(fullName || '').trim().toLowerCase() === 'unassigned';
+    initialsEl.textContent = getProfileInitials(fullName, isUnassigned ? '--' : 'AD');
+
+    if (isUnassigned) {
+        badgeEl.className = 'w-12 h-12 bg-slate-800 border border-slate-700 ring-1 ring-slate-600/40 rounded-full flex items-center justify-center text-slate-300 font-bold text-base shadow-[0_0_8px_rgba(15,23,42,0.45)]';
+        return;
+    }
+
+    badgeEl.className = 'w-12 h-12 bg-gradient-to-b from-emerald-500/20 to-emerald-600/5 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-full flex items-center justify-center text-emerald-400 font-bold text-base shadow-[0_0_12px_rgba(16,185,129,0.35)]';
+}
+
+function normalizeOperationalState(state) {
     const value = String(state || '').toLowerCase();
     if (value.includes('maintenance')) return 'maintenance';
-    if (value.includes('alert')) return 'alert';
     if (value.includes('loading')) return 'loading';
     if (value.includes('transit')) return 'in_transit';
     if (value.includes('idle')) return 'idle';
     return 'available';
 }
 
-function getStatusBadge(state, loadStatus) {
-    const normalized = normalizeState(state);
-    const lowerLoad = String(loadStatus || '').toLowerCase();
+function formatOperationalState(state) {
+    const normalized = normalizeOperationalState(state);
+    if (normalized === 'in_transit') return 'In Transit';
+    if (normalized === 'maintenance') return 'In Maintenance';
+    if (normalized === 'loading') return 'Loading';
+    if (normalized === 'idle') return 'Idle / Docked';
+    return 'Available';
+}
 
-    if (lowerLoad.includes('loss') || lowerLoad.includes('overload') || normalized === 'alert') {
-        return {
-            label: 'ALERT',
-            className: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-            dotClass: 'bg-rose-500'
-        };
-    }
+function getOperationalStateVisual(state) {
+    const normalized = normalizeOperationalState(state);
 
     if (normalized === 'maintenance') {
         return {
-            label: 'MAINTENANCE',
-            className: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-            dotClass: 'bg-amber-500'
+            className: 'w-12 h-12 rounded-xl bg-amber-500/10 text-amber-300 flex items-center justify-center border border-amber-500/30',
+            svg: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317a1 1 0 011.35-.936l1.38.69a1 1 0 00.894 0l1.38-.69a1 1 0 011.45.893l.064 1.515a1 1 0 00.52.84l1.31.74a1 1 0 01.278 1.536l-.999 1.14a1 1 0 000 1.318l.999 1.14a1 1 0 01-.278 1.536l-1.31.74a1 1 0 00-.52.84l-.064 1.515a1 1 0 01-1.45.894l-1.38-.69a1 1 0 00-.894 0l-1.38.69a1 1 0 01-1.45-.894l-.064-1.515a1 1 0 00-.52-.84l-1.31-.74a1 1 0 01-.278-1.536l.999-1.14a1 1 0 000-1.318l-.999-1.14a1 1 0 01.278-1.536l1.31-.74a1 1 0 00.52-.84l.064-1.515z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>'
+        };
+    }
+
+    if (normalized === 'in_transit') {
+        return {
+            className: 'w-12 h-12 rounded-xl bg-sky-500/10 text-sky-300 flex items-center justify-center border border-sky-500/30',
+            svg: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path><circle cx="7" cy="17" r="2" stroke-width="2"></circle><circle cx="17" cy="17" r="2" stroke-width="2"></circle></svg>'
         };
     }
 
     if (normalized === 'loading') {
         return {
-            label: 'LOADING',
-            className: 'bg-sky-500/10 text-sky-300 border-sky-500/30',
-            dotClass: 'bg-sky-400'
+            className: 'w-12 h-12 rounded-xl bg-blue-500/10 text-blue-300 flex items-center justify-center border border-blue-500/30',
+            svg: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M5 7l1 12h12l1-12M9 11v4m6-4v4"></path></svg>'
+        };
+    }
+
+    if (normalized === 'idle') {
+        return {
+            className: 'w-12 h-12 rounded-xl bg-slate-700/60 text-slate-200 flex items-center justify-center border border-slate-600',
+            svg: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>'
+        };
+    }
+
+    return {
+        className: 'w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-300 flex items-center justify-center border border-emerald-500/30',
+        svg: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+    };
+}
+
+function normalizeDispatchStatus(status) {
+    const value = String(status || '').trim().toLowerCase();
+    if (['pending', 'active', 'in_transit'].includes(value)) return value;
+    return 'unassigned';
+}
+
+function canDecreaseCapacity(dispatchStatus) {
+    const normalized = normalizeDispatchStatus(dispatchStatus);
+    return normalized === 'pending' || normalized === 'unassigned';
+}
+
+function formatDispatchStatusForUi(dispatchStatus) {
+    const normalized = normalizeDispatchStatus(dispatchStatus);
+    if (normalized === 'in_transit') return 'In Transit';
+    if (normalized === 'active') return 'Active';
+    if (normalized === 'pending') return 'Pending';
+    return 'Unassigned';
+}
+
+function updateEditCapacityRuleHint(dispatchStatus) {
+    const hint = document.getElementById('editCapacityRuleHint');
+    if (!hint) return;
+
+    if (canDecreaseCapacity(dispatchStatus)) {
+        hint.className = 'mt-2 text-[10px] text-slate-500 font-medium';
+        hint.textContent = `Dispatch status: ${formatDispatchStatusForUi(dispatchStatus)}. Capacity decrease is allowed.`;
+        return;
+    }
+
+    hint.className = 'mt-2 text-[10px] text-amber-300 font-medium';
+    hint.textContent = `Dispatch status: ${formatDispatchStatusForUi(dispatchStatus)}. You can only decrease capacity when dispatch is Pending or Unassigned.`;
+}
+
+function getDispatchStatusBadge(status) {
+    const normalized = normalizeDispatchStatus(status);
+
+    if (normalized === 'active') {
+        return {
+            label: 'ACTIVE',
+            className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            dotClass: 'bg-emerald-400'
         };
     }
 
     if (normalized === 'in_transit') {
         return {
             label: 'IN TRANSIT',
-            className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-            dotClass: 'bg-emerald-400'
+            className: 'bg-sky-500/10 text-sky-300 border-sky-500/30',
+            dotClass: 'bg-sky-400'
+        };
+    }
+
+    if (normalized === 'pending') {
+        return {
+            label: 'PENDING',
+            className: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+            dotClass: 'bg-amber-400'
         };
     }
 
     return {
-        label: 'AVAILABLE',
+        label: 'UNASSIGNED',
         className: 'bg-slate-800 text-slate-300 border-slate-700',
         dotClass: 'bg-slate-500'
     };
 }
 
+function normalizeVehicleCondition(loadStatus) {
+    const value = String(loadStatus || '').trim().toLowerCase();
+    if (value.includes('loss')) return 'loss';
+    if (value.includes('overload')) return 'overload';
+    if (value.includes('above_reference')) return 'above_reference';
+    if (value.includes('loading')) return 'loading';
+    return 'normal';
+}
+
+function getVehicleConditionBadge(loadStatus) {
+    const normalized = normalizeVehicleCondition(loadStatus);
+
+    if (normalized === 'loss') {
+        return {
+            label: 'LOSS',
+            className: 'text-rose-400',
+            dotClass: 'bg-rose-500'
+        };
+    }
+
+    if (normalized === 'overload') {
+        return {
+            label: 'OVERLOAD',
+            className: 'text-amber-400',
+            dotClass: 'bg-amber-400'
+        };
+    }
+
+    if (normalized === 'loading') {
+        return {
+            label: 'LOADING',
+            className: 'text-sky-300',
+            dotClass: 'bg-sky-400'
+        };
+    }
+
+    if (normalized === 'above_reference') {
+        return {
+            label: 'ABOVE REF',
+            className: 'text-blue-300',
+            dotClass: 'bg-blue-400'
+        };
+    }
+
+    return {
+        label: 'NORMAL',
+        className: 'text-emerald-400',
+        dotClass: 'bg-emerald-400'
+    };
+}
+
+function getVehicleConditionMetaClass(loadStatus) {
+    const normalized = normalizeVehicleCondition(loadStatus);
+
+    if (normalized === 'loss') return 'text-xs font-mono mt-0.5 text-rose-400';
+    if (normalized === 'overload') return 'text-xs font-mono mt-0.5 text-amber-300';
+    if (normalized === 'above_reference') return 'text-xs font-mono mt-0.5 text-blue-300';
+    if (normalized === 'loading') return 'text-xs font-mono mt-0.5 text-sky-300';
+    return 'text-xs font-mono mt-0.5 text-emerald-300';
+}
+
+function getLoadProgressBarClass(loadStatus) {
+    const normalized = normalizeVehicleCondition(loadStatus);
+
+    if (normalized === 'loss') {
+        return 'bg-gradient-to-r from-rose-500 to-rose-400 h-full rounded-full shadow-[0_0_10px_rgba(244,63,94,0.45)]';
+    }
+
+    if (normalized === 'overload') {
+        return 'bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full shadow-[0_0_10px_rgba(245,158,11,0.45)]';
+    }
+
+    if (normalized === 'above_reference') {
+        return 'bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full shadow-[0_0_10px_rgba(59,130,246,0.45)]';
+    }
+
+    if (normalized === 'loading') {
+        return 'bg-gradient-to-r from-sky-500 to-blue-400 h-full rounded-full shadow-[0_0_10px_rgba(56,189,248,0.45)]';
+    }
+
+    return 'bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]';
+}
+
 function getCurrentLoadKg(vehicle) {
     const loadStatusText = String(vehicle.current_load_status || 'empty');
+    const liveCurrentWeightKg = Number(vehicle.current_weight_kg);
+    const latestTelemetryWeightKg = Number(vehicle.latest_current_weight_kg);
     const dispatchWeightKg = Number(vehicle.initial_reference_weight_kg);
     const numericFromStatus = Number((loadStatusText.match(/\d+(\.\d+)?/) || [])[0] || 0);
+
+    if (Number.isFinite(liveCurrentWeightKg) && liveCurrentWeightKg >= 0) {
+        return liveCurrentWeightKg;
+    }
+
+    if (Number.isFinite(latestTelemetryWeightKg) && latestTelemetryWeightKg >= 0) {
+        return latestTelemetryWeightKg;
+    }
 
     if (Number.isFinite(dispatchWeightKg) && dispatchWeightKg >= 0) {
         return dispatchWeightKg;
@@ -130,8 +325,13 @@ function buildWeightTrendData(vehicle, currentLoadKg, maxCapacityKg) {
 function closeAllModals() {
     const overlay = document.getElementById('modalOverlay');
     const modals = document.querySelectorAll('[id$="Modal"]');
+    const deleteError = document.getElementById('deleteFleetFormError');
 
     if (overlay) overlay.classList.add('opacity-0');
+    if (deleteError) {
+        deleteError.classList.add('hidden');
+        deleteError.textContent = '';
+    }
 
     modals.forEach((modal) => {
         modal.classList.remove('opacity-100', 'scale-100');
@@ -168,19 +368,60 @@ function renderStats() {
     const alertEl = document.getElementById('fleetStatAlerts');
 
     if (totalEl) totalEl.textContent = formatNumber(stats.totalFleet);
-    if (activeEl) activeEl.textContent = formatNumber(stats.activeCount);
+    const totalCountEl = document.getElementById('fleetTotalCount');
+    if (totalCountEl) totalCountEl.textContent = formatNumber(stats.totalFleet);
+    if (activeEl) activeEl.textContent = formatNumber(stats.operationalCount);
     if (avgEl) {
         avgEl.innerHTML = `${formatNumber(Math.round(stats.avgCapacityKg || 0))} <span class="text-sm font-semibold text-slate-500">kg</span>`;
     }
-    if (alertEl) alertEl.textContent = formatNumber(stats.alertCount);
+    if (alertEl) alertEl.textContent = formatNumber((stats.lossCount || 0) + (stats.overloadCount || 0));
 
-    const activeCountEl = document.getElementById('fleetActiveCount');
-    const maintenanceCountEl = document.getElementById('fleetMaintenanceCount');
-    const alertCountEl = document.getElementById('fleetAlertCount');
+    const operationalCountEl = document.getElementById('fleetOperationalCount');
+    const aboveRefCountEl = document.getElementById('fleetAboveRefCount');
+    const lossCountEl = document.getElementById('fleetLossCount');
+    const overloadCountEl = document.getElementById('fleetOverloadCount');
 
-    if (activeCountEl) activeCountEl.textContent = formatNumber(stats.activeCount);
-    if (maintenanceCountEl) maintenanceCountEl.textContent = formatNumber(stats.maintenanceCount);
-    if (alertCountEl) alertCountEl.textContent = formatNumber(stats.alertCount);
+    if (operationalCountEl) operationalCountEl.textContent = formatNumber(stats.operationalCount);
+    if (aboveRefCountEl) aboveRefCountEl.textContent = formatNumber(stats.aboveRefCount);
+    if (lossCountEl) lossCountEl.textContent = formatNumber(stats.lossCount);
+    if (overloadCountEl) overloadCountEl.textContent = formatNumber(stats.overloadCount);
+}
+
+function getFilterButtonClasses(filterType, active) {
+    const base = 'filter-btn px-4 py-2 text-xs font-bold rounded-lg border transition flex items-center gap-2';
+    const inactive = `${base} bg-transparent text-slate-300 border-transparent hover:bg-slate-800/70`;
+
+    if (filterType === 'all') {
+        return active
+            ? 'filter-btn px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border border-slate-700 hover:bg-slate-700 transition shadow-md flex items-center gap-2'
+            : inactive;
+    }
+
+    if (filterType === 'operational') {
+        return active
+            ? `${base} bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.18)]`
+            : inactive;
+    }
+
+    if (filterType === 'above_ref') {
+        return active
+            ? `${base} bg-blue-500/15 text-blue-300 border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.18)]`
+            : inactive;
+    }
+
+    if (filterType === 'loss') {
+        return active
+            ? `${base} bg-rose-500/15 text-rose-300 border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.18)]`
+            : inactive;
+    }
+
+    if (filterType === 'overload') {
+        return active
+            ? `${base} bg-amber-500/15 text-amber-300 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.18)]`
+            : inactive;
+    }
+
+    return inactive;
 }
 
 function renderFleetRows() {
@@ -209,8 +450,9 @@ function renderFleetRows() {
     fleetState.sparklineCharts = [];
 
     tbody.innerHTML = fleetState.items.map((vehicle) => {
-        const status = getStatusBadge(vehicle.current_state, vehicle.current_load_status);
-        const isAlert = status.label === 'ALERT';
+        const dispatchBadge = getDispatchStatusBadge(vehicle.dispatch_task_status || vehicle.dispatch_status);
+        const vehicleCondition = getVehicleConditionBadge(vehicle.current_load_status);
+        const isAlert = ['OVERLOAD', 'LOSS'].includes(vehicleCondition.label);
         const driverName = vehicle.driver_first_name
             ? `${vehicle.driver_first_name} ${vehicle.driver_last_name || ''}`.trim()
             : 'Unassigned';
@@ -221,8 +463,12 @@ function renderFleetRows() {
         const currentLoadKg = getCurrentLoadKg(vehicle);
         const loadPercent = maxCapacity > 0 ? Math.max(0, Math.min(100, (currentLoadKg / maxCapacity) * 100)) : 0;
 
-        const routeLine = String(vehicle.current_state || 'Unknown').replace(/_/g, ' ');
-        const routeMeta = `Assigned: ${driverName}`;
+        const initialWeightKg = Number(vehicle.initial_reference_weight_kg);
+        const initialWeightText = Number.isFinite(initialWeightKg)
+            ? `${formatNumber(initialWeightKg)} kg`
+            : 'N/A';
+        const routeLine = vehicleCondition.label;
+        const routeMeta = `Initial: ${initialWeightText} • Driver: ${driverName}`;
         const sparklineId = `sparkline-row-${vehicle.id}`;
         const rowClass = isAlert
             ? 'bg-rose-950/10 hover:bg-rose-900/20 transition-colors group'
@@ -242,13 +488,13 @@ function renderFleetRows() {
                     </div>
                 </td>
                 <td class="px-6 py-4">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[10px] font-bold tracking-wide ${status.className}">
-                        <span class="w-1.5 h-1.5 rounded-full ${status.dotClass}"></span>
-                        ${status.label}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[10px] font-bold tracking-wide ${dispatchBadge.className}">
+                        <span class="w-1.5 h-1.5 rounded-full ${dispatchBadge.dotClass}"></span>
+                        ${dispatchBadge.label}
                     </span>
                 </td>
                 <td class="px-6 py-4">
-                    <div class="text-sm font-bold text-slate-300">${routeLine}</div>
+                    <div class="text-sm font-bold ${vehicleCondition.className}">${routeLine}</div>
                     <div class="font-mono text-[10px] text-slate-500 mt-0.5">${routeMeta}</div>
                 </td>
                 <td class="px-6 py-4">
@@ -292,7 +538,7 @@ function renderRowSparklines() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const isAlert = getStatusBadge(vehicle.current_state, vehicle.current_load_status).label === 'ALERT';
+        const isAlert = ['overload', 'loss'].includes(normalizeVehicleCondition(vehicle.current_load_status));
         const color = isAlert ? '#fb7185' : '#34d399';
         const maxCapacityKg = Number(vehicle.max_capacity_kg || 0);
         const currentLoadKg = getCurrentLoadKg(vehicle);
@@ -435,10 +681,15 @@ function getVehicleById(vehicleId) {
     return fleetState.items.find((item) => Number(item.id) === Number(vehicleId));
 }
 
+function formatVehicleIdentifier(plate, vehicleId) {
+    return `${plate || 'N/A'} • ID: ${vehicleId || 'N/A'}`;
+}
+
 function fillViewModal(vehicle) {
     if (!vehicle) return;
 
-    const badge = getStatusBadge(vehicle.current_state, vehicle.current_load_status);
+    const badge = getDispatchStatusBadge(vehicle.dispatch_task_status || vehicle.dispatch_status);
+    const vehicleCondition = getVehicleConditionBadge(vehicle.current_load_status);
     const driverName = vehicle.driver_first_name
         ? `${vehicle.driver_first_name} ${vehicle.driver_last_name || ''}`.trim()
         : 'Unassigned';
@@ -447,9 +698,12 @@ function fillViewModal(vehicle) {
     const statusBadge = document.getElementById('viewStatusBadge');
     const plate = document.getElementById('viewPlateNumber');
     const driver = document.getElementById('viewDriverName');
+    const stateIcon = document.getElementById('viewCurrentStateIcon');
     const state = document.getElementById('viewCurrentState');
+    const stateMeta = document.getElementById('viewCurrentStateMeta');
     const currentLoad = document.getElementById('viewCurrentLoad');
     const maxCapacity = document.getElementById('viewMaxCapacity');
+    const initialReferenceWeight = document.getElementById('viewInitialReferenceWeight');
     const loadProgressBar = document.getElementById('viewLoadProgressBar');
     const vehicleClass = document.getElementById('viewVehicleClass');
     const createdAt = document.getElementById('viewCreatedAt');
@@ -457,17 +711,43 @@ function fillViewModal(vehicle) {
 
     const currentLoadKg = getCurrentLoadKg(vehicle);
     const maxCapacityKg = Number(vehicle.max_capacity_kg || 0);
+    const initialReferenceKg = Number(vehicle.initial_reference_weight_kg);
+    const operationalState = normalizeOperationalState(vehicle.current_state);
+    const stateVisual = getOperationalStateVisual(operationalState);
     const loadPercent = maxCapacityKg > 0
         ? Math.max(0, Math.min(100, (currentLoadKg / maxCapacityKg) * 100))
         : 0;
 
     if (vehicleType) vehicleType.textContent = vehicle.vehicle_type || 'N/A';
     if (plate) plate.textContent = vehicle.plate_number || 'N/A';
+    
+    const viewVehicleId = document.getElementById('viewVehicleId');
+    if (viewVehicleId) {
+        viewVehicleId.innerHTML = `ID: <span class=\"text-slate-400 font-bold\">${vehicle.id || 'N/A'}</span>`;
+    }
+    
     if (driver) driver.textContent = driverName;
-    if (state) state.textContent = String(vehicle.current_state || 'N/A').replace(/_/g, ' ');
+    applyDriverProfileBadge(driverName);
+    if (stateIcon) {
+        stateIcon.className = stateVisual.className;
+        stateIcon.innerHTML = stateVisual.svg;
+    }
+    if (state) {
+        state.textContent = formatOperationalState(operationalState);
+    }
+    if (stateMeta) {
+        stateMeta.textContent = `Condition: ${vehicleCondition.label}`;
+        stateMeta.className = getVehicleConditionMetaClass(vehicle.current_load_status);
+    }
     if (currentLoad) currentLoad.innerHTML = `${formatNumber(currentLoadKg)} <span class="text-sm font-medium text-slate-500">kg</span>`;
     if (maxCapacity) maxCapacity.textContent = `${formatNumber(maxCapacityKg)} kg`;
+    if (initialReferenceWeight) {
+        initialReferenceWeight.textContent = Number.isFinite(initialReferenceKg)
+            ? `${formatNumber(initialReferenceKg)} kg`
+            : 'N/A';
+    }
     if (loadProgressBar) {
+        loadProgressBar.className = getLoadProgressBarClass(vehicle.current_load_status);
         loadProgressBar.style.width = `${loadPercent.toFixed(1)}%`;
     }
     if (vehicleClass) vehicleClass.textContent = vehicle.vehicle_type || 'N/A';
@@ -556,7 +836,18 @@ async function handleEditFleetSubmit(event) {
     const vehicleType = form.querySelector('[name="vehicleType"]')?.value;
     const maxCapacity = form.querySelector('[name="maxCapacity"]')?.value;
     const driverId = form.querySelector('[name="driverId"]')?.value;
-    const currentState = form.querySelector('[name="currentState"]')?.value;
+    const originalCapacity = Number(form.dataset.originalCapacity || 0);
+    const dispatchStatus = normalizeDispatchStatus(form.dataset.dispatchStatus);
+
+    if (Number.isFinite(originalCapacity) && Number(maxCapacity) < originalCapacity && !canDecreaseCapacity(dispatchStatus)) {
+        const target = ensureEditFieldError('maxCapacity');
+        if (target) {
+            target.textContent = 'Capacity can only be decreased when dispatch is Pending or Unassigned.';
+            target.classList.remove('hidden');
+        }
+        showEditFeedback('error', 'Cannot decrease max capacity for vehicles with active dispatch progress.');
+        return;
+    }
 
     try {
         const response = await fetch(`/api/admin/fleet/${vehicleId}`, {
@@ -569,8 +860,7 @@ async function handleEditFleetSubmit(event) {
                 vehicleType,
                 plateNumber,
                 maxCapacity,
-                driverId: driverId || null,
-                currentState
+                driverId: driverId || null
             })
         });
 
@@ -621,14 +911,22 @@ window.openEditVehicle = async function openEditVehicle(vehicleId) {
     const typeField = document.getElementById('editVehicleType');
     const maxCapacityField = document.getElementById('editMaxCapacity');
     const maxCapacityDisplay = document.getElementById('editCapacityDisplay');
-    const stateField = document.getElementById('editCurrentState');
+    const identifierDisplay = document.getElementById('editVehicleIdentifier');
+    const dispatchStatus = normalizeDispatchStatus(vehicle.dispatch_task_status || vehicle.dispatch_status);
 
     if (idField) idField.value = String(vehicle.id);
     if (plateField) plateField.value = vehicle.plate_number || '';
     if (typeField) typeField.value = vehicle.vehicle_type || '';
     if (maxCapacityField) maxCapacityField.value = Number(vehicle.max_capacity_kg || 0);
     if (maxCapacityDisplay) maxCapacityDisplay.textContent = `${formatNumber(vehicle.max_capacity_kg || 0)} kg`;
-    if (stateField) stateField.value = normalizeState(vehicle.current_state);
+    if (identifierDisplay) {
+        identifierDisplay.innerHTML = `Update parameters for <span class="font-mono text-slate-300 font-bold">${formatVehicleIdentifier(vehicle.plate_number, vehicle.id)}</span>`;
+    }
+    if (idField?.form) {
+        idField.form.dataset.originalCapacity = String(Number(vehicle.max_capacity_kg || 0));
+        idField.form.dataset.dispatchStatus = dispatchStatus;
+    }
+    updateEditCapacityRuleHint(dispatchStatus);
 
     await populateEditDriverOptions(vehicle.id, vehicle.assigned_driver_id);
     openModal('editModal');
@@ -639,6 +937,12 @@ window.openDeleteVehicle = function openDeleteVehicle(vehicleId) {
     if (!vehicle) return;
 
     fleetState.selectedVehicleId = Number(vehicleId);
+
+    const deleteError = document.getElementById('deleteFleetFormError');
+    if (deleteError) {
+        deleteError.classList.add('hidden');
+        deleteError.textContent = '';
+    }
 
     const plateText = document.getElementById('deletePlateNumber');
     if (plateText) {
@@ -652,30 +956,14 @@ window.toggleModal = openModal;
 window.closeAllModals = closeAllModals;
 
 window.filterFleet = function filterFleet(filterType, clickedBtn) {
-    fleetState.filter = String(filterType || 'all');
+    const normalizedFilter = String(filterType || 'all');
+    fleetState.filter = normalizedFilter;
     fleetState.pagination.page = 1;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
-        const text = btn.textContent || '';
-        if (text.includes('Alerts')) {
-            btn.className = 'filter-btn px-4 py-2 bg-transparent text-rose-400 text-xs font-bold rounded-lg border border-transparent hover:bg-rose-500/10 transition flex items-center gap-2';
-        } else if (text.includes('Maintenance')) {
-            btn.className = 'filter-btn px-4 py-2 bg-transparent text-amber-400 text-xs font-bold rounded-lg border border-transparent hover:bg-amber-500/10 transition flex items-center gap-2';
-        } else {
-            btn.className = 'filter-btn px-4 py-2 bg-transparent text-slate-400 text-xs font-bold rounded-lg border border-transparent hover:text-slate-200 transition';
-        }
+        const btnFilter = String(btn.dataset.filter || '');
+        btn.className = getFilterButtonClasses(btnFilter, btnFilter === normalizedFilter);
     });
-
-    if (clickedBtn) {
-        const text = clickedBtn.textContent || '';
-        if (text.includes('Alerts')) {
-            clickedBtn.className = 'filter-btn px-4 py-2 bg-rose-500/20 text-rose-400 text-xs font-bold rounded-lg border border-rose-500/50 transition flex items-center gap-2 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
-        } else if (text.includes('Maintenance')) {
-            clickedBtn.className = 'filter-btn px-4 py-2 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-lg border border-amber-500/50 transition flex items-center gap-2 shadow-[0_0_10px_rgba(245,158,11,0.2)]';
-        } else {
-            clickedBtn.className = 'filter-btn px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border border-slate-700 hover:bg-slate-700 transition shadow-md';
-        }
-    }
 
     fetchFleetData();
 };
@@ -761,6 +1049,11 @@ function initializeFleetPage() {
         };
         editCapacitySlider.addEventListener('input', syncCapacityText);
         syncCapacityText();
+    }
+
+    const defaultFilterBtn = document.querySelector('.filter-btn[data-filter="all"]');
+    if (defaultFilterBtn) {
+        defaultFilterBtn.className = getFilterButtonClasses('all', true);
     }
 
     fetchFleetData();

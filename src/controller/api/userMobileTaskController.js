@@ -260,8 +260,7 @@ class UserMobileTaskController {
         });
       }
 
-      // Update the task status to 'active'
-      const updateResult = await db.query(
+      await db.query(
         `
           UPDATE dispatch_tasks
           SET status = 'active',
@@ -278,30 +277,12 @@ class UserMobileTaskController {
         [currentTask.assignment_id, userId]
       );
 
-      // If update didn't affect any rows, return error
-      if (updateResult.rowCount === 0) {
-        console.error(`[startCurrentTask] Update failed: no rows affected for task ${currentTask.assignment_id}`);
-        return res.status(404).json({
-          success: false,
-          message: 'Failed to update task status. Task or vehicle not found.'
-        });
-      }
-
-      // Reload the updated task to get fresh data
       const refreshedTask = await loadCurrentTaskRow(userId, ['active', 'in_transit', 'pending']);
-
-      if (!refreshedTask) {
-        console.error(`[startCurrentTask] Refreshed task not found after update for userId=${userId}`);
-        return res.status(500).json({
-          success: false,
-          message: 'Task updated but could not reload updated data.'
-        });
-      }
 
       return res.status(200).json({
         success: true,
         message: 'Dispatch task started successfully.',
-        data: buildTaskPayload(refreshedTask, userId)
+        data: refreshedTask ? buildTaskPayload(refreshedTask, userId) : buildTaskPayload(currentTask, userId)
       });
     } catch (error) {
       console.error('Error starting mobile task:', error);

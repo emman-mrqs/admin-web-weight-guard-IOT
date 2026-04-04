@@ -153,6 +153,28 @@ function escapeForSingleQuotedAttr(value) {
     return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
+function getProfileInitials(fullName, fallback = 'AD') {
+    const normalized = String(fullName || '').trim();
+    if (!normalized) return fallback;
+
+    const parts = normalized.split(/\s+/).filter(Boolean);
+    if (!parts.length) return fallback;
+
+    const first = parts[0].charAt(0) || '';
+    const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    const initials = `${first}${second}`.toUpperCase();
+    return initials || fallback;
+}
+
+function buildSidebarStyleInitialBadge(fullName) {
+    const initials = getProfileInitials(fullName);
+    return `
+        <div class="w-10 h-10 bg-gradient-to-b from-emerald-500/20 to-emerald-600/5 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-full flex items-center justify-center text-emerald-400 font-bold text-xs shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+            ${initials}
+        </div>
+    `;
+}
+
 function setButtonLoading(button, loadingText) {
     if (!button) return () => {};
 
@@ -1469,11 +1491,12 @@ function populateUsersTable(users) {
 
     users.forEach(user => {
         const safeEmail = escapeForSingleQuotedAttr(user.email);
-        const safeFullName = escapeForSingleQuotedAttr(`${user.first_name} ${user.last_name}`);
+        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+        const safeFullName = escapeForSingleQuotedAttr(fullName);
         const verificationExpiresArg = user.verification_expires
             ? `'${escapeForSingleQuotedAttr(user.verification_expires)}'`
             : 'null';
-        const initials = `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+        const initialBadge = buildSidebarStyleInitialBadge(fullName);
         const {
             isVerified,
             normalizedStatus,
@@ -1537,7 +1560,7 @@ function populateUsersTable(users) {
         row.innerHTML = `
             <td class="px-6 py-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-xs">${initials}</div>
+                    ${initialBadge}
                     <div>
                         <div class="font-bold text-white text-sm" data-field="name">${user.first_name} ${user.last_name}</div>
                         <div class="text-xs text-slate-500 mt-0.5" data-field="email">${user.email}</div>

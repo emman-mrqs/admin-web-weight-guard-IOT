@@ -107,7 +107,7 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
 
         const activeTaskResult = await client.query(
             `
-                SELECT id
+                                SELECT id, LOWER(COALESCE(status, 'pending')) AS status
                 FROM dispatch_tasks
                 WHERE vehicle_id = $1
                   AND LOWER(COALESCE(status, 'pending')) IN ('pending', 'active', 'in_transit')
@@ -118,6 +118,10 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
         );
 
         const taskId = activeTaskResult.rows[0]?.id ?? null;
+        const dispatchTaskStatus = String(activeTaskResult.rows[0]?.status || 'unassigned').toLowerCase();
+        const normalizedDispatchTaskStatus = ['pending', 'active', 'in_transit'].includes(dispatchTaskStatus)
+            ? dispatchTaskStatus
+            : 'unassigned';
 
         const previousLogResult = await client.query(
             `
@@ -216,7 +220,9 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
                 plateNumber: String(vehicle.plate_number || `V-${vehicleId}`),
                 driverName: String(vehicle.driver_name || 'Unassigned'),
                 vehicleType: String(vehicle.vehicle_type || 'Vehicle'),
-                status: String(nextLoadStatus || 'normal').toLowerCase() === 'overload' ? 'overload' : 'in_transit',
+                status: normalizedDispatchTaskStatus,
+                currentState: String(nextLoadStatus || 'normal').toLowerCase(),
+                movementState: speedKmh > 0 ? 'in_transit' : 'idle',
                 latitude,
                 longitude,
                 speedKmh: Math.round(speedKmh),

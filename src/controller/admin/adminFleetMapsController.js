@@ -11,6 +11,45 @@ const VEHICLE_CLASSES = [
 
 
 class AdminFleetMapsController {
+    static toFiniteNumber(value) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    static deriveVehicleCurrentState(row) {
+        const dispatchStatus = String(row.dispatch_status || '').toLowerCase();
+        const normalizedDispatchStatus = ['pending', 'active', 'in_transit'].includes(dispatchStatus)
+            ? dispatchStatus
+            : 'unassigned';
+
+        const initialWeightKg = AdminFleetMapsController.toFiniteNumber(row.initial_reference_weight_kg);
+        const maxCapacityKg = AdminFleetMapsController.toFiniteNumber(row.max_capacity_kg);
+        const latestWeightKg = AdminFleetMapsController.toFiniteNumber(row.latest_current_weight_kg);
+        const persistedLoadState = String(row.current_load_status || '').toLowerCase();
+
+        const isOverload = initialWeightKg !== null
+            && maxCapacityKg !== null
+            && latestWeightKg !== null
+            && latestWeightKg > maxCapacityKg;
+        const isAboveReference = initialWeightKg !== null
+            && latestWeightKg !== null
+            && latestWeightKg > initialWeightKg
+            && !isOverload;
+        const isLoss = normalizedDispatchStatus === 'in_transit'
+            && initialWeightKg !== null
+            && latestWeightKg !== null
+            && latestWeightKg < initialWeightKg;
+
+        if (isLoss) return 'loss';
+        if (isOverload) return 'overload';
+        if (isAboveReference) return 'above_reference';
+        if (normalizedDispatchStatus === 'pending' || normalizedDispatchStatus === 'active') return 'loading';
+        if (persistedLoadState.includes('loss')) return 'loss';
+        if (persistedLoadState.includes('overload')) return 'overload';
+        if (persistedLoadState.includes('above_reference')) return 'above_reference';
+        return 'normal';
+    }
+
     static async getFleetMaps(req, res) {
         try {
             res.render('admin/adminFleetMaps', { 
@@ -32,8 +71,12 @@ class AdminFleetMapsController {
                         v.id AS vehicle_id,
                         COALESCE(v.plate_number, CONCAT('V-', v.id::text)) AS plate_number,
                         COALESCE(v.vehicle_type, 'Vehicle') AS vehicle_type,
+                        COALESCE(v.max_capacity_kg, 0) AS max_capacity_kg,
                         COALESCE(v.current_load_status, 'normal') AS current_load_status,
                         COALESCE(v.current_state, 'idle') AS current_state,
+                        ot.dispatch_status,
+                        ot.initial_reference_weight_kg,
+                        tt.latest_current_weight_kg,
                         COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), 'Unassigned') AS driver_name,
                         vls.current_latitude,
                         vls.current_longitude,
@@ -42,6 +85,29 @@ class AdminFleetMapsController {
                     FROM vehicles v
                     LEFT JOIN users u ON u.id = v.assigned_driver_id
                     LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
+                    LEFT JOIN LATERAL (
+                                                SELECT
+                                                        dt.id AS task_id,
+                                                        LOWER(COALESCE(dt.status, 'pending')) AS dispatch_status,
+                                                        dt.initial_reference_weight_kg
+                        FROM dispatch_tasks dt
+                        WHERE dt.vehicle_id = v.id
+                          AND LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                        ORDER BY dt.created_at DESC, dt.id DESC
+                        LIMIT 1
+                    ) ot ON true
+                                        LEFT JOIN LATERAL (
+                                                SELECT tl.current_weight_kg AS latest_current_weight_kg
+                                                FROM telemetry_logs tl
+                                                WHERE tl.vehicle_id = v.id
+                                                    AND (
+                                                        ot.task_id IS NULL
+                                                        OR tl.task_id = ot.task_id
+                                                        OR tl.task_id IS NULL
+                                                    )
+                                                ORDER BY tl.recorded_at DESC, tl.id DESC
+                                                LIMIT 1
+                                        ) tt ON true
                     ORDER BY v.id ASC
                 `
             );
@@ -53,8 +119,12 @@ class AdminFleetMapsController {
                     plateNumber: String(row.plate_number),
                     vehicleType: String(row.vehicle_type),
                     driverName: String(row.driver_name),
-                    status: String(row.current_load_status || 'normal').toLowerCase() === 'overload' ? 'overload' : 'in_transit',
-                    currentState: String(row.current_state || 'idle').toLowerCase(),
+                    status: ['pending', 'active', 'in_transit'].includes(String(row.dispatch_status || '').toLowerCase())
+                        ? String(row.dispatch_status).toLowerCase()
+                        : 'unassigned',
+                    currentState: AdminFleetMapsController.deriveVehicleCurrentState(row),
+                    movementState: String(row.current_state || 'idle').toLowerCase(),
+                    latestCurrentWeightKg: AdminFleetMapsController.toFiniteNumber(row.latest_current_weight_kg),
                     latitude: Number(row.current_latitude),
                     longitude: Number(row.current_longitude),
                     speedKmh: Number(row.current_speed_kmh || 0),

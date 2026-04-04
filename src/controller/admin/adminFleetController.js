@@ -3,6 +3,48 @@ import db from '../../database/db.js';
 import AdminIncidentsController from './adminIncidentsController.js';
 
 class AdminFleetController {
+    static toFiniteNumber(value) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    static normalizeDispatchTaskStatus(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (['pending', 'active', 'in_transit'].includes(normalized)) {
+            return normalized;
+        }
+        return 'unassigned';
+    }
+
+    static deriveVehicleCurrentState(row) {
+        const initialWeightKg = AdminFleetController.toFiniteNumber(row.initial_reference_weight_kg);
+        const maxCapacityKg = AdminFleetController.toFiniteNumber(row.max_capacity_kg);
+        const currentWeightKg = AdminFleetController.toFiniteNumber(row.current_weight_kg);
+        const persistedLoadState = String(row.current_load_status || '').trim().toLowerCase();
+
+        const exceedsVehicleCapacity = currentWeightKg !== null
+            && maxCapacityKg !== null
+            && currentWeightKg > maxCapacityKg;
+
+        const isLoss = initialWeightKg !== null
+            && currentWeightKg !== null
+            && currentWeightKg < initialWeightKg;
+
+        const isAboveReference = initialWeightKg !== null
+            && currentWeightKg !== null
+            && currentWeightKg > initialWeightKg
+            && !exceedsVehicleCapacity;
+
+        if (isLoss) return 'loss';
+        if (exceedsVehicleCapacity) return 'overload';
+        if (isAboveReference) return 'above_reference';
+
+        if (persistedLoadState.includes('loss')) return 'loss';
+        if (persistedLoadState.includes('overload')) return 'overload';
+        if (persistedLoadState.includes('above_reference')) return 'above_reference';
+        return 'normal';
+    }
+
     static async syncFleetStateFromDispatch() {
         await db.query(`
             WITH latest_dispatch AS (
@@ -16,12 +58,13 @@ class AdminFleetController {
             UPDATE vehicles v
             SET
                 current_state = CASE
+                    WHEN ld.dispatch_status = 'pending' THEN 'loading'
                     WHEN ld.dispatch_status = 'active' THEN 'loading'
                     WHEN ld.dispatch_status = 'in_transit' THEN 'in_transit'
                     ELSE v.current_state
                 END,
                 current_load_status = CASE
-                    WHEN ld.dispatch_status = 'active' THEN
+                    WHEN ld.dispatch_status IN ('pending', 'active', 'in_transit') THEN
                         CASE
                             WHEN COALESCE(ld.initial_reference_weight_kg, 0)::numeric > COALESCE(v.max_capacity_kg, 0)::numeric
                                 THEN 'overload'
@@ -31,7 +74,7 @@ class AdminFleetController {
                 END
             FROM latest_dispatch ld
             WHERE v.id = ld.vehicle_id
-              AND ld.dispatch_status IN ('active', 'in_transit')
+                            AND ld.dispatch_status IN ('pending', 'active', 'in_transit')
         `);
 
         const hasCurrentStatusColumn = await db.query(`
@@ -97,16 +140,58 @@ class AdminFleetController {
                 )`);
             }
 
-            if (filter === 'maintenance') {
-                conditions.push(`LOWER(COALESCE(v.current_state, '')) LIKE '%maintenance%'`);
-            } else if (filter === 'alert') {
+            if (filter === 'loss') {
                 conditions.push(`(
-                    LOWER(COALESCE(v.current_state, '')) LIKE '%alert%'
+                    (
+                        dt.initial_reference_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg < dt.initial_reference_weight_kg
+                    )
                     OR LOWER(COALESCE(v.current_load_status, '')) LIKE '%loss%'
+                )`);
+            } else if (filter === 'overload') {
+                conditions.push(`(
+                    (
+                        v.max_capacity_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg > v.max_capacity_kg
+                    )
                     OR LOWER(COALESCE(v.current_load_status, '')) LIKE '%overload%'
                 )`);
-            } else if (filter === 'active') {
-                conditions.push(`LOWER(COALESCE(v.current_state, '')) NOT LIKE '%maintenance%'`);
+            } else if (filter === 'above_ref') {
+                conditions.push(`(
+                    (
+                        dt.initial_reference_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND v.max_capacity_kg IS NOT NULL
+                        AND vls.current_weight_kg > dt.initial_reference_weight_kg
+                        AND vls.current_weight_kg <= v.max_capacity_kg
+                    )
+                    OR LOWER(COALESCE(v.current_load_status, '')) LIKE '%above_reference%'
+                )`);
+            } else if (filter === 'operational') {
+                conditions.push(`(
+                    LOWER(COALESCE(v.current_load_status, '')) NOT LIKE '%loss%'
+                    AND LOWER(COALESCE(v.current_load_status, '')) NOT LIKE '%overload%'
+                    AND LOWER(COALESCE(v.current_load_status, '')) NOT LIKE '%above_reference%'
+                    AND NOT (
+                        dt.initial_reference_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg < dt.initial_reference_weight_kg
+                    )
+                    AND NOT (
+                        v.max_capacity_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg > v.max_capacity_kg
+                    )
+                    AND NOT (
+                        dt.initial_reference_weight_kg IS NOT NULL
+                        AND vls.current_weight_kg IS NOT NULL
+                        AND v.max_capacity_kg IS NOT NULL
+                        AND vls.current_weight_kg > dt.initial_reference_weight_kg
+                        AND vls.current_weight_kg <= v.max_capacity_kg
+                    )
+                )`);
             }
 
             const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -114,12 +199,15 @@ class AdminFleetController {
             const baseFrom = `
                 FROM vehicles v
                 LEFT JOIN users u ON u.id = v.assigned_driver_id
+                LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
                 LEFT JOIN LATERAL (
                     SELECT
+                                                dt.id AS task_id,
                         LOWER(COALESCE(dt.status, '')) AS dispatch_status,
                         dt.initial_reference_weight_kg
                     FROM dispatch_tasks dt
                     WHERE dt.vehicle_id = v.id
+                      AND LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
                     ORDER BY dt.created_at DESC, dt.id DESC
                     LIMIT 1
                 ) dt ON true
@@ -147,6 +235,7 @@ class AdminFleetController {
                     v.max_capacity_kg,
                     v.current_state,
                     v.current_load_status,
+                    vls.current_weight_kg,
                     dt.dispatch_status,
                     dt.initial_reference_weight_kg,
                     v.created_at,
@@ -160,25 +249,69 @@ class AdminFleetController {
             `;
 
             const listResult = await db.query(listQuery, params);
+            const data = listResult.rows.map((row) => ({
+                ...row,
+                dispatch_task_status: AdminFleetController.normalizeDispatchTaskStatus(row.dispatch_status),
+                current_load_status: AdminFleetController.deriveVehicleCurrentState(row)
+            }));
 
             const statsResult = await db.query(`
+                WITH latest_dispatch AS (
+                    SELECT DISTINCT ON (dt.vehicle_id)
+                        dt.vehicle_id,
+                        dt.initial_reference_weight_kg
+                    FROM dispatch_tasks dt
+                    WHERE LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                    ORDER BY dt.vehicle_id, dt.created_at DESC, dt.id DESC
+                ),
+                fleet_state AS (
+                    SELECT
+                        v.id,
+                        v.max_capacity_kg,
+                        LOWER(COALESCE(v.current_load_status, '')) AS persisted_load_status,
+                        vls.current_weight_kg,
+                        ld.initial_reference_weight_kg,
+                        CASE
+                            WHEN ld.initial_reference_weight_kg IS NOT NULL
+                                 AND vls.current_weight_kg IS NOT NULL
+                                 AND vls.current_weight_kg < ld.initial_reference_weight_kg
+                                THEN 'loss'
+                            WHEN v.max_capacity_kg IS NOT NULL
+                                 AND vls.current_weight_kg IS NOT NULL
+                                 AND vls.current_weight_kg > v.max_capacity_kg
+                                THEN 'overload'
+                            WHEN ld.initial_reference_weight_kg IS NOT NULL
+                                 AND vls.current_weight_kg IS NOT NULL
+                                 AND v.max_capacity_kg IS NOT NULL
+                                 AND vls.current_weight_kg > ld.initial_reference_weight_kg
+                                 AND vls.current_weight_kg <= v.max_capacity_kg
+                                THEN 'above_reference'
+                            WHEN LOWER(COALESCE(v.current_load_status, '')) LIKE '%loss%'
+                                THEN 'loss'
+                            WHEN LOWER(COALESCE(v.current_load_status, '')) LIKE '%overload%'
+                                THEN 'overload'
+                            WHEN LOWER(COALESCE(v.current_load_status, '')) LIKE '%above_reference%'
+                                THEN 'above_reference'
+                            ELSE 'operational'
+                        END AS derived_load_state
+                    FROM vehicles v
+                    LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
+                    LEFT JOIN latest_dispatch ld ON ld.vehicle_id = v.id
+                )
                 SELECT
                     COUNT(*)::int AS total_fleet,
-                    COUNT(*) FILTER (WHERE LOWER(COALESCE(current_state, '')) NOT LIKE '%maintenance%')::int AS active_count,
-                    COUNT(*) FILTER (WHERE LOWER(COALESCE(current_state, '')) LIKE '%maintenance%')::int AS maintenance_count,
-                    COUNT(*) FILTER (
-                        WHERE LOWER(COALESCE(current_state, '')) LIKE '%alert%'
-                           OR LOWER(COALESCE(current_load_status, '')) LIKE '%loss%'
-                           OR LOWER(COALESCE(current_load_status, '')) LIKE '%overload%'
-                    )::int AS alert_count,
+                    COUNT(*) FILTER (WHERE derived_load_state = 'operational')::int AS operational_count,
+                    COUNT(*) FILTER (WHERE derived_load_state = 'above_reference')::int AS above_ref_count,
+                    COUNT(*) FILTER (WHERE derived_load_state = 'loss')::int AS loss_count,
+                    COUNT(*) FILTER (WHERE derived_load_state = 'overload')::int AS overload_count,
                     AVG(max_capacity_kg)::numeric(10,2) AS avg_capacity
-                FROM vehicles
+                FROM fleet_state
             `);
 
             const stats = statsResult.rows[0] || {};
 
             return res.status(200).json({
-                data: listResult.rows,
+                data,
                 pagination: {
                     page,
                     limit,
@@ -187,10 +320,12 @@ class AdminFleetController {
                 },
                 stats: {
                     totalFleet: Number(stats.total_fleet || 0),
-                    activeCount: Number(stats.active_count || 0),
-                    maintenanceCount: Number(stats.maintenance_count || 0),
+                    operationalCount: Number(stats.operational_count || 0),
+                    aboveRefCount: Number(stats.above_ref_count || 0),
+                    lossCount: Number(stats.loss_count || 0),
+                    overloadCount: Number(stats.overload_count || 0),
                     avgCapacityKg: Number(stats.avg_capacity || 0),
-                    alertCount: Number(stats.alert_count || 0)
+                    alertCount: Number((stats.loss_count || 0) + (stats.overload_count || 0))
                 }
             });
         } catch (error) {
@@ -241,7 +376,7 @@ class AdminFleetController {
     static async updateFleet(req, res) {
         try {
             const vehicleId = Number(req.params.vehicleId);
-            const { vehicleType, plateNumber, maxCapacity, driverId, currentState } = req.body;
+            const { vehicleType, plateNumber, maxCapacity, driverId } = req.body;
             const fieldErrors = {};
 
             if (!vehicleId) {
@@ -252,15 +387,43 @@ class AdminFleetController {
             const normalizedPlate = String(plateNumber || '').trim().toUpperCase();
             const normalizedCapacity = Number(maxCapacity);
             const normalizedDriverId = driverId ? Number(driverId) : null;
-            const normalizedState = String(currentState || 'available').trim().toLowerCase();
 
             if (!normalizedVehicleType) fieldErrors.vehicleType = 'Vehicle type is required.';
             if (!normalizedPlate) fieldErrors.plateNumber = 'Plate number is required.';
             if (!Number.isFinite(normalizedCapacity) || normalizedCapacity <= 0) fieldErrors.maxCapacity = 'Max capacity must be greater than 0.';
 
-            const existingResult = await db.query('SELECT id FROM vehicles WHERE id = $1', [vehicleId]);
+            const existingResult = await db.query(
+                `
+                    SELECT
+                        v.id,
+                        v.max_capacity_kg,
+                        COALESCE(ld.dispatch_status, 'unassigned') AS latest_dispatch_status
+                    FROM vehicles v
+                    LEFT JOIN LATERAL (
+                        SELECT LOWER(COALESCE(dt.status, '')) AS dispatch_status
+                        FROM dispatch_tasks dt
+                        WHERE dt.vehicle_id = v.id
+                          AND LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                        ORDER BY dt.created_at DESC, dt.id DESC
+                        LIMIT 1
+                    ) ld ON true
+                    WHERE v.id = $1
+                `,
+                [vehicleId]
+            );
             if (existingResult.rows.length === 0) {
                 return res.status(404).json({ error: 'Vehicle not found.' });
+            }
+
+            const existingVehicle = existingResult.rows[0];
+            const currentCapacity = Number(existingVehicle.max_capacity_kg);
+            const latestDispatchStatus = String(existingVehicle.latest_dispatch_status || 'unassigned').toLowerCase();
+            const isCapacityDecrease = Number.isFinite(currentCapacity)
+                && Number.isFinite(normalizedCapacity)
+                && normalizedCapacity < currentCapacity;
+
+            if (isCapacityDecrease && !['pending', 'unassigned'].includes(latestDispatchStatus)) {
+                fieldErrors.maxCapacity = 'Max capacity can only be decreased when dispatch is Pending or there is no assigned task.';
             }
 
             if (normalizedPlate) {
@@ -304,12 +467,11 @@ class AdminFleetController {
                     SET vehicle_type = $1,
                         plate_number = $2,
                         max_capacity_kg = $3,
-                        assigned_driver_id = $4,
-                        current_state = $5
-                    WHERE id = $6
+                        assigned_driver_id = $4
+                    WHERE id = $5
                     RETURNING id, assigned_driver_id, vehicle_type, plate_number, max_capacity_kg, current_state, current_load_status, created_at
                 `,
-                [normalizedVehicleType, normalizedPlate, normalizedCapacity, normalizedDriverId, normalizedState, vehicleId]
+                [normalizedVehicleType, normalizedPlate, normalizedCapacity, normalizedDriverId, vehicleId]
             );
 
             return res.status(200).json({

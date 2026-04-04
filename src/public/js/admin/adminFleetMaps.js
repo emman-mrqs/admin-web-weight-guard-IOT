@@ -159,7 +159,9 @@ function asVehicleViewModel(row) {
     const lat = Number(row.latitude);
     const lng = Number(row.longitude);
     const speedKmh = Number(row.speedKmh ?? 0);
-    const status = String(row.status || 'in_transit').toLowerCase();
+    const status = String(row.status || 'unassigned').toLowerCase();
+    const currentState = String(row.currentState || 'normal').toLowerCase();
+    const movementState = String(row.movementState || '').toLowerCase();
 
     return {
         vehicleId: Number(row.vehicleId),
@@ -168,6 +170,8 @@ function asVehicleViewModel(row) {
         type: String(row.vehicleType || 'Vehicle'),
         pos: [lat, lng],
         status,
+        currentState,
+        movementState,
         speed: `${speedKmh} km/h`,
         load: row.currentWeightKg == null ? '--' : `${Number(row.currentWeightKg).toFixed(1)} kg`,
         location: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
@@ -660,18 +664,20 @@ function connectTrackingWebSocket() {
    MARKER & POPUP GENERATION (DETAILED VIEW)
    ========================================================================== */
 
-function createLiveIcon(status) {
+function createLiveIcon(currentState) {
     let colorClass, shadowClass;
     
-    if (status === 'loss') {
+    if (currentState === 'loss') {
         colorClass = 'bg-rose-500'; shadowClass = 'shadow-[0_0_10px_rgba(244,63,94,0.8)]';
-    } else if (status === 'overload') {
+    } else if (currentState === 'overload') {
         colorClass = 'bg-amber-400'; shadowClass = 'shadow-[0_0_10px_rgba(251,191,36,0.8)]';
+    } else if (currentState === 'above_reference') {
+        colorClass = 'bg-blue-400'; shadowClass = 'shadow-[0_0_10px_rgba(96,165,250,0.8)]';
     } else {
         colorClass = 'bg-emerald-400'; shadowClass = 'shadow-[0_0_10px_rgba(52,211,153,0.8)]';
     }
 
-    const ping = status !== 'in_transit' ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${colorClass} opacity-75"></span>` : '';
+    const ping = currentState === 'normal' ? '' : `<span class="animate-ping absolute inline-flex h-full w-full rounded-full ${colorClass} opacity-75"></span>`;
     
     return L.divIcon({
         className: 'custom-live-marker',
@@ -696,22 +702,45 @@ function escapeHtml(value) {
 }
 
 function generateDetailedPopup(v) {
-    const normalizedStatus = String(v.status || '').toLowerCase();
+    const normalizedDispatchStatus = String(v.status || '').toLowerCase();
+    const normalizedVehicleState = String(v.currentState || 'normal').toLowerCase();
     const speedValue = Number.parseFloat(String(v.speed || '0').replace(/[^0-9.]/g, '')) || 0;
     const speedPercent = Math.max(0, Math.min(100, Math.round((speedValue / 90) * 100)));
 
-    let statusLabel = 'In Transit';
-    let statusClass = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-    let statusDot = 'bg-emerald-400';
+    let statusLabel = 'Unassigned';
+    let statusClass = 'bg-slate-800 text-slate-300 border-slate-700';
+    let statusDot = 'bg-slate-500';
 
-    if (normalizedStatus === 'loss') {
-        statusLabel = 'Cargo Loss';
-        statusClass = 'bg-rose-500/10 text-rose-300 border-rose-500/30';
-        statusDot = 'bg-rose-400';
-    } else if (normalizedStatus === 'overload') {
-        statusLabel = 'Overload';
+    if (normalizedDispatchStatus === 'active') {
+        statusLabel = 'Active';
+        statusClass = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+        statusDot = 'bg-emerald-400';
+    } else if (normalizedDispatchStatus === 'in_transit') {
+        statusLabel = 'In Transit';
+        statusClass = 'bg-sky-500/10 text-sky-300 border-sky-500/30';
+        statusDot = 'bg-sky-400';
+    } else if (normalizedDispatchStatus === 'pending') {
+        statusLabel = 'Pending';
         statusClass = 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-        statusDot = 'bg-amber-300';
+        statusDot = 'bg-amber-400';
+    }
+
+    let stateLabel = 'Normal';
+    let stateDot = 'bg-emerald-400';
+    let stateTextClass = 'text-slate-200';
+
+    if (normalizedVehicleState === 'loss') {
+        stateLabel = 'Cargo Loss';
+        stateDot = 'bg-rose-400';
+        stateTextClass = 'text-rose-300';
+    } else if (normalizedVehicleState === 'overload') {
+        stateLabel = 'Overload';
+        stateDot = 'bg-amber-300';
+        stateTextClass = 'text-amber-300';
+    } else if (normalizedVehicleState === 'above_reference') {
+        stateLabel = 'Above Reference';
+        stateDot = 'bg-blue-400';
+        stateTextClass = 'text-blue-300';
     }
 
     const [latValue = '--', lngValue = '--'] = String(v.location || '--').split(',').map((item) => item.trim());
@@ -771,8 +800,9 @@ function generateDetailedPopup(v) {
                 </div>
 
                 <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5">
-                    <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Load</p>
-                    <p class="mt-1 text-xs font-bold font-mono ${normalizedStatus === 'loss' ? 'text-rose-300' : normalizedStatus === 'overload' ? 'text-amber-300' : 'text-slate-200'}">${safeLoad}</p>
+                    <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Current State</p>
+                    <p class="mt-1 text-xs font-bold ${stateTextClass} flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full ${stateDot}"></span>${stateLabel}</p>
+                    <p class="mt-1 text-[10px] font-semibold font-mono text-slate-400">Load: ${safeLoad}</p>
                 </div>
 
                 <button onclick="window.location.href='/admin/fleet'" class="w-full mt-1 rounded-lg border border-blue-500/40 bg-blue-500/20 py-2 text-[10px] font-extrabold uppercase tracking-widest text-blue-100 hover:bg-blue-500/30 transition">
@@ -913,7 +943,7 @@ function renderMarkers(dataToRender) {
         const existing = vehicleMarkerRegistry.get(v.vehicleId);
 
         if (!existing) {
-            const marker = L.marker([targetLat, targetLng], { icon: createLiveIcon(v.status) });
+            const marker = L.marker([targetLat, targetLng], { icon: createLiveIcon(v.currentState) });
             marker.bindPopup(generateDetailedPopup(v));
             marker.on('popupopen', () => {
                 activePopupVehicleId = v.vehicleId;
@@ -933,7 +963,7 @@ function renderMarkers(dataToRender) {
             return;
         }
 
-        existing.marker.setIcon(createLiveIcon(v.status));
+        existing.marker.setIcon(createLiveIcon(v.currentState));
         existing.marker.setPopupContent(generateDetailedPopup(v));
     animateMarkerTo(existing, targetLat, targetLng);
 
@@ -993,7 +1023,7 @@ function applyFilters() {
 
 function renderIncidentList(data) {
     const list = document.getElementById('incidentList');
-    const incidents = data.filter(v => v.status !== 'in_transit');
+    const incidents = data.filter((v) => ['loss', 'overload', 'above_reference'].includes(String(v.currentState || '').toLowerCase()));
 
     if (incidents.length === 0) {
         list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4 font-bold uppercase tracking-widest">No active incidents</p>';
@@ -1001,10 +1031,11 @@ function renderIncidentList(data) {
     }
 
     list.innerHTML = incidents.map(v => {
-        const isLoss = v.status === 'loss';
-        const colorBorder = isLoss ? 'border-rose-500' : 'border-amber-500';
-        const colorText = isLoss ? 'text-rose-400' : 'text-amber-400';
-        const typeText = isLoss ? 'Cargo Loss' : 'Overload';
+        const isLoss = v.currentState === 'loss';
+        const isOverload = v.currentState === 'overload';
+        const colorBorder = isLoss ? 'border-rose-500' : (isOverload ? 'border-amber-500' : 'border-blue-500');
+        const colorText = isLoss ? 'text-rose-400' : (isOverload ? 'text-amber-400' : 'text-blue-400');
+        const typeText = isLoss ? 'Cargo Loss' : (isOverload ? 'Overload' : 'Above Reference');
 
         return `
             <div class="flex gap-3 border-l-2 ${colorBorder} pl-4 py-2 cursor-pointer bg-slate-900/80 border border-slate-800 rounded-r-xl hover:bg-slate-800 transition shadow-md" onclick="focusVehicle('${v.id}')">

@@ -221,6 +221,28 @@ function escapeForSingleQuotedAttr(value) {
     return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
+function getProfileInitials(fullName, fallback = 'AD') {
+    const normalized = String(fullName || '').trim();
+    if (!normalized) return fallback;
+
+    const parts = normalized.split(/\s+/).filter(Boolean);
+    if (!parts.length) return fallback;
+
+    const first = parts[0].charAt(0) || '';
+    const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    const initials = `${first}${second}`.toUpperCase();
+    return initials || fallback;
+}
+
+function buildSidebarStyleInitialBadge(fullName) {
+    const initials = getProfileInitials(fullName);
+    return `
+        <div class="w-10 h-10 bg-gradient-to-b from-emerald-500/20 to-emerald-600/5 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-full flex items-center justify-center text-emerald-400 font-bold text-xs shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+            ${initials}
+        </div>
+    `;
+}
+
 function formatRoleLabel(role) {
     if (role === 'dispatch_staff') return 'Dispatch Staff';
     if (role === 'incident_staff') return 'Incident Staff';
@@ -1584,9 +1606,10 @@ function populateStaffTable(staff) {
     }
 
     tbody.innerHTML = staff.map(s => {
-        const initials = `${s.first_name.charAt(0)}${s.last_name.charAt(0)}`.toUpperCase();
+        const fullName = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+        const initialBadge = buildSidebarStyleInitialBadge(fullName);
         const roleDisplay = formatRoleLabel(s.role);
-        const safeFullName = escapeForSingleQuotedAttr(`${s.first_name} ${s.last_name}`);
+        const safeFullName = escapeForSingleQuotedAttr(fullName);
         const roleColorClass = s.role === 'incident_staff' ? 'text-blue-400' : 'text-amber-400';
         const {
             isSoftDeleted,
@@ -1620,9 +1643,7 @@ function populateStaffTable(staff) {
             <tr class="hover:bg-slate-800/40 transition-colors">
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-sm">
-                            ${initials}
-                        </div>
+                        ${initialBadge}
                         <div>
                             <div class="font-bold text-white text-sm">${s.first_name} ${s.last_name}</div>
                             <div class="text-[10px] text-slate-500 mt-0.5 font-mono">${s.email}</div>

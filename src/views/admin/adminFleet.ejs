@@ -70,18 +70,20 @@
                 <!-- Fleet Controls Filter -->
                 <div class="p-4 sm:p-5 sm:px-6 flex flex-col xl:flex-row justify-between xl:items-center gap-3 border-b border-slate-800 bg-slate-900/50">
                     <div class="flex gap-2 flex-wrap" id="filter-buttons">
-                        <button onclick="filterFleet('all', this)" class="filter-btn px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border border-slate-700 hover:bg-slate-700 transition shadow-md">
-                            All Vehicles
+                        <button data-filter="all" onclick="filterFleet('all', this)" class="filter-btn px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-lg border border-slate-700 hover:bg-slate-700 transition shadow-md flex items-center gap-2">
+                            Show All (<span id="fleetTotalCount">0</span>)
                         </button>
-                        <button onclick="filterFleet('active', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-400 text-xs font-bold rounded-lg border border-transparent hover:text-slate-200 transition">
-                            Operational (<span id="fleetActiveCount">0</span>)
+                        <button data-filter="operational" onclick="filterFleet('operational', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-300 text-xs font-bold rounded-lg border border-transparent hover:bg-slate-800/70 transition flex items-center gap-2">
+                            Operational (<span id="fleetOperationalCount">0</span>)
                         </button>
-                        <button onclick="filterFleet('maintenance', this)" class="filter-btn px-4 py-2 bg-transparent text-amber-400 text-xs font-bold rounded-lg border border-transparent hover:bg-amber-500/10 transition flex items-center gap-2">
-                            Maintenance (<span id="fleetMaintenanceCount">0</span>)
+                        <button data-filter="above_ref" onclick="filterFleet('above_ref', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-300 text-xs font-bold rounded-lg border border-transparent hover:bg-slate-800/70 transition flex items-center gap-2">
+                            Above Ref (<span id="fleetAboveRefCount">0</span>)
                         </button>
-                        <button onclick="filterFleet('alert', this)" class="filter-btn px-4 py-2 bg-transparent text-rose-400 text-xs font-bold rounded-lg border border-transparent hover:bg-rose-500/10 transition flex items-center gap-2">
-                            Alerts (<span id="fleetAlertCount">0</span>)
-                            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span></span>
+                        <button data-filter="loss" onclick="filterFleet('loss', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-300 text-xs font-bold rounded-lg border border-transparent hover:bg-slate-800/70 transition flex items-center gap-2">
+                            Loss (<span id="fleetLossCount">0</span>)
+                        </button>
+                        <button data-filter="overload" onclick="filterFleet('overload', this)" class="filter-btn px-4 py-2 bg-transparent text-slate-300 text-xs font-bold rounded-lg border border-transparent hover:bg-slate-800/70 transition flex items-center gap-2">
+                            Overload (<span id="fleetOverloadCount">0</span>)
                         </button>
                     </div>
                     <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto">
@@ -100,8 +102,8 @@
                         <thead>
                             <tr class="text-slate-500 text-[10px] uppercase tracking-widest font-bold bg-slate-900/80 border-b border-slate-800">
                                 <th class="px-6 py-4">Vehicle Details</th>
-                                <th class="px-6 py-4">Status</th>
-                                <th class="px-6 py-4">State / Assignment</th>
+                                <th class="px-6 py-4">Dispatch Task Status</th>
+                                <th class="px-6 py-4">Vehicle Current State</th>
                                 <th class="px-6 py-4">Current Load</th>
                                 <th class="px-6 py-4">Weight Trend (1h)</th>
                                 <th class="px-6 py-4 text-right">Actions</th>
@@ -144,7 +146,11 @@
                         IN TRANSIT
                     </span>
                 </div>
-                <p id="viewPlateNumber" class="text-sm text-slate-400 font-mono tracking-wide">RC-8802</p>
+                <div class="flex items-center gap-2">
+                    <p id="viewPlateNumber" class="text-sm text-slate-400 font-mono tracking-wide"></p>
+                    <span class="text-slate-600">•</span>
+                    <p id="viewVehicleId" class="text-sm text-slate-500 font-mono tracking-wide">ID: <span class="text-slate-400 font-bold">1</span></p>
+                </div>
             </div>
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
@@ -152,19 +158,22 @@
         <div class="p-5 sm:p-8 space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-800 bg-slate-950/50">
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">ML</div>
+                    <div id="viewDriverInitialsBadge" class="w-12 h-12 bg-gradient-to-b from-emerald-500/20 to-emerald-600/5 border border-emerald-500/30 ring-1 ring-emerald-400/20 rounded-full flex items-center justify-center text-emerald-400 font-bold text-base shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+                        <span id="viewDriverInitials">AD</span>
+                    </div>
                     <div>
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Assigned Driver</p>
                         <p id="viewDriverName" class="text-sm font-bold text-white">Marcus Lee</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4 p-4 rounded-xl border border-slate-800 bg-slate-950/50">
-                    <div class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center border border-slate-700">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <div id="viewCurrentStateIcon" class="w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center border border-slate-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"></path></svg>
                     </div>
                     <div>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Current Location</p>
-                        <p id="viewCurrentState" class="text-sm font-bold text-white">Route A-12 <span class="text-xs font-mono text-slate-500 ml-1">(34.06, -118.34)</span></p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Current Vehicle State</p>
+                        <p id="viewCurrentState" class="text-sm font-bold text-white">In Transit</p>
+                        <p id="viewCurrentStateMeta" class="text-xs font-mono text-slate-500 mt-0.5">Condition: NORMAL</p>
                     </div>
                 </div>
             </div>
@@ -179,6 +188,10 @@
                         <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Max Capacity</p>
                         <p id="viewMaxCapacity" class="text-sm font-bold text-emerald-400">1,200 kg</p>
                     </div>
+                </div>
+                <div class="flex justify-between items-center mb-3">
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Initial Reference Weight</p>
+                    <p id="viewInitialReferenceWeight" class="text-sm font-bold text-slate-200 font-mono">N/A</p>
                 </div>
                 <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
                     <div id="viewLoadProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" style="width: 0%"></div>
@@ -212,7 +225,7 @@
                     </div>
                     <h2 class="text-xl font-extrabold text-white tracking-tight">Edit Vehicle Config</h2>
                 </div>
-                <p class="text-xs text-slate-400 font-medium mt-1">Update parameters for <span class="font-mono text-slate-300 font-bold">RC-8802</span></p>
+                <p id="editVehicleIdentifier" class="text-xs text-slate-400 font-medium mt-1">Update parameters for <span class="font-mono text-slate-300 font-bold">RC-8802</span></p>
             </div>
             <button onclick="closeAllModals()" class="text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-xl transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
@@ -250,35 +263,21 @@
                         Max Capacity
                         <span id="editCapacityDisplay" class="text-blue-400">12,000 kg</span>
                     </label>
-                    <input id="editMaxCapacity" name="maxCapacity" type="range" min="1000" max="30000" step="500" value="12000" class="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                    <input id="editMaxCapacity" name="maxCapacity" type="range" min="15" max="30000" step="5" value="12000" class="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                    <p id="editCapacityRuleHint" class="mt-2 text-[10px] text-slate-500 font-medium">Capacity decrease is allowed only when dispatch is Pending or Unassigned.</p>
                     <div class="flex justify-between text-[10px] text-slate-500 font-medium mt-2">
-                        <span>Light (1t)</span>
+                        <span>Light (15kg)</span>
                         <span>Heavy (30t)</span>
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6">
-                <div class="col-span-2 sm:col-span-1">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="col-span-1">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Driver</label>
                     <div class="relative">
                         <select id="editDriverId" name="driverId" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
                             <option value="">-- Unassigned --</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-span-2 sm:col-span-1">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Operational Status</label>
-                    <div class="relative">
-                        <select id="editCurrentState" name="currentState" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3.5 text-emerald-400 font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition appearance-none cursor-pointer shadow-inner">
-                            <option value="available" selected>Available</option>
-                            <option value="in_transit" class="text-slate-400 font-medium">In Transit</option>
-                            <option value="idle" class="text-slate-400 font-medium">Idle / Docked</option>
-                            <option value="maintenance" class="text-amber-400 font-medium">In Maintenance</option>
                         </select>
                         <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
                             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
