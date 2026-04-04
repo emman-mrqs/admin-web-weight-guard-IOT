@@ -144,6 +144,79 @@ async function fetchDispatchJson(endpoint, options = {}) {
     return parseJsonResponse(response);
 }
 
+function normalizeDispatchTaskStatus(status) {
+    const value = String(status || '').trim().toLowerCase();
+    if (['pending', 'active', 'in_transit', 'completed', 'cancelled'].includes(value)) {
+        return value;
+    }
+    return 'pending';
+}
+
+function getDispatchTaskStatusHint(currentStatus) {
+    const normalized = normalizeDispatchTaskStatus(currentStatus);
+
+    if (normalized === 'active') {
+        return 'Active assignments cannot be changed back to Pending.';
+    }
+
+    if (normalized === 'in_transit') {
+        return 'In Transit assignments cannot be changed back to Pending or Active.';
+    }
+
+    if (normalized === 'completed') {
+        return 'Completed routes are final and cannot be changed back to earlier statuses.';
+    }
+
+    if (normalized === 'cancelled') {
+        return 'Cancelled assignments are final and cannot be changed to another status.';
+    }
+
+    return 'Pending can move forward to Active, In Transit, or Completed.';
+}
+
+function getAllowedDispatchTaskStatuses(currentStatus) {
+    const normalized = normalizeDispatchTaskStatus(currentStatus);
+
+    if (normalized === 'active') {
+        return new Set(['active', 'in_transit', 'completed', 'cancelled']);
+    }
+
+    if (normalized === 'in_transit') {
+        return new Set(['in_transit', 'completed', 'cancelled']);
+    }
+
+    if (normalized === 'completed') {
+        return new Set(['completed']);
+    }
+
+    if (normalized === 'cancelled') {
+        return new Set(['cancelled']);
+    }
+
+    return new Set(['pending', 'active', 'in_transit', 'completed', 'cancelled']);
+}
+
+function syncEditAssignmentStatusOptions(currentStatus) {
+    const select = document.getElementById('editAssignmentStatus');
+    const hint = document.getElementById('editAssignmentStatusHint');
+    if (!select) return;
+
+    const normalized = normalizeDispatchTaskStatus(currentStatus);
+    const allowedStatuses = getAllowedDispatchTaskStatuses(normalized);
+
+    Array.from(select.options).forEach((option) => {
+        option.disabled = !allowedStatuses.has(option.value);
+    });
+
+    if (!allowedStatuses.has(select.value)) {
+        select.value = normalized;
+    }
+
+    if (hint) {
+        hint.textContent = getDispatchTaskStatusHint(normalized);
+    }
+}
+
 // -------------------------------------------
 // Dispatch API Client
 // -------------------------------------------
@@ -939,6 +1012,11 @@ async function openEditAssignmentModal() {
     document.getElementById('editAssignmentId').value = user.assignment_id;
     document.getElementById('editAssignmentDriver').textContent = user.full_name || 'Unassigned Driver';
     document.getElementById('editAssignmentStatus').value = user.assignment_status || 'active';
+    const editModal = document.getElementById('editAssignmentModal');
+    if (editModal) {
+        editModal.dataset.currentStatus = normalizeDispatchTaskStatus(user.assignment_status || 'pending');
+    }
+    syncEditAssignmentStatusOptions(user.assignment_status || 'pending');
 
     try {
         await loadAssignableVehicles({
@@ -1092,10 +1170,17 @@ async function saveAssignmentChanges() {
     const assignmentId = document.getElementById('editAssignmentId').value;
     const errorEl = document.getElementById('editAssignmentError');
     const successEl = document.getElementById('editAssignmentSuccess');
+    const currentStatus = document.getElementById('editAssignmentModal')?.dataset.currentStatus || 'pending';
+    const nextStatus = document.getElementById('editAssignmentStatus').value;
     const submitBtn = document.querySelector('#editAssignmentModal button[type="button"][onclick*="saveAssignmentChanges"]');
     
     clearInlineMessage(errorEl);
     clearInlineMessage(successEl);
+
+    if (!getAllowedDispatchTaskStatuses(currentStatus).has(nextStatus)) {
+        showInlineMessage(errorEl, getDispatchTaskStatusHint(currentStatus));
+        return;
+    }
 
     // ─── SHOW LOADING STATE ───
     if (submitBtn) {
@@ -1117,7 +1202,7 @@ async function saveAssignmentChanges() {
                 pickupLng: editPickupCoords?.lng ?? null,
                 destLat: editDestCoords?.lat ?? null,
                 destLng: editDestCoords?.lng ?? null,
-                status: document.getElementById('editAssignmentStatus').value
+                status: nextStatus
             })
         });
 

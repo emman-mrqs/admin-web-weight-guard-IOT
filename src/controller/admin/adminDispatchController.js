@@ -13,6 +13,59 @@ function resolveActorName(req) {
     return `${first} ${last}`.trim() || req?.user?.email || `#${req?.user?.id || 'Unknown'}`;
 }
 
+function normalizeDispatchTaskStatus(status) {
+    const value = String(status || '').trim().toLowerCase();
+    if (['pending', 'active', 'in_transit', 'completed', 'cancelled'].includes(value)) {
+        return value;
+    }
+    return '';
+}
+
+function getDispatchTaskStatusHint(currentStatus) {
+    const normalized = normalizeDispatchTaskStatus(currentStatus);
+
+    if (normalized === 'active') {
+        return 'Active assignments cannot be changed back to Pending.';
+    }
+
+    if (normalized === 'in_transit') {
+        return 'In Transit assignments cannot be changed back to Pending or Active.';
+    }
+
+    if (normalized === 'completed') {
+        return 'Completed routes are final and cannot be changed back to earlier statuses.';
+    }
+
+    if (normalized === 'cancelled') {
+        return 'Cancelled assignments are final and cannot be changed to another status.';
+    }
+
+    return null;
+}
+
+function canTransitionDispatchTaskStatus(currentStatus, nextStatus) {
+    const current = normalizeDispatchTaskStatus(currentStatus);
+    const next = normalizeDispatchTaskStatus(nextStatus);
+
+    if (!next || !current || current === next) {
+        return true;
+    }
+
+    if (current === 'active') {
+        return next !== 'pending';
+    }
+
+    if (current === 'in_transit') {
+        return !['pending', 'active'].includes(next);
+    }
+
+    if (current === 'completed' || current === 'cancelled') {
+        return next === current;
+    }
+
+    return true;
+}
+
 class AdminDispatchController {
     static async getTaskDispatch(req, res) {
         try {
@@ -588,6 +641,12 @@ class AdminDispatchController {
                 return res.status(404).json({ error: 'Assignment not found.' });
             }
 
+            const currentStatus = normalizeDispatchTaskStatus(assignmentResult.rows[0].status || 'pending');
+            if (normalizedStatus && !canTransitionDispatchTaskStatus(currentStatus, normalizedStatus)) {
+                fieldErrors.status = getDispatchTaskStatusHint(currentStatus)
+                    || 'This status transition is not allowed.';
+            }
+
             const vehicleResult = await db.query(
                 `
                     SELECT id, assigned_driver_id, current_state, plate_number
@@ -627,38 +686,71 @@ class AdminDispatchController {
                 return res.status(400).json({ error: 'Validation failed.', fieldErrors });
             }
 
-            const updateResult = await db.query(
-                `
-                    UPDATE dispatch_tasks
-                    SET vehicle_id = $1,
-                        pickup_lat = $2,
-                        pickup_lng = $3,
-                        destination_lat = $4,
-                        destination_lng = $5,
-                        status = $6::varchar,
-                        updated_at = NOW(),
-                        completed_at = CASE
-                            WHEN $6::varchar IN ('completed', 'cancelled') THEN NOW()
-                            ELSE NULL
-                        END
-                    WHERE id = $7
-                    RETURNING id, status
-                `,
-                [
-                    normalizedVehicleId,
-                    normalizedPickupLat,
-                    normalizedPickupLng,
-                    normalizedDestLat,
-                    normalizedDestLng,
-                    normalizedStatus,
-                    assignmentId
-                ]
-            );
+            const client = await db.connect();
+            let updateResult;
+
+            try {
+                await client.query('BEGIN');
+
+                updateResult = await client.query(
+                    `
+                        UPDATE dispatch_tasks
+                        SET vehicle_id = $1,
+                            pickup_lat = $2,
+                            pickup_lng = $3,
+                            destination_lat = $4,
+                            destination_lng = $5,
+                            status = $6::varchar,
+                            updated_at = NOW(),
+                            started_at = CASE
+                                WHEN $6::varchar = 'active' THEN NOW()
+                                ELSE started_at
+                            END,
+                            completed_at = CASE
+                                WHEN $6::varchar IN ('completed', 'cancelled') THEN NOW()
+                                WHEN $6::varchar = 'active' THEN NULL
+                                ELSE completed_at
+                            END
+                        WHERE id = $7
+                        RETURNING id, status, started_at, completed_at
+                    `,
+                    [
+                        normalizedVehicleId,
+                        normalizedPickupLat,
+                        normalizedPickupLng,
+                        normalizedDestLat,
+                        normalizedDestLng,
+                        normalizedStatus,
+                        assignmentId
+                    ]
+                );
+
+                if (normalizedStatus === 'completed') {
+                    await client.query(
+                        `
+                            UPDATE vehicle_live_state
+                            SET current_weight_kg = 0,
+                                last_ping_at = NOW()
+                            WHERE vehicle_id = $1
+                        `,
+                        [normalizedVehicleId]
+                    );
+                }
+
+                await client.query('COMMIT');
+            } catch (transactionError) {
+                await client.query('ROLLBACK');
+                throw transactionError;
+            } finally {
+                client.release();
+            }
 
             try {
                 const actorName = resolveActorName(req);
                 const previous = assignmentResult.rows[0];
                 const updatedStatus = String(updateResult.rows[0]?.status || normalizedStatus || '').toLowerCase() || null;
+                const startedAt = updateResult.rows[0]?.started_at || null;
+                const completedAt = updateResult.rows[0]?.completed_at || null;
 
                 const beforePickup = `${formatCoordinate(previous.pickup_lat)}, ${formatCoordinate(previous.pickup_lng)}`;
                 const beforeDestination = `${formatCoordinate(previous.destination_lat)}, ${formatCoordinate(previous.destination_lng)}`;
@@ -686,6 +778,8 @@ class AdminDispatchController {
                         destinationLatBefore: previous.destination_lat,
                         destinationLngBefore: previous.destination_lng,
                         statusBefore: previous.status || 'pending',
+                        startedAtAfter: startedAt,
+                        completedAtAfter: completedAt,
                         pickupLatAfter: normalizedPickupLat,
                         pickupLngAfter: normalizedPickupLng,
                         destinationLatAfter: normalizedDestLat,
