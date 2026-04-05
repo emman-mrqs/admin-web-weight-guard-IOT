@@ -131,6 +131,7 @@ router.get('/api/admin/reports/dataset.csv', AdminReportsController.exportDatase
 // Admin Incidents Routes
 router.get("/admin/incidents", AdminIncidentsController.getIncidents);
 router.get("/api/admin/incidents", AdminIncidentsController.getIncidentLogs);
+router.get("/api/admin/incidents/export.csv", AdminIncidentsController.exportIncidentLogsCsv);
 router.get("/api/admin/incidents/count", AdminIncidentsController.getIncidentCount);
 router.get("/api/admin/incidents/:incidentId/history", AdminIncidentsController.getIncidentHistory);
 router.get("/api/admin/incidents/:incidentId/timeline", AdminIncidentsController.getIncidentTimeline);

@@ -2169,34 +2169,65 @@ function setStatusUpdateError(message) {
     el.classList.remove('hidden');
 }
 
-function exportIncidents() {
-    if (allIncidents.length === 0) {
-        setIncidentTableError('No incidents to export.');
-        return;
+async function exportIncidents() {
+    try {
+        setIncidentTableError('');
+
+        const params = new URLSearchParams();
+        params.set('view', currentView);
+
+        const typeFilter = String(document.getElementById('filterType')?.value || '').trim();
+        const statusFilter = String(document.getElementById('filterStatus')?.value || '').trim();
+
+        if (typeFilter) {
+            params.set('type', typeFilter);
+        }
+
+        if (statusFilter) {
+            params.set('status', statusFilter);
+        }
+
+        const response = await fetch(`${API_BASE}/export.csv?${params.toString()}`, {
+            method: 'GET',
+            headers: {
+                Accept: 'text/csv'
+            }
+        });
+
+        if (!response.ok) {
+            let message = 'Failed to export incident logs.';
+            try {
+                const payload = await response.json();
+                message = payload?.error || message;
+            } catch {
+                // Ignore JSON parse failures for non-JSON responses.
+            }
+
+            setIncidentTableError(message);
+            return;
+        }
+
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            setIncidentTableError('No incident logs to export for the selected filters.');
+            return;
+        }
+
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const nameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        const fileName = nameMatch?.[1] || `incident_logs_detailed_${new Date().toISOString().split('T')[0]}.csv`;
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        setIncidentTableError(error.message || 'Failed to export incident logs.');
     }
-
-    const headers = ['Timestamp', 'Incident Type', 'Severity', 'Status', 'Task ID', 'Vehicle', 'Driver', 'Weight Impact (kg)', 'Latitude', 'Longitude'];
-    const rows = allIncidents.map((item) => [
-        formatTimestamp(item.created_at),
-        item.incident_type || '-',
-        item.severity || '-',
-        item.status || '-',
-        item.task_id || '-',
-        item.vehicle_number || '-',
-        (item.driver_name || '-').trim() || '-',
-        item.weight_difference_kg ?? '-',
-        item.latitude ?? '-',
-        item.longitude ?? '-'
-    ]);
-
-    const csv = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `incidents_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
 }
 
 function formatIncidentType(type) {

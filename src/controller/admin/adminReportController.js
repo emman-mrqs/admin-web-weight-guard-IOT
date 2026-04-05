@@ -101,6 +101,21 @@ class AdminReportsController {
                         FROM dispatch_tasks
                         WHERE COALESCE(started_at, created_at) >= $1
                           AND COALESCE(started_at, created_at) < $2
+                                        ),
+                                        completed_tasks AS (
+                                                SELECT *
+                                                FROM period_tasks
+                                                WHERE LOWER(COALESCE(status, '')) = 'completed'
+                                                    AND completed_at >= $1
+                                                    AND completed_at < $2
+                    ),
+                    latest_task_incident AS (
+                        SELECT DISTINCT ON (i.task_id)
+                            i.task_id,
+                            i.weight_impact_kg
+                        FROM incidents i
+                        WHERE i.task_id IS NOT NULL
+                        ORDER BY i.task_id, i.created_at DESC, i.id DESC
                     ),
                     task_incident_flags AS (
                         SELECT
@@ -113,23 +128,34 @@ class AdminReportsController {
                     SELECT
                         COALESCE(SUM(
                             CASE
-                                WHEN LOWER(COALESCE(pt.status, '')) IN ('cancelled', 'canceled') THEN 0
-                                ELSE COALESCE(pt.initial_reference_weight_kg, 0)
+                                WHEN LOWER(COALESCE(ct.status, '')) = 'completed'
+                                  AND ct.completed_at >= $1
+                                  AND ct.completed_at < $2
+                                THEN COALESCE(
+                                    CASE
+                                        WHEN lti.weight_impact_kg IS NOT NULL
+                                            THEN GREATEST(0, COALESCE(ct.initial_reference_weight_kg, 0) + lti.weight_impact_kg)
+                                        ELSE ct.initial_reference_weight_kg
+                                    END,
+                                    0
+                                )
+                                ELSE 0
                             END
                         ), 0) AS total_cargo_kg,
                         COALESCE(AVG(
                             CASE
-                                WHEN pt.started_at IS NOT NULL
-                                  AND pt.completed_at IS NOT NULL
-                                  AND pt.completed_at >= pt.started_at
-                                THEN EXTRACT(EPOCH FROM (pt.completed_at - pt.started_at)) / 60
+                                WHEN ct.started_at IS NOT NULL
+                                  AND ct.completed_at IS NOT NULL
+                                  AND ct.completed_at >= ct.started_at
+                                THEN EXTRACT(EPOCH FROM (ct.completed_at - ct.started_at)) / 60
                                 ELSE NULL
                             END
                         ), 0) AS avg_transit_mins,
                         COUNT(*)::INT AS total_tasks,
                         COALESCE(SUM(CASE WHEN tif.has_weight_incident THEN 1 ELSE 0 END), 0)::INT AS tasks_with_weight_incidents
-                    FROM period_tasks pt
-                    LEFT JOIN task_incident_flags tif ON tif.id = pt.id
+                    FROM completed_tasks ct
+                    LEFT JOIN latest_task_incident lti ON lti.task_id = ct.id
+                    LEFT JOIN task_incident_flags tif ON tif.id = ct.id
                 `,
                 [startDay, exclusiveEnd]
             );
@@ -148,48 +174,87 @@ class AdminReportsController {
                     SELECT COUNT(*)::INT AS active_alerts
                     FROM incidents
                     WHERE LOWER(COALESCE(status, 'open')) = ANY($1)
+                      AND created_at >= $2
+                      AND created_at < $3
                 `,
-                [ACTIVE_ALERT_STATUSES]
+                [ACTIVE_ALERT_STATUSES, startDay, exclusiveEnd]
             );
 
             const trendResult = await db.query(
                 `
-                    WITH day_series AS (
-                        SELECT GENERATE_SERIES($1::timestamptz, $2::timestamptz - INTERVAL '1 day', INTERVAL '1 day') AS day_start
+                    WITH completed_tasks AS (
+                        SELECT
+                            dt.id,
+                            DATE_TRUNC('day', dt.completed_at) AS day_start,
+                            COALESCE(dt.initial_reference_weight_kg, 0) AS initial_weight_kg,
+                            COALESCE(
+                                CASE
+                                    WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                        THEN GREATEST(0, COALESCE(dt.initial_reference_weight_kg, 0) + latest_incident.weight_impact_kg)
+                                    ELSE dt.initial_reference_weight_kg
+                                END,
+                                0
+                            ) AS transported_weight_kg
+                        FROM dispatch_tasks dt
+                        LEFT JOIN LATERAL (
+                            SELECT i2.weight_impact_kg
+                            FROM incidents i2
+                            WHERE i2.task_id = dt.id
+                            ORDER BY i2.created_at DESC, i2.id DESC
+                            LIMIT 1
+                        ) latest_incident ON true
+                        WHERE dt.completed_at >= $1
+                          AND dt.completed_at < $2
+                          AND LOWER(COALESCE(dt.status, '')) = 'completed'
                     ),
                     daily_weights AS (
                         SELECT
-                            DATE_TRUNC('day', COALESCE(started_at, created_at)) AS day_start,
-                            SUM(COALESCE(initial_reference_weight_kg, 0)) AS actual_weight_kg
-                        FROM dispatch_tasks
-                        WHERE COALESCE(started_at, created_at) >= $1
-                          AND COALESCE(started_at, created_at) < $2
-                          AND LOWER(COALESCE(status, '')) NOT IN ('cancelled', 'canceled')
-                        GROUP BY DATE_TRUNC('day', COALESCE(started_at, created_at))
+                            ct.day_start,
+                            SUM(ct.initial_weight_kg) AS initial_weight_kg,
+                            SUM(ct.transported_weight_kg) AS actual_weight_kg
+                        FROM completed_tasks ct
+                        GROUP BY ct.day_start
+                        HAVING SUM(ct.transported_weight_kg) > 0
                     )
                     SELECT
-                        ds.day_start::date AS day_date,
-                        COALESCE(dw.actual_weight_kg, 0) AS actual_weight_kg
-                    FROM day_series ds
-                    LEFT JOIN daily_weights dw ON dw.day_start = ds.day_start
-                    ORDER BY ds.day_start ASC
+                        dw.day_start::date AS day_date,
+                        dw.initial_weight_kg,
+                        dw.actual_weight_kg
+                    FROM daily_weights dw
+                    ORDER BY dw.day_start ASC
                 `,
                 [startDay, exclusiveEnd]
             );
 
             const trendRows = trendResult.rows || [];
+            const initialWeights = trendRows.map((row) => Number(toNumber(row.initial_weight_kg, 0).toFixed(2)));
             const actualWeights = trendRows.map((row) => Number(toNumber(row.actual_weight_kg, 0).toFixed(2)));
-            const totalActualWeight = actualWeights.reduce((sum, value) => sum + value, 0);
-            const averageTarget = actualWeights.length > 0 ? totalActualWeight / actualWeights.length : 0;
+            const operationalWeights = actualWeights.filter((w) => w > 0);
+            const totalActualWeight = operationalWeights.reduce((sum, value) => sum + value, 0);
+            const averageTarget = operationalWeights.length > 0 ? totalActualWeight / operationalWeights.length : 0;
 
             const incidentDistResult = await db.query(
                 `
+                    WITH completed_tasks AS (
+                        SELECT dt.id
+                        FROM dispatch_tasks dt
+                        WHERE dt.completed_at >= $1
+                          AND dt.completed_at < $2
+                          AND LOWER(COALESCE(dt.status, '')) = 'completed'
+                    ), task_flags AS (
+                        SELECT
+                            pt.id AS task_id,
+                            BOOL_OR(LOWER(COALESCE(i.incident_type, '')) = 'overload') AS has_overload,
+                            BOOL_OR(LOWER(COALESCE(i.incident_type, '')) IN ('loss', 'cargo_loss')) AS has_loss
+                        FROM completed_tasks pt
+                        LEFT JOIN incidents i ON i.task_id = pt.id
+                        GROUP BY pt.id
+                    )
                     SELECT
-                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(incident_type, '')) = 'overload' THEN 1 ELSE 0 END), 0)::INT AS overload_count,
-                        COALESCE(SUM(CASE WHEN LOWER(COALESCE(incident_type, '')) IN ('loss', 'cargo_loss') THEN 1 ELSE 0 END), 0)::INT AS loss_count
-                    FROM incidents
-                    WHERE created_at >= $1
-                      AND created_at < $2
+                        COALESCE(SUM(CASE WHEN has_overload THEN 1 ELSE 0 END), 0)::INT AS overload_count,
+                        COALESCE(SUM(CASE WHEN NOT has_overload AND has_loss THEN 1 ELSE 0 END), 0)::INT AS loss_count,
+                        COALESCE(SUM(CASE WHEN NOT has_overload AND NOT has_loss THEN 1 ELSE 0 END), 0)::INT AS normal_count
+                    FROM task_flags
                 `,
                 [startDay, exclusiveEnd]
             );
@@ -197,36 +262,40 @@ class AdminReportsController {
             const incidentRow = incidentDistResult.rows[0] || {};
             const overloadCount = toNumber(incidentRow.overload_count, 0);
             const lossCount = toNumber(incidentRow.loss_count, 0);
-            const normalCount = Math.max(totalTasks - overloadCount - lossCount, 0);
+            const normalCount = toNumber(incidentRow.normal_count, 0);
 
             const zoneResult = await db.query(
                 `
                     WITH zone_tasks AS (
                         SELECT
                             dt.id,
-                            COALESCE(NULLIF(TRIM(v.current_state), ''), 'Unknown Zone') AS zone_label
+                            ROUND(COALESCE(dt.pickup_lat, dt.destination_lat)::numeric, 4) AS location_latitude,
+                            ROUND(COALESCE(dt.pickup_lng, dt.destination_lng)::numeric, 4) AS location_longitude
                         FROM dispatch_tasks dt
-                        LEFT JOIN vehicles v ON v.id = dt.vehicle_id
-                        WHERE COALESCE(dt.started_at, dt.created_at) >= $1
-                          AND COALESCE(dt.started_at, dt.created_at) < $2
-                          AND LOWER(COALESCE(dt.status, '')) NOT IN ('cancelled', 'canceled')
+                        WHERE dt.completed_at >= $1
+                          AND dt.completed_at < $2
+                          AND LOWER(COALESCE(dt.status, '')) = 'completed'
+                                                    AND COALESCE(dt.pickup_lat, dt.destination_lat) IS NOT NULL
+                                                    AND COALESCE(dt.pickup_lng, dt.destination_lng) IS NOT NULL
                     ),
                     zone_incident_flags AS (
                         SELECT
-                            zt.zone_label,
+                            zt.location_latitude,
+                            zt.location_longitude,
                             zt.id,
                             BOOL_OR(LOWER(COALESCE(i.incident_type, '')) IN ('overload', 'loss', 'cargo_loss')) AS has_weight_incident
                         FROM zone_tasks zt
                         LEFT JOIN incidents i ON i.task_id = zt.id
-                        GROUP BY zt.zone_label, zt.id
+                        GROUP BY zt.location_latitude, zt.location_longitude, zt.id
                     )
                     SELECT
-                        zone_label,
+                        location_latitude,
+                        location_longitude,
                         COUNT(*)::INT AS total_tasks,
                         COALESCE(SUM(CASE WHEN has_weight_incident THEN 1 ELSE 0 END), 0)::INT AS incident_tasks
                     FROM zone_incident_flags
-                    GROUP BY zone_label
-                    ORDER BY total_tasks DESC, zone_label ASC
+                    GROUP BY location_latitude, location_longitude
+                    ORDER BY total_tasks DESC, location_latitude ASC, location_longitude ASC
                     LIMIT 8
                 `,
                 [startDay, exclusiveEnd]
@@ -234,8 +303,8 @@ class AdminReportsController {
 
             const zoneRows = zoneResult.rows || [];
             const zoneLabels = zoneRows.length > 0
-                ? zoneRows.map((row) => row.zone_label)
-                : ['Unknown Zone'];
+                ? zoneRows.map((_, index) => `Loc ${index + 1}`)
+                : ['No location data'];
 
             const zoneEfficiency = zoneRows.length > 0
                 ? zoneRows.map((row) => {
@@ -250,33 +319,34 @@ class AdminReportsController {
                 })
                 : [0];
 
+            const zoneLatitudes = zoneRows.map((row) => Number(toNumber(row.location_latitude, 0).toFixed(4)));
+            const zoneLongitudes = zoneRows.map((row) => Number(toNumber(row.location_longitude, 0).toFixed(4)));
+
             const speedResult = await db.query(
                 `
                     SELECT
-                        COUNT(*)::INT AS telemetry_count,
-                        COALESCE(AVG(speed_kmh), 0) AS avg_speed_kmh
-                    FROM telemetry_logs
-                    WHERE recorded_at >= $1
-                      AND recorded_at < $2
-                      AND speed_kmh IS NOT NULL
+                        COUNT(*)::INT AS incident_evidence_count,
+                        COALESCE(AVG(ABS(COALESCE(weight_impact_kg, 0))), 0) AS avg_weight_impact_kg
+                    FROM incidents
+                    WHERE created_at >= $1
+                      AND created_at < $2
+                      AND weight_impact_kg IS NOT NULL
                 `,
                 [startDay, exclusiveEnd]
             );
 
-            const telemetryCount = toNumber(speedResult.rows?.[0]?.telemetry_count, 0);
-            const hasTelemetryData = telemetryCount > 0;
-            const avgSpeedKmh = hasTelemetryData
-                ? toNumber(speedResult.rows?.[0]?.avg_speed_kmh, 0)
+            const incidentEvidenceCount = toNumber(speedResult.rows?.[0]?.incident_evidence_count, 0);
+            const hasIncidentEvidence = incidentEvidenceCount > 0;
+            const avgWeightImpactKg = hasIncidentEvidence
+                ? toNumber(speedResult.rows?.[0]?.avg_weight_impact_kg, 0)
                 : null;
 
-            const speedScore = hasTelemetryData
-                ? clampScore(100 - (Math.abs(avgSpeedKmh - 55) * 2))
-                : null;
+            const impactStabilityScore = hasIncidentEvidence
+                ? clampScore(100 - (Math.min(avgWeightImpactKg, 50) * 2))
+                : 100;
             const hasTransitData = avgTransitMins > 0;
             const deliverySpeedScore = hasTransitData ? clampScore((60 / avgTransitMins) * 100) : 0;
-            const fuelEfficiencyScore = hasTelemetryData
-                ? clampScore((speedScore * 0.6) + (avgEfficiencyPct * 0.4))
-                : clampScore(avgEfficiencyPct);
+            const fuelEfficiencyScore = clampScore((impactStabilityScore * 0.6) + (avgEfficiencyPct * 0.4));
             const safetyScore = totalTasks > 0
                 ? (hasTransitData
                     ? clampScore((avgEfficiencyPct * 0.7) + (deliverySpeedScore * 0.3))
@@ -298,6 +368,7 @@ class AdminReportsController {
                 charts: {
                     weightTrend: {
                         labels: trendRows.map((row) => formatLabel(row.day_date, range)),
+                        initialWeight: initialWeights,
                         actualWeight: actualWeights,
                         targetWeight: trendRows.map(() => Number(averageTarget.toFixed(2)))
                     },
@@ -307,7 +378,10 @@ class AdminReportsController {
                     },
                     zoneEfficiency: {
                         labels: zoneLabels,
-                        values: zoneEfficiency
+                        values: zoneEfficiency,
+                        latitudes: zoneLatitudes,
+                        longitudes: zoneLongitudes,
+                        taskCounts: zoneRows.map((row) => toNumber(row.total_tasks, 0))
                     }
                 },
                 performance: {
@@ -316,11 +390,11 @@ class AdminReportsController {
                     fuelEfficiencyPct: Number(fuelEfficiencyScore.toFixed(0))
                 },
                 dataQuality: {
-                    hasTelemetryData,
+                    hasIncidentEvidence,
                     hasTransitData,
                     totalTasks,
-                    telemetryCount,
-                    avgSpeedKmh: hasTelemetryData ? Number(avgSpeedKmh.toFixed(2)) : null
+                    incidentEvidenceCount,
+                    avgWeightImpactKg: hasIncidentEvidence ? Number(avgWeightImpactKg.toFixed(2)) : null
                 }
             });
         } catch (error) {
@@ -341,11 +415,41 @@ class AdminReportsController {
                     SELECT
                         dt.id AS task_id,
                         COALESCE(v.plate_number, '-') AS plate_number,
-                        COALESCE(NULLIF(TRIM(v.current_state), ''), 'Unknown Zone') AS zone_label,
+                        COALESCE(
+                            CONCAT(
+                                ROUND(COALESCE(dt.pickup_lat, dt.destination_lat)::numeric, 4)::text,
+                                ', ',
+                                ROUND(COALESCE(dt.pickup_lng, dt.destination_lng)::numeric, 4)::text
+                            ),
+                            'Unknown Location'
+                        ) AS zone_label,
                         COALESCE(dt.status, '-') AS task_status,
                         COALESCE(dt.initial_reference_weight_kg, 0) AS reference_weight_kg,
-                        COALESCE(latest_tl.current_weight_kg, 0) AS latest_weight_kg,
-                        latest_tl.recorded_at AS latest_weight_recorded_at,
+                        COALESCE(
+                            CASE
+                                WHEN LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                                     AND vls.current_weight_kg IS NOT NULL
+                                    THEN vls.current_weight_kg
+                                WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                    THEN GREATEST(0, COALESCE(dt.initial_reference_weight_kg, 0) + latest_incident.weight_impact_kg)
+                                ELSE dt.initial_reference_weight_kg
+                            END,
+                            0
+                        ) AS latest_weight_kg,
+                        CASE
+                            WHEN LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                                 AND vls.current_weight_kg IS NOT NULL
+                                THEN 'live_state'
+                            WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                THEN 'incident_estimate'
+                            ELSE 'reference'
+                        END AS weight_source,
+                        CASE
+                            WHEN LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                                 AND vls.current_weight_kg IS NOT NULL
+                                THEN vls.last_ping_at
+                            ELSE latest_incident.created_at
+                        END AS latest_weight_recorded_at,
                         dt.started_at,
                         dt.completed_at,
                         CASE
@@ -365,26 +469,33 @@ class AdminReportsController {
                     FROM dispatch_tasks dt
                     LEFT JOIN vehicles v ON v.id = dt.vehicle_id
                     LEFT JOIN users u ON u.id = v.assigned_driver_id
+                    LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = dt.vehicle_id
                     LEFT JOIN incidents i ON i.task_id = dt.id
                     LEFT JOIN LATERAL (
                         SELECT
-                            current_weight_kg,
-                            recorded_at
-                        FROM telemetry_logs
-                        WHERE task_id = dt.id
-                        ORDER BY recorded_at DESC, id DESC
+                            i2.weight_impact_kg,
+                            i2.created_at
+                        FROM incidents i2
+                        WHERE i2.task_id = dt.id
+                        ORDER BY i2.created_at DESC, i2.id DESC
                         LIMIT 1
-                    ) latest_tl ON true
-                    WHERE COALESCE(dt.started_at, dt.created_at) >= $1
-                      AND COALESCE(dt.started_at, dt.created_at) < $2
+                    ) latest_incident ON true
+                                        WHERE dt.completed_at >= $1
+                                            AND dt.completed_at < $2
+                                            AND LOWER(COALESCE(dt.status, '')) = 'completed'
                     GROUP BY
                         dt.id,
                         v.plate_number,
-                        v.current_state,
+                                                dt.pickup_lat,
+                                                dt.pickup_lng,
+                                                dt.destination_lat,
+                                                dt.destination_lng,
                         dt.status,
                         dt.initial_reference_weight_kg,
-                        latest_tl.current_weight_kg,
-                        latest_tl.recorded_at,
+                        vls.current_weight_kg,
+                        vls.last_ping_at,
+                        latest_incident.weight_impact_kg,
+                        latest_incident.created_at,
                         dt.started_at,
                         dt.completed_at,
                         u.first_name,
@@ -409,6 +520,7 @@ class AdminReportsController {
                     taskStatus: row.task_status,
                     referenceWeightKg: Number(toNumber(row.reference_weight_kg, 0).toFixed(2)),
                     latestWeightKg: Number(toNumber(row.latest_weight_kg, 0).toFixed(2)),
+                    weightSource: String(row.weight_source || 'reference'),
                     latestWeightRecordedAt: row.latest_weight_recorded_at,
                     startedAt: row.started_at,
                     completedAt: row.completed_at,
@@ -438,26 +550,56 @@ class AdminReportsController {
                         dt.id AS task_id,
                         COALESCE(v.plate_number, '-') AS plate_number,
                         COALESCE(dt.status, '-') AS task_status,
+                        COALESCE(
+                            CONCAT(
+                                ROUND(COALESCE(dt.pickup_lat, dt.destination_lat)::numeric, 4)::text,
+                                ', ',
+                                ROUND(COALESCE(dt.pickup_lng, dt.destination_lng)::numeric, 4)::text
+                            ),
+                            'Unknown Location'
+                        ) AS location_label,
+                        ROUND(COALESCE(dt.pickup_lat, dt.destination_lat)::numeric, 4) AS location_latitude,
+                        ROUND(COALESCE(dt.pickup_lng, dt.destination_lng)::numeric, 4) AS location_longitude,
                         COALESCE(dt.initial_reference_weight_kg, 0) AS reference_weight_kg,
                         dt.started_at,
                         dt.completed_at,
                         COUNT(i.id)::INT AS incident_count,
                         COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.incident_type, '')) = 'overload' THEN 1 ELSE 0 END), 0)::INT AS overload_count,
                         COALESCE(SUM(CASE WHEN LOWER(COALESCE(i.incident_type, '')) IN ('loss', 'cargo_loss') THEN 1 ELSE 0 END), 0)::INT AS loss_count,
-                        COALESCE(MAX(tl.current_weight_kg), 0) AS latest_weight_kg
+                        COALESCE(
+                            CASE
+                                WHEN LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                                     AND vls.current_weight_kg IS NOT NULL
+                                    THEN vls.current_weight_kg
+                                WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                    THEN GREATEST(0, COALESCE(dt.initial_reference_weight_kg, 0) + latest_incident.weight_impact_kg)
+                                ELSE dt.initial_reference_weight_kg
+                            END,
+                            0
+                        ) AS latest_weight_kg,
+                        CASE
+                            WHEN LOWER(COALESCE(dt.status, '')) IN ('pending', 'active', 'in_transit')
+                                 AND vls.current_weight_kg IS NOT NULL
+                                THEN 'live_state'
+                            WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                THEN 'incident_estimate'
+                            ELSE 'reference'
+                        END AS weight_source
                     FROM dispatch_tasks dt
                     LEFT JOIN vehicles v ON v.id = dt.vehicle_id
+                    LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = dt.vehicle_id
                     LEFT JOIN incidents i ON i.task_id = dt.id
                     LEFT JOIN LATERAL (
-                        SELECT current_weight_kg
-                        FROM telemetry_logs
-                        WHERE task_id = dt.id
-                        ORDER BY recorded_at DESC, id DESC
+                        SELECT weight_impact_kg
+                        FROM incidents i2
+                        WHERE i2.task_id = dt.id
+                        ORDER BY i2.created_at DESC, i2.id DESC
                         LIMIT 1
-                    ) tl ON true
-                    WHERE COALESCE(dt.started_at, dt.created_at) >= $1
-                      AND COALESCE(dt.started_at, dt.created_at) < $2
-                    GROUP BY dt.id, v.plate_number, dt.status, dt.initial_reference_weight_kg, dt.started_at, dt.completed_at, tl.current_weight_kg
+                    ) latest_incident ON true
+                                        WHERE dt.completed_at >= $1
+                                            AND dt.completed_at < $2
+                                            AND LOWER(COALESCE(dt.status, '')) = 'completed'
+                                        GROUP BY dt.id, v.plate_number, dt.status, dt.initial_reference_weight_kg, dt.started_at, dt.completed_at, dt.pickup_lat, dt.pickup_lng, dt.destination_lat, dt.destination_lng, vls.current_weight_kg, latest_incident.weight_impact_kg
                     ORDER BY dt.id DESC
                 `,
                 [startDay, exclusiveEnd]
@@ -467,8 +609,10 @@ class AdminReportsController {
                 'task_id',
                 'plate_number',
                 'task_status',
+                'location_label',
                 'reference_weight_kg',
                 'latest_weight_kg',
+                'weight_source',
                 'started_at',
                 'completed_at',
                 'incident_count',
@@ -482,8 +626,10 @@ class AdminReportsController {
                     row.task_id,
                     row.plate_number,
                     row.task_status,
+                    row.location_label,
                     Number(toNumber(row.reference_weight_kg, 0).toFixed(2)),
                     Number(toNumber(row.latest_weight_kg, 0).toFixed(2)),
+                    String(row.weight_source || 'reference'),
                     row.started_at ? new Date(row.started_at).toISOString() : '',
                     row.completed_at ? new Date(row.completed_at).toISOString() : '',
                     toNumber(row.incident_count, 0),

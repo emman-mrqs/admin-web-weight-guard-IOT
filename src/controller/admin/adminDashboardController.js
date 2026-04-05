@@ -105,19 +105,21 @@ class AdminDashboardController {
                         v.id AS vehicle_id,
                         COALESCE(v.vehicle_type, 'Vehicle') AS vehicle_type,
                         COALESCE(v.current_load_status, 'normal') AS current_load_status,
-                        COALESCE(tl.latitude, NULL) AS latitude,
-                        COALESCE(tl.longitude, NULL) AS longitude,
-                        tl.recorded_at AS latest_recorded_at,
+                        latest_incident.latitude,
+                        latest_incident.longitude,
+                        latest_incident.created_at AS latest_recorded_at,
                         COALESCE(active_incidents.has_loss, FALSE) AS has_loss,
                         COALESCE(active_incidents.has_overload, FALSE) AS has_overload
                     FROM vehicles v
                     LEFT JOIN LATERAL (
-                        SELECT latitude, longitude, recorded_at
-                        FROM telemetry_logs
-                        WHERE vehicle_id = v.id
-                        ORDER BY recorded_at DESC, id DESC
+                        SELECT i.latitude, i.longitude, i.created_at
+                        FROM incidents i
+                        WHERE i.vehicle_id = v.id
+                          AND i.latitude IS NOT NULL
+                          AND i.longitude IS NOT NULL
+                        ORDER BY i.created_at DESC, i.id DESC
                         LIMIT 1
-                    ) tl ON true
+                    ) latest_incident ON true
                     LEFT JOIN LATERAL (
                         SELECT
                             BOOL_OR(LOWER(COALESCE(i.incident_type, '')) IN ('loss', 'cargo_loss')) AS has_loss,
@@ -126,7 +128,7 @@ class AdminDashboardController {
                         WHERE i.vehicle_id = v.id
                           AND LOWER(COALESCE(i.status, 'open')) = ANY($1)
                     ) active_incidents ON true
-                    ORDER BY COALESCE(tl.recorded_at, v.created_at) DESC, v.id DESC
+                    ORDER BY COALESCE(latest_incident.created_at, v.created_at) DESC, v.id DESC
                     LIMIT 2
                 `,
                 [ACTIVE_INCIDENT_STATUSES]
@@ -150,29 +152,42 @@ class AdminDashboardController {
 
             const weightFluctuationResult = await db.query(
                 `
-                    WITH buckets AS (
-                        SELECT GENERATE_SERIES(
-                            DATE_TRUNC('hour', NOW()) - INTERVAL '24 hours',
-                            DATE_TRUNC('hour', NOW()),
-                            INTERVAL '3 hours'
-                        ) AS bucket_start
+                    WITH completed_task_weights AS (
+                        SELECT
+                            DATE_TRUNC('hour', dt.completed_at)
+                                - (EXTRACT(HOUR FROM dt.completed_at)::INT % 3) * INTERVAL '1 hour' AS bucket_start,
+                            COALESCE(
+                                CASE
+                                    WHEN latest_incident.weight_impact_kg IS NOT NULL
+                                        THEN GREATEST(0, COALESCE(dt.initial_reference_weight_kg, 0) + latest_incident.weight_impact_kg)
+                                    ELSE dt.initial_reference_weight_kg
+                                END
+                            ) AS latest_weight_kg
+                        FROM dispatch_tasks dt
+                        LEFT JOIN LATERAL (
+                            SELECT i2.weight_impact_kg
+                            FROM incidents i2
+                            WHERE i2.task_id = dt.id
+                            ORDER BY i2.created_at DESC, i2.id DESC
+                            LIMIT 1
+                        ) latest_incident ON true
+                        WHERE dt.completed_at >= NOW() - INTERVAL '24 hours'
+                          AND dt.completed_at < NOW()
+                          AND LOWER(COALESCE(dt.status, '')) = 'completed'
                     ),
                     bucket_weights AS (
                         SELECT
-                            DATE_TRUNC('hour', recorded_at)
-                                - (EXTRACT(HOUR FROM recorded_at)::INT % 3) * INTERVAL '1 hour' AS bucket_start,
-                            AVG(current_weight_kg) AS avg_weight_kg
-                        FROM telemetry_logs
-                        WHERE recorded_at >= NOW() - INTERVAL '24 hours'
-                          AND current_weight_kg IS NOT NULL
+                            bucket_start,
+                            AVG(latest_weight_kg) AS avg_weight_kg
+                        FROM completed_task_weights
+                        WHERE latest_weight_kg IS NOT NULL AND latest_weight_kg > 0
                         GROUP BY 1
                     )
                     SELECT
-                        b.bucket_start,
-                        COALESCE(w.avg_weight_kg, 0) AS avg_weight_kg
-                    FROM buckets b
-                    LEFT JOIN bucket_weights w ON w.bucket_start = b.bucket_start
-                    ORDER BY b.bucket_start ASC
+                        bucket_start,
+                        avg_weight_kg
+                    FROM bucket_weights
+                    ORDER BY bucket_start ASC
                 `
             );
 
@@ -230,7 +245,9 @@ class AdminDashboardController {
 
             const fluctuationRows = weightFluctuationResult.rows || [];
             const fluctuationLabels = fluctuationRows.map((row) => formatBucketLabel(row.bucket_start));
-            const fluctuationValues = fluctuationRows.map((row) => Number((toNumber(row.avg_weight_kg, 0) / 1000).toFixed(2)));
+            let fluctuationValues = fluctuationRows.map((row) => Number((toNumber(row.avg_weight_kg, 0) / 1000).toFixed(2)));
+
+            const hasIncidentFluctuation = fluctuationValues.some((value) => value > 0);
 
             return res.status(200).json({
                 summary: {
@@ -257,7 +274,8 @@ class AdminDashboardController {
                     }
                 },
                 dataQuality: {
-                    hasTelemetryData: fluctuationValues.some((value) => value > 0)
+                    hasIncidentData: hasIncidentFluctuation,
+                    hasLiveFallbackData: false
                 }
             });
         } catch (error) {

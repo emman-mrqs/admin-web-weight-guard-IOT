@@ -90,7 +90,7 @@ function renderLiveVehicles(rows) {
     if (!Array.isArray(rows) || rows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="3" class="px-6 py-8 text-center text-slate-500 text-xs">No live vehicles found.</td>
+                <td colspan="3" class="px-6 py-8 text-center text-slate-500 text-xs">No vehicles found.</td>
             </tr>
         `;
         return;
@@ -102,7 +102,7 @@ function renderLiveVehicles(rows) {
         const statusBadge = getLoadStatusBadge(item.loadStatus);
         const locationText = Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))
             ? `${Number(item.latitude).toFixed(4)}, ${Number(item.longitude).toFixed(4)}`
-            : 'No telemetry';
+            : 'No location data';
 
         return `
             <tr class="hover:bg-slate-800/40 transition-colors group">
@@ -175,7 +175,7 @@ function renderWeightChart(weightFluctuation) {
         data: {
             labels,
             datasets: [{
-                label: 'Fleet Average Weight (tons)',
+                label: 'Completed Task Average Weight (tons)',
                 data: values,
                 borderColor: theme.emerald,
                 backgroundColor: gradientFill,

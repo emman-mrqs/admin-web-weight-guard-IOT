@@ -159,10 +159,12 @@ function renderWeightTrendChart(weightTrend) {
     weightGradient.addColorStop(1, 'rgba(45, 212, 191, 0)');
 
     const labels = Array.isArray(weightTrend.labels) ? weightTrend.labels : [];
+    const initialWeight = Array.isArray(weightTrend.initialWeight) ? weightTrend.initialWeight.map(toFiniteNumber) : [];
     const actualWeight = Array.isArray(weightTrend.actualWeight) ? weightTrend.actualWeight.map(toFiniteNumber) : [];
     const targetWeight = Array.isArray(weightTrend.targetWeight) ? weightTrend.targetWeight.map(toFiniteNumber) : [];
 
     if (weightTrendChart) {
+        weightTrendChart.$initialWeight = initialWeight;
         weightTrendChart.data.labels = labels;
         weightTrendChart.data.datasets[0].data = actualWeight;
         weightTrendChart.data.datasets[1].data = targetWeight;
@@ -178,15 +180,26 @@ function renderWeightTrendChart(weightTrend) {
                 {
                     label: 'Actual Weight',
                     data: actualWeight,
-                    borderColor: '#2DD4BF',
+                    borderColor: '#22c55e',
                     borderWidth: 3,
                     tension: 0.4,
                     fill: true,
                     backgroundColor: weightGradient,
-                    pointBackgroundColor: '#2DD4BF',
+                    pointBackgroundColor: (context) => {
+                        const idx = context?.dataIndex;
+                        if (!Number.isInteger(idx)) return '#22c55e';
+                        return isTransportMatch(context.chart, idx) ? '#22c55e' : '#ef4444';
+                    },
                     pointBorderColor: '#0B0E14',
                     pointBorderWidth: 2,
-                    pointRadius: 4
+                    pointRadius: 4,
+                    segment: {
+                        borderColor: (context) => {
+                            const idx = context?.p1DataIndex;
+                            if (!Number.isInteger(idx)) return '#22c55e';
+                            return isTransportMatch(context.chart, idx) ? '#22c55e' : '#ef4444';
+                        }
+                    }
                 },
                 {
                     label: 'Target',
@@ -202,13 +215,45 @@ function renderWeightTrendChart(weightTrend) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    filter: (context) => context.datasetIndex === 0,
+                    callbacks: {
+                        labelColor: (context) => {
+                            const isMatch = isTransportMatch(context.chart, context.dataIndex);
+                            const color = isMatch ? '#22c55e' : '#ef4444';
+
+                            return {
+                                borderColor: color,
+                                backgroundColor: color
+                            };
+                        },
+                        labelTextColor: (context) => {
+                            const isMatch = isTransportMatch(context.chart, context.dataIndex);
+                            return isMatch ? '#22c55e' : '#ef4444';
+                        },
+                        label: (context) => {
+                            const byIndex = Array.isArray(context.chart.$initialWeight) ? context.chart.$initialWeight : [];
+                            const initial = toFiniteNumber(byIndex[context.dataIndex]);
+                            const actual = toFiniteNumber(context.raw);
+
+                            return [
+                                `Initial Weight: ${formatWeightKg(initial)}`,
+                                `Actual Transported: ${formatWeightKg(actual)}`
+                            ];
+                        }
+                    }
+                }
+            },
             scales: {
                 y: { grid: { color: '#1F2937' }, border: { display: false } },
                 x: { grid: { display: false } }
             }
         }
     });
+
+    weightTrendChart.$initialWeight = initialWeight;
 }
 
 function renderIncidentDistributionChart(incidentDistribution) {
@@ -257,8 +302,14 @@ function renderZoneEfficiencyChart(zoneEfficiency) {
     const ctx = canvas.getContext('2d');
     const labels = Array.isArray(zoneEfficiency.labels) ? zoneEfficiency.labels : [];
     const values = Array.isArray(zoneEfficiency.values) ? zoneEfficiency.values.map(toFiniteNumber) : [];
+    const latitudes = Array.isArray(zoneEfficiency.latitudes) ? zoneEfficiency.latitudes.map(toFiniteNumber) : [];
+    const longitudes = Array.isArray(zoneEfficiency.longitudes) ? zoneEfficiency.longitudes.map(toFiniteNumber) : [];
+    const taskCounts = Array.isArray(zoneEfficiency.taskCounts) ? zoneEfficiency.taskCounts.map(toFiniteNumber) : [];
 
     if (zoneEfficiencyChart) {
+        zoneEfficiencyChart.$zoneLatitudes = latitudes;
+        zoneEfficiencyChart.$zoneLongitudes = longitudes;
+        zoneEfficiencyChart.$zoneTaskCounts = taskCounts;
         zoneEfficiencyChart.data.labels = labels;
         zoneEfficiencyChart.data.datasets[0].data = values;
         zoneEfficiencyChart.update();
@@ -280,13 +331,41 @@ function renderZoneEfficiencyChart(zoneEfficiency) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => {
+                            const label = items?.[0]?.label || 'Location';
+                            return `Dispatch Location: ${label}`;
+                        },
+                        label: (context) => {
+                            const index = context.dataIndex;
+                            const lat = toFiniteNumber(context.chart.$zoneLatitudes?.[index]);
+                            const lng = toFiniteNumber(context.chart.$zoneLongitudes?.[index]);
+                            const tasks = toFiniteNumber(context.chart.$zoneTaskCounts?.[index]);
+                            const efficiency = toFiniteNumber(context.raw);
+
+                            return [
+                                `Latitude: ${lat.toFixed(4)}`,
+                                `Longitude: ${lng.toFixed(4)}`,
+                                `Efficiency: ${efficiency.toFixed(0)}%`,
+                                `Tasks: ${tasks.toFixed(0)}`
+                            ];
+                        }
+                    }
+                }
+            },
             scales: {
                 y: { grid: { color: '#1F2937' }, border: { display: false }, min: 0, max: 100 },
                 x: { grid: { display: false } }
             }
         }
     });
+
+    zoneEfficiencyChart.$zoneLatitudes = latitudes;
+    zoneEfficiencyChart.$zoneLongitudes = longitudes;
+    zoneEfficiencyChart.$zoneTaskCounts = taskCounts;
 }
 
 function setError(message) {
@@ -324,6 +403,18 @@ function toFiniteNumber(value) {
 
 function clampPct(value) {
     return Math.max(0, Math.min(100, toFiniteNumber(value)));
+}
+
+function formatWeightKg(value) {
+    return `${Math.round(toFiniteNumber(value)).toLocaleString()} kg`;
+}
+
+function isTransportMatch(chart, index) {
+    const initial = toFiniteNumber(chart?.$initialWeight?.[index]);
+    const actual = toFiniteNumber(chart?.data?.datasets?.[0]?.data?.[index]);
+
+    // Treat tiny floating differences as equal.
+    return Math.abs(initial - actual) <= 0.01;
 }
 
 async function exportDetailedPdfReport() {
@@ -375,7 +466,7 @@ function downloadDetailedPdfReport(analytics, details) {
     const zoneValues = Array.isArray(charts?.zoneEfficiency?.values) ? charts.zoneEfficiency.values : [];
     const zoneRows = zoneLabels.length > 0
         ? zoneLabels.map((label, index) => [label, formatPct(toFiniteNumber(zoneValues[index]))])
-        : [['Unknown Zone', '0%']];
+        : [['No location data', '0%']];
 
     const taskRows = detailRows.length > 0
         ? detailRows.map((row) => [
@@ -441,8 +532,8 @@ function downloadDetailedPdfReport(analytics, details) {
 
     page.y += 12;
     page.y = drawTable(doc, {
-        title: 'Fleet Efficiency by Zone',
-        headers: ['Zone', 'Efficiency'],
+        title: 'Fleet Efficiency by Dispatch Location',
+        headers: ['Location', 'Efficiency'],
         rows: zoneRows,
         page,
         rowHeight: 18,
@@ -452,7 +543,7 @@ function downloadDetailedPdfReport(analytics, details) {
     page.y += 12;
     page.y = drawTable(doc, {
         title: 'Task-Level Detail',
-        headers: ['Task', 'Plate', 'Zone', 'Driver', 'Status', 'Ref Wt', 'Latest Wt', 'Transit', 'Inc', 'Over', 'Loss'],
+        headers: ['Task', 'Plate', 'Location', 'Driver', 'Status', 'Ref Wt', 'Latest Wt', 'Transit', 'Inc', 'Over', 'Loss'],
         rows: taskRows,
         page,
         rowHeight: 16,
@@ -460,9 +551,9 @@ function downloadDetailedPdfReport(analytics, details) {
         fontSize: 8
     });
 
-    const telemetryNote = dataQuality?.hasTelemetryData
-        ? `Telemetry quality: available (${formatInteger(dataQuality.telemetryCount)} records, avg speed ${toFiniteNumber(dataQuality.avgSpeedKmh).toFixed(2)} km/h).`
-        : 'Telemetry quality: no telemetry speed records in this range.';
+    const telemetryNote = dataQuality?.hasIncidentEvidence
+        ? `Incident evidence quality: available (${formatInteger(dataQuality.incidentEvidenceCount)} records, avg weight impact ${toFiniteNumber(dataQuality.avgWeightImpactKg).toFixed(2)} kg).`
+        : 'Incident evidence quality: no incident weight-impact records in this range.';
 
     page.y += 8;
     if (page.y > page.height - 40) {

@@ -290,6 +290,30 @@ function getTransitionErrorMessage(currentStatus, nextStatus) {
     return `Invalid transition from ${from} to ${to}.`;
 }
 
+function formatCsvTimestamp(value) {
+    if (!value) {
+        return '';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toISOString();
+}
+
+function csvEscape(value) {
+    const text = value === null || value === undefined ? '' : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+function toCsv(headers, rows) {
+    const headerLine = headers.map(csvEscape).join(',');
+    const bodyLines = rows.map((row) => row.map(csvEscape).join(','));
+    return [headerLine, ...bodyLines].join('\n');
+}
+
 class AdminIncidentsController {
     static async syncIncidentLogsFromDispatch() {
         const rows = await db.query(
@@ -585,6 +609,188 @@ class AdminIncidentsController {
     }
 
     /**
+     * GET /api/admin/incidents/export.csv
+     * Export filtered grouped incidents with detailed fields.
+     */
+    static async exportIncidentLogsCsv(req, res) {
+        try {
+            await AdminIncidentsController.syncIncidentLogsFromDispatch();
+
+            const typeFilter = String(req.query.type || '').trim().toLowerCase();
+            const statusFilter = String(req.query.status || '').trim().toLowerCase();
+            const view = String(req.query.view || 'active').trim().toLowerCase();
+
+            const params = [];
+            const where = [];
+
+            if (typeFilter) {
+                params.push(typeFilter);
+                where.push(`LOWER(COALESCE(i.incident_type, '')) = $${params.length}`);
+            }
+
+            if (statusFilter) {
+                params.push(statusFilter);
+                where.push(`LOWER(COALESCE(i.status, 'pending')) = $${params.length}`);
+            } else if (view === 'active') {
+                params.push(...ACTIVE_INCIDENT_STATUSES);
+                const startIndex = params.length - ACTIVE_INCIDENT_STATUSES.length + 1;
+                where.push(`LOWER(COALESCE(i.status, 'pending')) IN ($${startIndex}, $${startIndex + 1}, $${startIndex + 2}, $${startIndex + 3})`);
+            }
+
+            const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+            const incidentGroupKey = `COALESCE(i.task_id::text, CONCAT('incident-', i.id::text))`;
+
+            const result = await db.query(
+                `
+                    WITH filtered_incidents AS (
+                        SELECT
+                            i.id,
+                            i.task_id,
+                            i.vehicle_id,
+                            i.driver_id,
+                            i.managed_by,
+                            i.description,
+                            LOWER(COALESCE(i.incident_type, 'unknown')) AS incident_type,
+                            LOWER(COALESCE(i.severity, 'info')) AS severity,
+                            LOWER(COALESCE(i.status, 'pending')) AS status,
+                            i.weight_impact_kg AS weight_difference_kg,
+                            i.latitude,
+                            i.longitude,
+                            i.created_at,
+                            i.resolved_at,
+                            LOWER(COALESCE(dt.status, 'pending')) AS dispatch_status,
+                            dt.initial_reference_weight_kg AS initial_weight_kg,
+                            dt.pickup_lat,
+                            dt.pickup_lng,
+                            dt.destination_lat,
+                            dt.destination_lng,
+                            v.vehicle_type AS vehicle_name,
+                            v.plate_number AS vehicle_number,
+                            TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS driver_name,
+                            TRIM(CONCAT(COALESCE(a.first_name, ''), ' ', COALESCE(a.last_name, ''))) AS managed_by_name,
+                            ${incidentGroupKey} AS incident_group_key,
+                            COUNT(*) OVER (PARTITION BY ${incidentGroupKey})::int AS events_count
+                        FROM incidents i
+                        LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
+                        LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                        LEFT JOIN users u ON u.id = i.driver_id
+                        LEFT JOIN administrator a ON a.id = i.managed_by
+                        ${whereClause}
+                    ), grouped_incidents AS (
+                        SELECT DISTINCT ON (incident_group_key)
+                            *
+                        FROM filtered_incidents
+                        ORDER BY incident_group_key, created_at DESC, id DESC
+                    )
+                    SELECT
+                        id,
+                        incident_group_key,
+                        task_id,
+                        vehicle_id,
+                        driver_id,
+                        managed_by,
+                        managed_by_name,
+                        incident_type,
+                        severity,
+                        status,
+                        description,
+                        weight_difference_kg,
+                        latitude,
+                        longitude,
+                        created_at,
+                        resolved_at,
+                        dispatch_status,
+                        initial_weight_kg,
+                        pickup_lat,
+                        pickup_lng,
+                        destination_lat,
+                        destination_lng,
+                        vehicle_name,
+                        vehicle_number,
+                        driver_name,
+                        events_count
+                    FROM grouped_incidents
+                    ORDER BY created_at DESC, id DESC
+                `,
+                params
+            );
+
+            const headers = [
+                'Incident ID',
+                'Incident Group Key',
+                'Created At (UTC)',
+                'Resolved At (UTC)',
+                'Incident Type',
+                'Severity',
+                'Status',
+                'Description',
+                'Events Count',
+                'Task ID',
+                'Dispatch Status',
+                'Vehicle ID',
+                'Vehicle Type',
+                'Vehicle Plate',
+                'Driver ID',
+                'Driver Name',
+                'Managed By ID',
+                'Managed By Name',
+                'Initial Reference Weight (kg)',
+                'Weight Impact (kg)',
+                'Incident Latitude',
+                'Incident Longitude',
+                'Pickup Latitude',
+                'Pickup Longitude',
+                'Destination Latitude',
+                'Destination Longitude'
+            ];
+
+            const rows = result.rows.map((row) => {
+                const description = buildIncidentDescription(row);
+                return [
+                    row.id,
+                    row.incident_group_key,
+                    formatCsvTimestamp(row.created_at),
+                    formatCsvTimestamp(row.resolved_at),
+                    row.incident_type || '',
+                    row.severity || '',
+                    row.status || '',
+                    description,
+                    row.events_count,
+                    row.task_id,
+                    row.dispatch_status || '',
+                    row.vehicle_id,
+                    row.vehicle_name || '',
+                    row.vehicle_number || '',
+                    row.driver_id,
+                    row.driver_name || '',
+                    row.managed_by,
+                    row.managed_by_name || '',
+                    row.initial_weight_kg,
+                    row.weight_difference_kg,
+                    row.latitude,
+                    row.longitude,
+                    row.pickup_lat,
+                    row.pickup_lng,
+                    row.destination_lat,
+                    row.destination_lng
+                ];
+            });
+
+            const csv = toCsv(headers, rows);
+            const dateStamp = new Date().toISOString().slice(0, 10);
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="incident_logs_detailed_${dateStamp}.csv"`);
+            return res.status(200).send(`\uFEFF${csv}`);
+        } catch (error) {
+            console.error('[AdminIncidentsController] exportIncidentLogsCsv error:', error);
+            return res.status(500).json({
+                error: 'An error occurred while exporting incident logs.'
+            });
+        }
+    }
+
+    /**
      * GET /api/admin/incidents/count
      * Return active incident count for sidebar badge.
      */
@@ -613,7 +819,7 @@ class AdminIncidentsController {
 
     /**
      * GET /api/admin/incidents/:incidentId/timeline
-     * Return recent telemetry points used by the detail chart.
+     * Return recent incident-derived weight timeline points for the detail chart.
      */
     static async getIncidentTimeline(req, res) {
         try {
@@ -647,98 +853,44 @@ class AdminIncidentsController {
             }
 
             const incident = incidentResult.rows[0];
-            const incidentTime = incident.created_at;
-
-            const fetchNearestPointsByTask = async () => db.query(
+            const historyResult = await db.query(
                 `
-                    SELECT picked.recorded_at, picked.weight_kg
-                    FROM (
-                        SELECT
-                            tl.recorded_at,
-                            tl.current_weight_kg AS weight_kg
-                        FROM telemetry_logs tl
-                        WHERE tl.task_id = $1
-                          AND tl.recorded_at BETWEEN ($2::timestamp - INTERVAL '24 hours') AND ($2::timestamp + INTERVAL '24 hours')
-                        ORDER BY ABS(EXTRACT(EPOCH FROM (tl.recorded_at - $2::timestamp))) ASC, tl.recorded_at DESC
-                        LIMIT $3
-                    ) AS picked
-                    ORDER BY picked.recorded_at ASC
+                    SELECT
+                        i.created_at AS recorded_at,
+                        CASE
+                            WHEN dt.initial_reference_weight_kg IS NOT NULL
+                                THEN GREATEST(0, dt.initial_reference_weight_kg + COALESCE(i.weight_impact_kg, 0))
+                            ELSE NULL
+                        END AS weight_kg
+                    FROM incidents i
+                    LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
+                    WHERE i.vehicle_id = $1
+                      AND (
+                            (i.task_id IS NOT DISTINCT FROM $2)
+                            OR $2 IS NULL
+                          )
+                    ORDER BY i.created_at DESC, i.id DESC
+                    LIMIT $3
                 `,
-                [incident.task_id, incidentTime, limit]
+                [incident.vehicle_id, incident.task_id, limit]
             );
 
-            const fetchLatestPointsByTask = async () => db.query(
-                `
-                    SELECT picked.recorded_at, picked.weight_kg
-                    FROM (
-                        SELECT
-                            tl.recorded_at,
-                            tl.current_weight_kg AS weight_kg
-                        FROM telemetry_logs tl
-                        WHERE tl.task_id = $1
-                        ORDER BY tl.recorded_at DESC
-                        LIMIT $2
-                    ) AS picked
-                    ORDER BY picked.recorded_at ASC
-                `,
-                [incident.task_id, limit]
-            );
-
-            const fetchNearestPointsByVehicle = async () => db.query(
-                `
-                    SELECT picked.recorded_at, picked.weight_kg
-                    FROM (
-                        SELECT
-                            tl.recorded_at,
-                            tl.current_weight_kg AS weight_kg
-                        FROM telemetry_logs tl
-                        WHERE tl.vehicle_id = $1
-                          AND tl.recorded_at BETWEEN ($2::timestamp - INTERVAL '24 hours') AND ($2::timestamp + INTERVAL '24 hours')
-                        ORDER BY ABS(EXTRACT(EPOCH FROM (tl.recorded_at - $2::timestamp))) ASC, tl.recorded_at DESC
-                        LIMIT $3
-                    ) AS picked
-                    ORDER BY picked.recorded_at ASC
-                `,
-                [incident.vehicle_id, incidentTime, limit]
-            );
-
-            const fetchLatestPointsByVehicle = async () => db.query(
-                `
-                    SELECT picked.recorded_at, picked.weight_kg
-                    FROM (
-                        SELECT
-                            tl.recorded_at,
-                            tl.current_weight_kg AS weight_kg
-                        FROM telemetry_logs tl
-                        WHERE tl.vehicle_id = $1
-                        ORDER BY tl.recorded_at DESC
-                        LIMIT $2
-                    ) AS picked
-                    ORDER BY picked.recorded_at ASC
-                `,
-                [incident.vehicle_id, limit]
-            );
-
-            let points = [];
-
-            if (incident.task_id !== null && incident.task_id !== undefined) {
-                const taskScoped = await fetchNearestPointsByTask();
-                points = taskScoped.rows;
-
-                if (points.length === 0) {
-                    const latestTaskScoped = await fetchLatestPointsByTask();
-                    points = latestTaskScoped.rows;
-                }
-            }
+            let points = historyResult.rows
+                .filter((row) => row.weight_kg !== null)
+                .sort((a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
 
             if (points.length === 0 && incident.vehicle_id !== null && incident.vehicle_id !== undefined) {
-                const vehicleScoped = await fetchNearestPointsByVehicle();
-                points = vehicleScoped.rows;
+                const liveResult = await db.query(
+                    `
+                        SELECT last_ping_at AS recorded_at, current_weight_kg AS weight_kg
+                        FROM vehicle_live_state
+                        WHERE vehicle_id = $1
+                        LIMIT 1
+                    `,
+                    [incident.vehicle_id]
+                );
 
-                if (points.length === 0) {
-                    const latestVehicleScoped = await fetchLatestPointsByVehicle();
-                    points = latestVehicleScoped.rows;
-                }
+                points = (liveResult.rows || []).filter((row) => row.weight_kg !== null);
             }
 
             return res.status(200).json({ data: points });
@@ -878,21 +1030,12 @@ class AdminIncidentsController {
                         i.vehicle_id,
                         dt.initial_reference_weight_kg,
                         v.max_capacity_kg,
-                        tl.current_weight_kg
+                        vls.current_weight_kg
                     FROM incidents
                     i
                     LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
                     LEFT JOIN vehicles v ON v.id = i.vehicle_id
-                    LEFT JOIN LATERAL (
-                        SELECT current_weight_kg
-                        FROM telemetry_logs
-                        WHERE (
-                            (i.task_id IS NOT NULL AND task_id = i.task_id)
-                            OR (i.task_id IS NULL AND i.vehicle_id IS NOT NULL AND vehicle_id = i.vehicle_id)
-                        )
-                        ORDER BY recorded_at DESC, id DESC
-                        LIMIT 1
-                    ) tl ON true
+                    LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = i.vehicle_id
                     WHERE i.id = $1
                     LIMIT 1
                 `,
