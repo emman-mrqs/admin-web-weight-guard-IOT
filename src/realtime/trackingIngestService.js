@@ -142,18 +142,20 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
                     current_longitude,
                     current_speed_kmh,
                     current_heading,
+                    current_weight_kg,
                     last_ping_at
                 )
-                VALUES ($1, $2, $3, $4, $5, NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, NOW())
                 ON CONFLICT (vehicle_id)
                 DO UPDATE SET
                     current_latitude = EXCLUDED.current_latitude,
                     current_longitude = EXCLUDED.current_longitude,
                     current_speed_kmh = EXCLUDED.current_speed_kmh,
                     current_heading = EXCLUDED.current_heading,
+                    current_weight_kg = EXCLUDED.current_weight_kg,
                     last_ping_at = NOW()
             `,
-            [vehicleId, latitude, longitude, Math.round(speedKmh), heading === null ? null : Math.round(heading)]
+            [vehicleId, latitude, longitude, Math.round(speedKmh), heading === null ? null : Math.round(heading), currentWeightKg]
         );
 
         const maxCapacity = toFiniteNumber(vehicle.max_capacity_kg);
@@ -183,13 +185,13 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
             )
             : null;
 
-        const weightDropKg = (previousWeight !== null && currentWeightKg !== null)
-            ? previousWeight - currentWeightKg
+        const weightDeltaKg = (previousWeight !== null && currentWeightKg !== null)
+            ? currentWeightKg - previousWeight
             : 0;
 
         const shouldInsertTelemetry = !previous
             || (movedMeters !== null && movedMeters >= MOVEMENT_THRESHOLD_METERS)
-            || weightDropKg > 0;
+            || weightDeltaKg !== 0;
 
         if (shouldInsertTelemetry) {
             await client.query(
@@ -239,7 +241,7 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
             data: updatePayload.data,
             telemetryPersisted: shouldInsertTelemetry,
             movementMeters: movedMeters === null ? null : Number(movedMeters.toFixed(2)),
-            weightDropKg: Number(weightDropKg.toFixed(2))
+            weightDeltaKg: Number(weightDeltaKg.toFixed(2))
         };
     } catch (error) {
         await client.query('ROLLBACK');

@@ -80,6 +80,7 @@ CREATE TABLE incidents (
     severity VARCHAR(20),
     status VARCHAR(50),
     weight_impact_kg DECIMAL(10, 2),
+    description TEXT,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     resolved_at TIMESTAMPTZ,
@@ -171,3 +172,31 @@ CREATE TABLE vehicle_live_state (
     current_weight_kg DECIMAL(10, 2),
     last_ping_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- ============== for testing purposes ==============
+select * from dispatch_tasks;
+
+select * from vehicles;
+
+select * from vehicle_live_state;
+
+select * from telemetry_logs;
+
+select * from incidents;
+
+update dispatch_tasks
+set initial_reference_weight_kg = 23000
+where id = 3;
+
+update vehicle_live_state
+set current_weight_kg = 20000
+where vehicle_id = 1;
+
+update vehicle_live_state
+set current_latitude = 14.72244, current_longitude = 121.13199
+where vehicle_id = 1;
+
+TRUNCATE TABLE incidents RESTART IDENTITY; 
+
+

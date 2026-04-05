@@ -4,6 +4,7 @@ import db from '../../database/db.js';
 
 const ACTIVE_INCIDENT_STATUSES = ['pending', 'open', 'acknowledged', 'investigating'];
 const ALLOWED_INCIDENT_STATUSES = ['pending', 'open', 'closed', 'acknowledged', 'investigating', 'resolved', 'false_alarm'];
+const INCIDENT_IMPACT_EPSILON_KG = 0.01;
 
 function toNumberOrNull(value) {
     const n = Number(value);
@@ -29,6 +30,12 @@ function buildIncidentDescription(row) {
             : 'Detected sudden cargo weight drop.';
     }
 
+    if (type === 'above_reference') {
+        return impact !== null
+            ? `Vehicle load increased above the dispatch reference by ${impact.toFixed(2)} kg.`
+            : 'Vehicle load increased above the dispatch reference weight.';
+    }
+
     if (type === 'route_deviation') {
         return 'Vehicle deviated from planned route.';
     }
@@ -45,6 +52,52 @@ function toFiniteOrNull(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+function normalizeIncidentType(type) {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (normalized === 'cargo_loss' || normalized === 'loss') {
+        return 'loss';
+    }
+
+    if (normalized === 'overload') {
+        return 'overload';
+    }
+
+    if (normalized === 'above_reference') {
+        return 'above_reference';
+    }
+
+    return normalized;
+}
+
+function getIncidentTypeAliases(type) {
+    const normalized = normalizeIncidentType(type);
+    if (normalized === 'loss') {
+        return ['loss', 'cargo_loss'];
+    }
+
+    return [normalized];
+}
+
+function normalizeImpactKg(value) {
+    const parsed = toFiniteOrNull(value);
+    if (parsed === null) {
+        return null;
+    }
+
+    return Math.round(parsed * 100) / 100;
+}
+
+function areImpactsEquivalent(a, b) {
+    const left = normalizeImpactKg(a);
+    const right = normalizeImpactKg(b);
+
+    if (left === null || right === null) {
+        return left === right;
+    }
+
+    return Math.abs(left - right) < INCIDENT_IMPACT_EPSILON_KG;
+}
+
 async function insertAutoIncident({
     taskId,
     vehicleId,
@@ -52,7 +105,6 @@ async function insertAutoIncident({
     incidentType,
     severity,
     status,
-    description,
     weightImpactKg,
     latitude,
     longitude
@@ -68,84 +120,87 @@ async function insertAutoIncident({
                 severity,
                 status,
                 weight_impact_kg,
-                description,
                 latitude,
                 longitude,
                 created_at
             )
-            VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+            VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         `,
-        [vehicleId, driverId, taskId, incidentType, severity, status, weightImpactKg, description || null, latitude, longitude]
+        [vehicleId, driverId, taskId, incidentType, severity, status, weightImpactKg, latitude, longitude]
     );
 }
 
-function normalizeIncidentType(type) {
-    const t = String(type || '').toLowerCase();
-    if (t.includes('overload')) return 'overload';
-    if (t.includes('loss')) return 'loss';
-    return t;
-}
-
 async function getLatestOpenIncident(taskId, vehicleId, incidentType) {
+        const typeAliases = getIncidentTypeAliases(incidentType);
     const result = await db.query(
         `
-            SELECT id, status
+                        SELECT id, status, weight_impact_kg, LOWER(COALESCE(incident_type, '')) AS incident_type
             FROM incidents
             WHERE task_id = $1
               AND vehicle_id = $2
-              AND LOWER(COALESCE(incident_type, '')) = $3
+                            AND LOWER(COALESCE(incident_type, '')) = ANY($3::text[])
               AND LOWER(COALESCE(status, 'open')) IN ('pending', 'open', 'acknowledged', 'investigating')
             ORDER BY created_at DESC, id DESC
             LIMIT 1
         `,
-        [taskId, vehicleId, incidentType]
+                [taskId, vehicleId, typeAliases]
     );
 
     return result.rows[0] || null;
 }
 
-async function resolveOpenIncident(incidentId, description) {
+async function resolveOpenIncident(incidentId) {
     await db.query(
         `
             UPDATE incidents
             SET
                 status = 'resolved',
-                resolved_at = NOW(),
-                description = COALESCE(description, $1)
-            WHERE id = $2
+                resolved_at = NOW()
+            WHERE id = $1
         `,
-        [description || null, incidentId]
+        [incidentId]
     );
 }
 
-function buildOverloadDescription(dispatchStatus, overloadKg, latitude, longitude) {
-    const amount = Number(overloadKg || 0).toFixed(2);
-    if (dispatchStatus === 'in_transit') {
-        const latText = Number.isFinite(latitude) ? latitude.toFixed(6) : 'unknown';
-        const lngText = Number.isFinite(longitude) ? longitude.toFixed(6) : 'unknown';
-        return `Overload detected during transit at latitude ${latText} and longitude ${lngText}. Vehicle exceeded safe load capacity by ${amount} kg. Immediate action recommended.`;
+function determineWeightIncident({
+    dispatchStatus,
+    initialWeightKg,
+    maxCapacityKg,
+    currentWeightKg
+}) {
+    if (dispatchStatus !== 'in_transit') {
+        return null;
     }
 
-    return `Vehicle exceeded safe load capacity by ${amount} kg at the pickup location. This issue can still be resolved before transit.`;
-}
-
-function buildLossDescription(lossKg, latitude, longitude) {
-    const amount = Number(Math.abs(lossKg || 0)).toFixed(2);
-    const latText = Number.isFinite(latitude) ? latitude.toFixed(6) : 'unknown';
-    const lngText = Number.isFinite(longitude) ? longitude.toFixed(6) : 'unknown';
-    return `Cargo loss detected during transit at latitude ${latText} and longitude ${lngText}. Weight dropped by ${amount} kg. Immediate action recommended.`;
-}
-
-function buildNormalizedDescription(baseType) {
-    if (baseType === 'overload') {
-        return 'Load returned to normal range. Vehicle is now within safe capacity limits.';
+    if (initialWeightKg === null || maxCapacityKg === null || currentWeightKg === null) {
+        return null;
     }
 
-    if (baseType === 'loss') {
-        return 'Cargo weight returned to expected range. No active loss detected.';
+    if (currentWeightKg > maxCapacityKg) {
+        return {
+            incidentType: 'overload',
+            severity: 'high',
+            weightImpactKg: currentWeightKg - maxCapacityKg
+        };
     }
 
-    return 'Incident condition returned to normal range.';
+    if (currentWeightKg < initialWeightKg) {
+        return {
+            incidentType: 'loss',
+            severity: 'high',
+            weightImpactKg: currentWeightKg - initialWeightKg
+        };
+    }
+
+    if (currentWeightKg > initialWeightKg) {
+        return {
+            incidentType: 'above_reference',
+            severity: 'medium',
+            weightImpactKg: currentWeightKg - initialWeightKg
+        };
+    }
+
+    return null;
 }
 
 function hasConfirmedEvidenceForFalseAlarmCheck(row) {
@@ -248,22 +303,13 @@ class AdminIncidentsController {
                     dt.pickup_lng,
                     v.assigned_driver_id,
                     v.max_capacity_kg,
-                    tl.current_weight_kg,
-                    tl.latitude AS telemetry_lat,
-                    tl.longitude AS telemetry_lng
+                    vls.current_weight_kg AS current_weight_kg,
+                    vls.current_latitude AS live_latitude,
+                    vls.current_longitude AS live_longitude
                 FROM dispatch_tasks dt
                 INNER JOIN vehicles v ON v.id = dt.vehicle_id
-                LEFT JOIN LATERAL (
-                    SELECT
-                        current_weight_kg,
-                        latitude,
-                        longitude
-                    FROM telemetry_logs
-                    WHERE task_id = dt.id
-                    ORDER BY recorded_at DESC, id DESC
-                    LIMIT 1
-                ) tl ON true
-                WHERE LOWER(COALESCE(dt.status, 'pending')) IN ('active', 'in_transit')
+                LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
+                WHERE LOWER(COALESCE(dt.status, 'pending')) = 'in_transit'
             `
         );
 
@@ -279,85 +325,73 @@ class AdminIncidentsController {
 
             const pickupLat = toFiniteOrNull(row.pickup_lat);
             const pickupLng = toFiniteOrNull(row.pickup_lng);
-            const telemetryLat = toFiniteOrNull(row.telemetry_lat);
-            const telemetryLng = toFiniteOrNull(row.telemetry_lng);
+            const liveLat = toFiniteOrNull(row.live_latitude);
+            const liveLng = toFiniteOrNull(row.live_longitude);
 
-            const overloadDetected = initialWeightKg !== null
-                && maxCapacityKg !== null
-                && initialWeightKg > maxCapacityKg;
-            const overloadImpact = overloadDetected ? initialWeightKg - maxCapacityKg : 0;
-            const overloadLat = dispatchStatus === 'active' ? pickupLat : telemetryLat;
-            const overloadLng = dispatchStatus === 'active' ? pickupLng : telemetryLng;
-
-            const lossDetected = dispatchStatus === 'in_transit'
-                && initialWeightKg !== null
-                && currentWeightKg !== null
-                && currentWeightKg < initialWeightKg;
-            const lossImpact = lossDetected ? (currentWeightKg - initialWeightKg) : 0;
+            const incident = determineWeightIncident({
+                dispatchStatus,
+                initialWeightKg,
+                maxCapacityKg,
+                currentWeightKg
+            });
 
             const openOverload = await getLatestOpenIncident(taskId, vehicleId, 'overload');
             const openLoss = await getLatestOpenIncident(taskId, vehicleId, 'loss');
+            const openAboveReference = await getLatestOpenIncident(taskId, vehicleId, 'above_reference');
 
-            if ((dispatchStatus === 'active' || dispatchStatus === 'in_transit') && overloadDetected) {
-                if (!openOverload) {
+            if (incident) {
+                const targetOpenIncident = incident.incidentType === 'overload'
+                    ? openOverload
+                    : incident.incidentType === 'loss'
+                        ? openLoss
+                        : openAboveReference;
+
+                const incidentLatitude = liveLat ?? pickupLat;
+                const incidentLongitude = liveLng ?? pickupLng;
+
+                for (const activeIncident of [openOverload, openLoss, openAboveReference].filter(Boolean)) {
+                    if (!targetOpenIncident || activeIncident.id !== targetOpenIncident.id) {
+                        await resolveOpenIncident(activeIncident.id);
+                    }
+                }
+
+                if (targetOpenIncident) {
+                    const oldImpact = normalizeImpactKg(targetOpenIncident.weight_impact_kg);
+                    const newImpact = normalizeImpactKg(incident.weightImpactKg);
+
+                    // Insert only when impact meaningfully changes.
+                    if (!areImpactsEquivalent(oldImpact, newImpact)) {
+                        await insertAutoIncident({
+                            taskId,
+                            vehicleId,
+                            driverId,
+                            incidentType: incident.incidentType,
+                            severity: incident.severity,
+                            status: 'open',
+                            weightImpactKg: newImpact,
+                            latitude: incidentLatitude,
+                            longitude: incidentLongitude
+                        });
+                    }
+                } else {
+                    const newImpact = normalizeImpactKg(incident.weightImpactKg);
+
                     await insertAutoIncident({
                         taskId,
                         vehicleId,
                         driverId,
-                        incidentType: 'overload',
-                        severity: dispatchStatus === 'active' ? 'medium' : 'high',
+                        incidentType: incident.incidentType,
+                        severity: incident.severity,
                         status: 'open',
-                        description: buildOverloadDescription(dispatchStatus, overloadImpact, overloadLat, overloadLng),
-                        weightImpactKg: overloadImpact,
-                        latitude: overloadLat,
-                        longitude: overloadLng
+                        weightImpactKg: newImpact,
+                        latitude: incidentLatitude,
+                        longitude: incidentLongitude
                     });
                 }
-            } else if (openOverload) {
-                await resolveOpenIncident(openOverload.id, buildNormalizedDescription('overload'));
-                await insertAutoIncident({
-                    taskId,
-                    vehicleId,
-                    driverId,
-                    incidentType: 'overload',
-                    severity: 'normal',
-                    status: 'resolved',
-                    description: buildNormalizedDescription('overload'),
-                    weightImpactKg: 0,
-                    latitude: overloadLat,
-                    longitude: overloadLng
-                });
-            }
-
-            if (lossDetected) {
-                if (!openLoss) {
-                    await insertAutoIncident({
-                        taskId,
-                        vehicleId,
-                        driverId,
-                        incidentType: 'loss',
-                        severity: 'high',
-                        status: 'open',
-                        description: buildLossDescription(lossImpact, telemetryLat, telemetryLng),
-                        weightImpactKg: lossImpact,
-                        latitude: telemetryLat,
-                        longitude: telemetryLng
-                    });
+            } else {
+                for (const activeIncident of [openOverload, openLoss, openAboveReference].filter(Boolean)) {
+                    await resolveOpenIncident(activeIncident.id);
                 }
-            } else if (openLoss) {
-                await resolveOpenIncident(openLoss.id, buildNormalizedDescription('loss'));
-                await insertAutoIncident({
-                    taskId,
-                    vehicleId,
-                    driverId,
-                    incidentType: 'loss',
-                    severity: 'normal',
-                    status: 'resolved',
-                    description: buildNormalizedDescription('loss'),
-                    weightImpactKg: 0,
-                    latitude: telemetryLat,
-                    longitude: telemetryLng
-                });
             }
         }
     }
@@ -410,15 +444,48 @@ class AdminIncidentsController {
             }
 
             const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+            const incidentGroupKey = `COALESCE(i.task_id::text, CONCAT('incident-', i.id::text))`;
 
             const countResult = await db.query(
                 `
+                    WITH filtered_incidents AS (
+                        SELECT
+                            i.id,
+                            i.task_id,
+                            i.vehicle_id,
+                            i.driver_id,
+                            LOWER(COALESCE(i.incident_type, 'unknown')) AS incident_type,
+                            LOWER(COALESCE(i.severity, 'info')) AS severity,
+                            LOWER(COALESCE(i.status, 'pending')) AS status,
+                            i.weight_impact_kg AS weight_difference_kg,
+                            i.latitude,
+                            i.longitude,
+                            i.created_at,
+                            i.resolved_at,
+                            LOWER(COALESCE(dt.status, 'pending')) AS dispatch_status,
+                            dt.initial_reference_weight_kg AS initial_weight_kg,
+                            dt.pickup_lat,
+                            dt.pickup_lng,
+                            dt.destination_lat,
+                            dt.destination_lng,
+                            v.vehicle_type AS vehicle_name,
+                            v.plate_number AS vehicle_number,
+                            TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS driver_name,
+                            ${incidentGroupKey} AS incident_group_key,
+                            COUNT(*) OVER (PARTITION BY ${incidentGroupKey})::int AS events_count
+                        FROM incidents i
+                        LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
+                        LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                        LEFT JOIN users u ON u.id = i.driver_id
+                        ${whereClause}
+                    ), grouped_incidents AS (
+                        SELECT DISTINCT ON (incident_group_key)
+                            *
+                        FROM filtered_incidents
+                        ORDER BY incident_group_key, created_at DESC, id DESC
+                    )
                     SELECT COUNT(*)::int AS total
-                    FROM incidents i
-                    LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
-                    LEFT JOIN vehicles v ON v.id = i.vehicle_id
-                    LEFT JOIN users u ON u.id = i.driver_id
-                    ${whereClause}
+                    FROM grouped_incidents
                 `,
                 params
             );
@@ -428,35 +495,67 @@ class AdminIncidentsController {
 
             const result = await db.query(
                 `
+                    WITH filtered_incidents AS (
+                        SELECT
+                            i.id,
+                            i.task_id,
+                            i.vehicle_id,
+                            i.driver_id,
+                            LOWER(COALESCE(i.incident_type, 'unknown')) AS incident_type,
+                            LOWER(COALESCE(i.severity, 'info')) AS severity,
+                            LOWER(COALESCE(i.status, 'pending')) AS status,
+                            i.weight_impact_kg AS weight_difference_kg,
+                            i.latitude,
+                            i.longitude,
+                            i.created_at,
+                            i.resolved_at,
+                            LOWER(COALESCE(dt.status, 'pending')) AS dispatch_status,
+                            dt.initial_reference_weight_kg AS initial_weight_kg,
+                            dt.pickup_lat,
+                            dt.pickup_lng,
+                            dt.destination_lat,
+                            dt.destination_lng,
+                            v.vehicle_type AS vehicle_name,
+                            v.plate_number AS vehicle_number,
+                            TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS driver_name,
+                            ${incidentGroupKey} AS incident_group_key,
+                            COUNT(*) OVER (PARTITION BY ${incidentGroupKey})::int AS events_count
+                        FROM incidents i
+                        LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
+                        LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                        LEFT JOIN users u ON u.id = i.driver_id
+                        ${whereClause}
+                    ), grouped_incidents AS (
+                        SELECT DISTINCT ON (incident_group_key)
+                            *
+                        FROM filtered_incidents
+                        ORDER BY incident_group_key, created_at DESC, id DESC
+                    )
                     SELECT
-                        i.id,
-                        i.task_id,
-                        i.vehicle_id,
-                        i.driver_id,
-                        LOWER(COALESCE(i.incident_type, 'unknown')) AS incident_type,
-                        LOWER(COALESCE(i.severity, 'info')) AS severity,
-                        LOWER(COALESCE(i.status, 'pending')) AS status,
-                        i.weight_impact_kg AS weight_difference_kg,
-                        i.description,
-                        i.latitude,
-                        i.longitude,
-                        i.created_at,
-                        i.resolved_at,
-                        LOWER(COALESCE(dt.status, 'pending')) AS dispatch_status,
-                        dt.initial_reference_weight_kg AS initial_weight_kg,
-                        dt.pickup_lat,
-                        dt.pickup_lng,
-                        dt.destination_lat,
-                        dt.destination_lng,
-                        v.vehicle_type AS vehicle_name,
-                        v.plate_number AS vehicle_number,
-                        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS driver_name
-                    FROM incidents i
-                    LEFT JOIN dispatch_tasks dt ON dt.id = i.task_id
-                    LEFT JOIN vehicles v ON v.id = i.vehicle_id
-                    LEFT JOIN users u ON u.id = i.driver_id
-                    ${whereClause}
-                    ORDER BY i.created_at DESC, i.id DESC
+                        id,
+                        task_id,
+                        vehicle_id,
+                        driver_id,
+                        incident_type,
+                        severity,
+                        status,
+                        weight_difference_kg,
+                        latitude,
+                        longitude,
+                        created_at,
+                        resolved_at,
+                        dispatch_status,
+                        initial_weight_kg,
+                        pickup_lat,
+                        pickup_lng,
+                        destination_lat,
+                        destination_lng,
+                        vehicle_name,
+                        vehicle_number,
+                        driver_name,
+                        events_count
+                    FROM grouped_incidents
+                    ORDER BY created_at DESC, id DESC
                     LIMIT $${params.length + 1}
                     OFFSET $${params.length + 2}
                 `,
@@ -682,31 +781,42 @@ class AdminIncidentsController {
             }
 
             const target = targetResult.rows[0];
-            const baseType = normalizeIncidentType(target.incident_type);
 
             const historyResult = await db.query(
                 `
                     SELECT
-                        id,
-                        created_at,
-                        resolved_at,
-                        LOWER(COALESCE(status, 'open')) AS status,
-                        LOWER(COALESCE(severity, 'normal')) AS severity,
-                        LOWER(COALESCE(incident_type, 'unknown')) AS incident_type,
-                        weight_impact_kg,
-                        description,
-                        latitude,
-                        longitude
-                    FROM incidents
-                    WHERE task_id = $1
-                      AND vehicle_id = $2
-                      AND LOWER(COALESCE(incident_type, '')) = $3
-                    ORDER BY created_at ASC, id ASC
+                        i.id,
+                        i.created_at,
+                        i.resolved_at,
+                        LOWER(COALESCE(i.status, 'open')) AS status,
+                        LOWER(COALESCE(i.severity, 'normal')) AS severity,
+                        LOWER(COALESCE(i.incident_type, 'unknown')) AS incident_type,
+                        i.weight_impact_kg,
+                        i.description AS operator_note,
+                        i.managed_by,
+                        TRIM(CONCAT(COALESCE(a.first_name, ''), ' ', COALESCE(a.last_name, ''))) AS managed_by_name,
+                        i.latitude,
+                        i.longitude,
+                        dt.initial_reference_weight_kg
+                    FROM incidents i
+                    LEFT JOIN dispatch_tasks dt ON i.task_id = dt.id
+                    LEFT JOIN administrator a ON i.managed_by = a.id
+                    WHERE i.task_id = $1
+                      AND i.vehicle_id = $2
+                    ORDER BY i.created_at ASC, i.id ASC
                 `,
-                [target.task_id, target.vehicle_id, baseType]
+                                [target.task_id, target.vehicle_id]
             );
 
-            return res.status(200).json({ data: historyResult.rows });
+            return res.status(200).json({
+                data: historyResult.rows.map((row) => ({
+                    ...row,
+                    description: buildIncidentDescription({
+                        ...row,
+                        description: null
+                    })
+                }))
+            });
         } catch (error) {
             console.error('[AdminIncidentsController] getIncidentHistory error:', error);
             return res.status(500).json({
@@ -723,11 +833,17 @@ class AdminIncidentsController {
         try {
             const incidentId = Number(req.params.incidentId);
             const rawStatus = String(req.body?.status || '').trim().toLowerCase();
+            const rawNote = String(req.body?.note || '').trim();
+            const managedBy = Number(req.user?.id);
             const fieldErrors = {};
             const allowedActionStatuses = ['acknowledged', 'investigating', 'resolved', 'false_alarm'];
 
             if (!Number.isFinite(incidentId) || incidentId <= 0) {
                 fieldErrors.incidentId = 'Incident ID must be a valid positive number.';
+            }
+
+            if (!Number.isFinite(managedBy) || managedBy <= 0) {
+                fieldErrors.session = 'Your admin session is no longer valid. Please sign in again.';
             }
 
             if (!rawStatus) {
@@ -736,6 +852,12 @@ class AdminIncidentsController {
                 fieldErrors.status = `Status must be one of: ${ALLOWED_INCIDENT_STATUSES.join(', ')}.`;
             } else if (!allowedActionStatuses.includes(rawStatus)) {
                 fieldErrors.status = 'Only acknowledged, investigating, resolved, and false_alarm are allowed from this action.';
+            }
+
+            if (!rawNote) {
+                fieldErrors.note = 'A note is required for every incident status update.';
+            } else if (rawNote.length > 1000) {
+                fieldErrors.note = 'Note must be 1000 characters or less.';
             }
 
             if (Object.keys(fieldErrors).length > 0) {
@@ -802,24 +924,75 @@ class AdminIncidentsController {
                 });
             }
 
-            const result = await db.query(
-                `
-                    UPDATE incidents
-                    SET
-                        status = $1::varchar,
-                        resolved_at = CASE
-                            WHEN $2::text IN ('resolved', 'false_alarm') THEN NOW()
-                            ELSE NULL
-                        END
-                    WHERE id = $3
-                    RETURNING id, status, resolved_at
-                `,
-                [rawStatus, rawStatus, incidentId]
-            );
+            const noteText = rawNote;
+            const noteDescription = noteText;
+            const client = await db.connect();
+            let updatedIncident = null;
+
+            try {
+                await client.query('BEGIN');
+
+                const result = await client.query(
+                    `
+                        UPDATE incidents
+                        SET
+                            status = $1::varchar,
+                            description = $2::text,
+                            managed_by = $3,
+                            resolved_at = CASE
+                                WHEN $4::text IN ('resolved', 'false_alarm') THEN NOW()
+                                ELSE NULL
+                            END
+                        WHERE id = $5
+                        RETURNING id, status, resolved_at, description, managed_by, task_id, vehicle_id
+                    `,
+                    [rawStatus, noteDescription, managedBy, rawStatus, incidentId]
+                );
+
+                updatedIncident = result.rows[0] || null;
+
+                await client.query(
+                    `
+                        INSERT INTO audit_logs (
+                            administrator_id,
+                            action,
+                            module,
+                            description,
+                            severity,
+                            details,
+                            created_at
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())
+                    `,
+                    [
+                        managedBy,
+                        'INCIDENT_STATUS_UPDATED',
+                        'INCIDENTS',
+                        `Incident #${incidentId} changed from ${currentStatus} to ${rawStatus}.`,
+                        rawStatus === 'resolved' || rawStatus === 'false_alarm' ? 'Medium' : 'Low',
+                        JSON.stringify({
+                            incidentId,
+                            taskId: Number(incidentRow.task_id || 0) || null,
+                            vehicleId: Number(incidentRow.vehicle_id || 0) || null,
+                            fromStatus: currentStatus,
+                            toStatus: rawStatus,
+                            note: noteText,
+                            managedBy
+                        })
+                    ]
+                );
+
+                await client.query('COMMIT');
+            } catch (transactionError) {
+                await client.query('ROLLBACK');
+                throw transactionError;
+            } finally {
+                client.release();
+            }
 
             return res.status(200).json({
                 message: 'Incident status updated successfully.',
-                data: result.rows[0]
+                data: updatedIncident
             });
         } catch (error) {
             console.error('[AdminIncidentsController] updateIncidentStatus error:', error);

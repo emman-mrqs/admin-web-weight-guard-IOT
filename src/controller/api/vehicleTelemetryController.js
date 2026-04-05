@@ -32,7 +32,8 @@ class VehicleTelemetryController {
                 message: 'Telemetry accepted.',
                 telemetryPersisted: result.telemetryPersisted,
                 movementMeters: result.movementMeters,
-                weightDropKg: result.weightDropKg,
+                weightDeltaKg: result.weightDeltaKg,
+                weightDropKg: result.weightDeltaKg,
                 data: result.data
             });
         } catch (error) {

@@ -35,10 +35,10 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
             
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
-                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+                <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
                     <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -48,7 +48,7 @@
                         <p id="statCritical" class="text-2xl font-extrabold text-rose-400 leading-none">0</p>
                     </div>
                 </div>
-                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
                     <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -58,7 +58,7 @@
                         <p id="statWarning" class="text-2xl font-extrabold text-amber-400 leading-none">0</p>
                     </div>
                 </div>
-                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
+                <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4 relative overflow-hidden">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
                     <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
@@ -68,7 +68,7 @@
                         <p id="statOpen" class="text-2xl font-extrabold text-blue-400 leading-none">0</p>
                     </div>
                 </div>
-                <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
+                <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-lg flex items-center gap-4">
                     <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
@@ -79,7 +79,7 @@
                 </div>
             </div>
 
-            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden p-1.5 relative h-[350px] shrink-0">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden p-1.5 relative h-[62vh] min-h-[560px] lg:min-h-[620px] shrink-0">
                 <div id="incidentMap" class="w-full h-full rounded-xl z-0"></div>
                 
                 <div class="absolute top-6 left-6 z-[1000] flex flex-col gap-2">
@@ -90,12 +90,30 @@
                         </p>
                     </div>
                 </div>
+
+                <div class="absolute top-6 right-6 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-3 py-2 rounded-xl shadow-xl">
+                    <div class="flex items-center gap-2 mb-2">
+                        <button id="btnIncidentMapStyle" type="button" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg transition">
+                            Map
+                        </button>
+                        <button id="btnIncidentSatStyle" type="button" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg transition">
+                            Satellite
+                        </button>
+                    </div>
+                    <button id="btnToggleMainMapMarkers" type="button" class="w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-emerald-500/30 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition" aria-pressed="true">
+                        Event Markers: On
+                    </button>
+                </div>
                 
                 <div class="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-3 rounded-xl shadow-xl">
                     <div class="flex items-center gap-4 text-xs font-bold tracking-wide">
                         <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.8)]"></span> High</span>
                         <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(251,191,36,0.8)]"></span> Medium</span>
                         <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]"></span> Normal</span>
+                    </div>
+                    <div class="mt-2 flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_5px_rgba(56,189,248,0.7)]"></span> Active</span>
+                        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shadow-[0_0_5px_rgba(148,163,184,0.6)]"></span> Resolved</span>
                     </div>
                 </div>
             </div>
@@ -157,7 +175,7 @@
     </main>
 
     <div id="incidentDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div class="bg-slate-900 rounded-2xl border border-slate-700/50 w-full max-w-6xl max-h-[94vh] overflow-hidden flex flex-col shadow-2xl">
             
             <div class="px-8 py-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 shrink-0">
                 <div class="flex items-center gap-4">
@@ -200,31 +218,90 @@
                     <p id="modalDescription" class="text-sm text-slate-300 leading-relaxed">-</p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
-                        <div class="flex items-center justify-between mb-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                             <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Incident Location</p>
-                            <button id="btnFocusIncidentMap" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-sky-500/30 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition">
-                                Show On Main Map
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <button id="btnToggleModalMapMarkers" type="button" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-sky-500/30 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition">
+                                    All Event Markers
+                                </button>
+                                <button id="btnFocusIncidentMap" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-sky-500/30 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition">
+                                    Show On Main Map
+                                </button>
+                            </div>
                         </div>
-                        <div id="modalMap" class="flex-1 min-h-[250px] rounded-lg border border-slate-700/50 z-0"></div>
+                        <div id="modalMap" class="flex-1 min-h-[280px] lg:min-h-[320px] rounded-lg border border-slate-700/50 z-0"></div>
                     </div>
                     <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner flex flex-col">
                         <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Weight Timeline</p>
-                        <div id="weightChartContainer" class="flex-1 min-h-[250px] flex items-center justify-center">
+                        <div id="weightChartContainer" class="h-[250px] md:h-[280px] lg:h-[320px] flex items-center justify-center">
                             <canvas id="weightChart"></canvas>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Incident Lifecycle History</p>
-                    <div id="modalHistoryContainer" class="space-y-2 text-xs"></div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Incident Lifecycle History</p>
+                        <div class="flex items-center gap-2">
+                            <select id="modalHistoryFilter" class="bg-slate-900 border border-slate-700 text-[10px] font-bold text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-sky-500">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                            <button id="btnHistoryScrollTop" type="button" class="px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-slate-700 text-slate-300 bg-slate-900 hover:bg-slate-800 transition">Top</button>
+                            <button id="btnHistoryScrollBottom" type="button" class="px-2.5 py-1.5 text-[10px] font-bold rounded-lg border border-slate-700 text-slate-300 bg-slate-900 hover:bg-slate-800 transition">Bottom</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-3" id="modalHistoryTypeFilterBar">
+                        <button type="button" data-history-type="all" class="history-type-btn px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition">All <span class="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px]">0</span></button>
+                        <button type="button" data-history-type="loss" class="history-type-btn px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition">Loss <span class="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px]">0</span></button>
+                        <button type="button" data-history-type="above_reference" class="history-type-btn px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition">Above Ref <span class="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px]">0</span></button>
+                        <button type="button" data-history-type="overload" class="history-type-btn px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest transition">Overload <span class="ml-1 rounded-full bg-slate-800 px-2 py-0.5 text-[10px]">0</span></button>
+                    </div>
+                    <div id="modalHistorySelectionDetails" class="mb-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3.5 py-3 text-xs text-slate-300">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Selected Event Details</p>
+                            <button id="btnToggleHistoryDetails" type="button" class="inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:bg-slate-800 transition" aria-expanded="true" aria-controls="modalHistorySelectionDetailsBody">
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                <span id="btnToggleHistoryDetailsLabel">Collapse</span>
+                            </button>
+                        </div>
+                        <div id="modalHistorySelectionDetailsBody" class="mt-2">
+                            <p class="text-slate-400">Select an event row to view detailed context.</p>
+                        </div>
+                    </div>
+                    <div id="modalHistoryContainer" class="space-y-2 text-xs max-h-[260px] overflow-y-auto custom-scrollbar pr-1"></div>
                 </div>
 
                 <div id="statusUpdateSection" class="bg-slate-950 p-5 rounded-xl border border-slate-800 shadow-inner">
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-3">Update Resolution Status</p>
+                    <div class="mb-3 flex items-center justify-between gap-3">
+                        <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Update Resolution Status</p>
+                        <button id="btnStatusFlowInfo" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:bg-slate-800 transition" aria-expanded="false" aria-controls="statusFlowInfoPanel">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 22a10 10 0 100-20 10 10 0 000 20z"></path>
+                            </svg>
+                            Info
+                        </button>
+                    </div>
+                    <div id="statusFlowInfoPanel" class="hidden mb-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2.5 text-[11px] text-slate-300">
+                        <p class="font-semibold text-sky-300">Status Flow Guide</p>
+                        <p class="mt-1">1. Acknowledge first.</p>
+                        <p>2. Investigate next.</p>
+                        <p>3. After investigation, decide Resolve or False Alarm.</p>
+                        <p class="mt-1 text-slate-400">A note is required for every status update and saved in incident description.</p>
+                    </div>
+                    <p id="statusUpdateSelectedEvent" class="mb-3 text-[10px] font-semibold text-sky-300/90 tracking-wide">Selected event: -</p>
+                    <div class="mb-3">
+                        <label for="incidentStatusNote" class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status Note</label>
+                        <textarea id="incidentStatusNote" rows="3" class="w-full resize-none rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500" placeholder="Add the reason or note for this status update..."></textarea>
+                        <p class="mt-1 text-[10px] text-slate-500">Required. Saved to the incident description and audit log.</p>
+                    </div>
+                    <div id="statusUpdateMessage" class="hidden mb-3 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2"></div>
                     <div id="statusUpdateError" class="hidden mb-3 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2"></div>
                     <div class="flex gap-3 flex-wrap mb-4">
                         <button data-status="acknowledged" class="status-btn px-5 py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold rounded-lg hover:bg-blue-500/20 hover:border-blue-500 transition shadow-sm uppercase tracking-wide">Acknowledge</button>

@@ -8,12 +8,30 @@ const INCIDENT_ACTIVE_STATUSES = ['pending', 'open', 'acknowledged', 'investigat
 
 let incidentMap = null;
 let modalMap = null;
+let modalMapMarkerLayer = null;
+let mainMapEventMarkerLayer = null;
 let incidentMarkers = new Map();
+let mainMapHistoryCache = new Map();
 let allIncidents = [];
 let currentIncidentId = null;
 let currentIncident = null;
 let pendingStatus = null;
 let weightChart = null;
+let weightChartPanCleanup = null;
+let modalHistoryRows = [];
+let modalHistoryFilteredRows = [];
+let modalHistoryFilter = 'all';
+let modalHistoryTypeFilter = 'all';
+let selectedHistoryIncidentId = null;
+let modalDefaultIncidentId = null;
+let modalDefaultIncidentStatus = null;
+let modalMapShowAllEventMarkers = true;
+let mainMapShowEventMarkers = true;
+let isIncidentMapSatellite = false;
+let incidentMapDarkLayer = null;
+let incidentMapSatelliteLayer = null;
+let incidentMapSatelliteLabelLayer = null;
+let statusUpdateBusy = false;
 let currentView = 'active';
 const incidentsPagination = {
     page: 1,
@@ -23,10 +41,28 @@ const incidentsPagination = {
 };
 
 const DARK_TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const SAT_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SAT_LABEL_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png';
+const MAP_MAX_ZOOM = 22;
+const BASE_LAYER_MAX_NATIVE_ZOOM = 19;
+const LABEL_LAYER_MAX_NATIVE_ZOOM = 20;
 const DARK_TILE_OPTIONS = {
     attribution: '&copy; OSM contributors &copy; CARTO',
     subdomains: 'abcd',
-    maxZoom: 19
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: BASE_LAYER_MAX_NATIVE_ZOOM
+};
+const SAT_TILE_OPTIONS = {
+    attribution: '&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: BASE_LAYER_MAX_NATIVE_ZOOM
+};
+const SAT_LABEL_TILE_OPTIONS = {
+    attribution: '&copy; OSM contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: MAP_MAX_ZOOM,
+    maxNativeZoom: LABEL_LAYER_MAX_NATIVE_ZOOM,
+    opacity: 0.9
 };
 const DEFAULT_CENTER = [14.5995, 120.9842];
 const DEFAULT_ZOOM = 8;
@@ -41,11 +77,69 @@ function initMap() {
     incidentMap = L.map('incidentMap', {
         center: DEFAULT_CENTER,
         zoom: DEFAULT_ZOOM,
-        zoomControl: true
+        zoomControl: false,
+        maxZoom: MAP_MAX_ZOOM
     });
 
-    L.tileLayer(DARK_TILE_URL, DARK_TILE_OPTIONS).addTo(incidentMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(incidentMap);
+
+    incidentMapDarkLayer = L.tileLayer(DARK_TILE_URL, DARK_TILE_OPTIONS);
+    incidentMapSatelliteLayer = L.tileLayer(SAT_TILE_URL, SAT_TILE_OPTIONS);
+    incidentMapSatelliteLabelLayer = L.tileLayer(SAT_LABEL_TILE_URL, SAT_LABEL_TILE_OPTIONS);
+
+    incidentMapDarkLayer.addTo(incidentMap);
+    syncIncidentMapStyleButtons();
     setTimeout(() => incidentMap.invalidateSize(), 100);
+}
+
+function setIncidentMapStyle(style) {
+    if (!incidentMap) {
+        return;
+    }
+
+    const targetStyle = style === 'sat' ? 'sat' : 'dark';
+    isIncidentMapSatellite = targetStyle === 'sat';
+
+    if (incidentMapDarkLayer) {
+        incidentMap.removeLayer(incidentMapDarkLayer);
+    }
+
+    if (incidentMapSatelliteLayer) {
+        incidentMap.removeLayer(incidentMapSatelliteLayer);
+    }
+
+    if (incidentMapSatelliteLabelLayer) {
+        incidentMap.removeLayer(incidentMapSatelliteLabelLayer);
+    }
+
+    if (isIncidentMapSatellite) {
+        incidentMapSatelliteLayer?.addTo(incidentMap);
+        incidentMapSatelliteLabelLayer?.addTo(incidentMap);
+    } else {
+        incidentMapDarkLayer?.addTo(incidentMap);
+    }
+
+    syncIncidentMapStyleButtons();
+}
+
+function syncIncidentMapStyleButtons() {
+    const mapButton = document.getElementById('btnIncidentMapStyle');
+    const satButton = document.getElementById('btnIncidentSatStyle');
+
+    if (!mapButton || !satButton) {
+        return;
+    }
+
+    const mapActive = !isIncidentMapSatellite;
+    const satActive = isIncidentMapSatellite;
+
+    mapButton.className = mapActive
+        ? 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-slate-500/50 bg-slate-800 text-white shadow-sm transition'
+        : 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-slate-700 text-slate-400 bg-slate-900 hover:text-slate-200 hover:bg-slate-800 transition';
+
+    satButton.className = satActive
+        ? 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 shadow-sm transition'
+        : 'px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border border-slate-700 text-slate-400 bg-slate-900 hover:text-slate-200 hover:bg-slate-800 transition';
 }
 
 async function requestJson(url, options = {}) {
@@ -90,6 +184,7 @@ async function refreshIncidents() {
 
         const result = await requestJson(`${API_BASE}?${params.toString()}`);
         allIncidents = Array.isArray(result.data) ? result.data : [];
+        mainMapHistoryCache.clear();
         incidentsPagination.totalEntries = Number(result?.pagination?.totalEntries || 0);
         incidentsPagination.totalPages = Math.max(1, Number(result?.pagination?.totalPages || 1));
 
@@ -100,7 +195,7 @@ async function refreshIncidents() {
         }
 
         renderIncidentTable();
-        renderIncidentMarkers();
+        await renderIncidentMarkers();
         renderStats();
         renderIncidentPagination();
     } catch (error) {
@@ -108,7 +203,7 @@ async function refreshIncidents() {
         incidentsPagination.totalEntries = 0;
         incidentsPagination.totalPages = 1;
         renderIncidentTable();
-        renderIncidentMarkers();
+        await renderIncidentMarkers();
         renderStats();
         renderIncidentPagination();
         setIncidentTableError(error.message || 'Failed to load incidents.');
@@ -126,13 +221,24 @@ function renderStats() {
     document.getElementById('statRecent').textContent = String(incidentsPagination.totalEntries || allIncidents.length);
 }
 
-function renderIncidentMarkers() {
+async function renderIncidentMarkers() {
     incidentMarkers.forEach((marker) => incidentMap.removeLayer(marker));
     incidentMarkers.clear();
 
-    allIncidents
+    if (mainMapEventMarkerLayer) {
+        incidentMap.removeLayer(mainMapEventMarkerLayer);
+        mainMapEventMarkerLayer = null;
+    }
+
+    const activeIncidents = allIncidents
         .filter((item) => item.latitude && item.longitude && INCIDENT_ACTIVE_STATUSES.includes(item.status))
-        .forEach((incident) => addIncidentMarker(incident));
+        .slice();
+
+    activeIncidents.forEach((incident) => addIncidentMarker(incident));
+
+    if (mainMapShowEventMarkers && activeIncidents.length > 0) {
+        await renderMainMapEventMarkers(activeIncidents);
+    }
 
     const markers = Array.from(incidentMarkers.values());
 
@@ -182,6 +288,137 @@ function addIncidentMarker(incident) {
     incidentMarkers.set(incident.id, marker);
 }
 
+async function renderMainMapEventMarkers(baseIncidents) {
+    if (!incidentMap || !Array.isArray(baseIncidents) || baseIncidents.length === 0) {
+        return;
+    }
+
+    if (!mainMapEventMarkerLayer) {
+        mainMapEventMarkerLayer = L.layerGroup().addTo(incidentMap);
+    } else {
+        mainMapEventMarkerLayer.clearLayers();
+    }
+
+    const markerPayloads = [];
+    await Promise.all(baseIncidents.map(async (baseIncident) => {
+        const cacheKey = Number(baseIncident.id);
+        let rows = mainMapHistoryCache.get(cacheKey);
+
+        if (!rows) {
+            try {
+                const result = await requestJson(`${API_BASE}/${cacheKey}/history`);
+                rows = Array.isArray(result.data) ? result.data : [];
+                mainMapHistoryCache.set(cacheKey, rows);
+            } catch (error) {
+                rows = [];
+            }
+        }
+
+        rows.forEach((row) => {
+            const lat = Number(row.latitude);
+            const lng = Number(row.longitude);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return;
+            }
+
+            markerPayloads.push({ baseIncident, row, lat, lng });
+        });
+    }));
+
+    markerPayloads.forEach(({ baseIncident, row, lat, lng }) => {
+        const markerMeta = getMainMapEventMarkerMeta(row, baseIncident);
+        const icon = L.divIcon({
+            className: 'custom-div-icon',
+            html: markerMeta.html,
+            iconSize: markerMeta.iconSize,
+            iconAnchor: markerMeta.iconAnchor
+        });
+
+        const marker = L.marker([lat, lng], { icon, opacity: markerMeta.opacity });
+        marker.bindPopup(buildMainMapEventPopupContent(baseIncident, row, markerMeta.color, markerMeta.statusLabel));
+        marker.addTo(mainMapEventMarkerLayer);
+    });
+}
+
+function getMainMapEventMarkerMeta(row, baseIncident) {
+    const status = String(row.status || baseIncident.status || 'open').toLowerCase();
+    const severity = String(row.severity || baseIncident.severity || 'normal').toLowerCase();
+    const colorMap = {
+        high: '#EF4444',
+        medium: '#F59E0B',
+        normal: '#3B82F6'
+    };
+    const statusMeta = {
+        resolved: { opacity: 0.55, ring: 'ring-slate-400/40', fill: 'bg-slate-400', pulse: false, statusLabel: 'Resolved' },
+        false_alarm: { opacity: 0.5, ring: 'ring-slate-500/35', fill: 'bg-slate-500', pulse: false, statusLabel: 'False Alarm' },
+        investigating: { opacity: 0.95, ring: 'ring-sky-400/35', fill: 'bg-sky-400', pulse: true, statusLabel: 'Investigating' },
+        acknowledged: { opacity: 0.9, ring: 'ring-blue-400/35', fill: 'bg-blue-400', pulse: false, statusLabel: 'Acknowledged' },
+        pending: { opacity: 0.85, ring: 'ring-amber-400/35', fill: 'bg-amber-400', pulse: false, statusLabel: 'Pending' },
+        open: { opacity: 0.85, ring: 'ring-amber-400/35', fill: 'bg-amber-400', pulse: false, statusLabel: 'Open' }
+    };
+    const meta = statusMeta[status] || statusMeta.open;
+    const color = colorMap[severity] || colorMap.normal;
+    const activeSize = status === 'resolved' || status === 'false_alarm' ? 14 : 16;
+
+    return {
+        color,
+        opacity: meta.opacity,
+        statusLabel: meta.statusLabel,
+        iconSize: [activeSize + 6, activeSize + 6],
+        iconAnchor: [Math.round((activeSize + 6) / 2), Math.round((activeSize + 6) / 2)],
+        html: meta.pulse
+            ? `<div class="relative flex items-center justify-center"><div class="absolute inset-0 rounded-full ${meta.fill}/25 animate-ping"></div><div class="relative ${meta.fill} ${meta.ring} border-2 border-white rounded-full shadow-lg" style="width:${activeSize}px;height:${activeSize}px;background-color:${color};"></div></div>`
+            : status === 'resolved' || status === 'false_alarm'
+                ? `<div class="flex items-center justify-center rounded-full border-2 border-white shadow-lg ${meta.ring}" style="width:${activeSize}px;height:${activeSize}px;background-color:rgba(148, 163, 184, 0.82);"></div>`
+                : `<div class="flex items-center justify-center rounded-full border-2 border-white shadow-lg ${meta.ring}" style="width:${activeSize}px;height:${activeSize}px;background-color:${color};"></div>`
+    };
+}
+
+function buildMainMapEventPopupContent(baseIncident, row, color, statusLabel = '') {
+    const eventLabel = formatIncidentType(row.incident_type || baseIncident.incident_type);
+    const statusText = statusLabel || formatStatus(row.status || baseIncident.status || 'open');
+    const taskLabel = baseIncident.task_id ? `Task #${baseIncident.task_id}` : 'No Task';
+    const timeLabel = formatTimestamp(row.resolved_at && String(row.status || '').toLowerCase() === 'resolved'
+        ? row.resolved_at
+        : row.created_at);
+    const note = String(row.operator_note || row.description || baseIncident.description || '').trim();
+    const eventCount = Math.max(1, Number(baseIncident.events_count || 0));
+
+    return `
+        <div class="min-w-[230px] rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-3 text-slate-200 shadow-xl">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-xs font-extrabold uppercase tracking-wide" style="color:${color}">${escapeHtml(eventLabel)}</p>
+                <span class="text-[10px] px-2 py-0.5 rounded-md border border-slate-600 bg-slate-800 text-slate-300">${escapeHtml(statusText)}</span>
+            </div>
+            <p class="text-xs text-slate-300 font-semibold">${escapeHtml(baseIncident.vehicle_name || 'Unknown Vehicle')} • ${escapeHtml(taskLabel)}</p>
+            <p class="mt-1 text-[11px] text-slate-400 leading-relaxed">${escapeHtml(note || 'No note available.')}</p>
+            <div class="mt-2 space-y-1 text-[11px] text-slate-400">
+                <p><span class="text-slate-500">Time:</span> ${escapeHtml(timeLabel)}</p>
+                <p><span class="text-slate-500">Location:</span> ${escapeHtml(formatCoordinatePair(row.latitude, row.longitude))}</p>
+                <p><span class="text-slate-500">Events:</span> ${escapeHtml(`${eventCount} lifecycle event${eventCount === 1 ? '' : 's'}`)}</p>
+            </div>
+            <button onclick="openIncidentDetail(${Number(baseIncident.id)})" class="mt-3 w-full px-3 py-1.5 text-[11px] font-bold rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 transition">View Incident</button>
+        </div>
+    `;
+}
+
+function syncMainMapMarkerButton() {
+    const button = document.getElementById('btnToggleMainMapMarkers');
+    if (!button) {
+        return;
+    }
+
+    button.setAttribute('aria-pressed', mainMapShowEventMarkers ? 'true' : 'false');
+    button.textContent = mainMapShowEventMarkers ? 'Event Markers: On' : 'Event Markers: Off';
+    button.classList.toggle('bg-emerald-500/10', mainMapShowEventMarkers);
+    button.classList.toggle('border-emerald-500/30', mainMapShowEventMarkers);
+    button.classList.toggle('text-emerald-300', mainMapShowEventMarkers);
+    button.classList.toggle('bg-slate-900', !mainMapShowEventMarkers);
+    button.classList.toggle('border-slate-700', !mainMapShowEventMarkers);
+    button.classList.toggle('text-slate-300', !mainMapShowEventMarkers);
+}
+
 function renderIncidentTableLoading() {
     const tbody = document.getElementById('incidentTableBody');
     tbody.innerHTML = `
@@ -227,6 +464,8 @@ function renderIncidentTable() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="text-sm font-bold text-white">${escapeHtml(incident.vehicle_name || 'Unknown Vehicle')}</div>
+                    <div class="text-[10px] font-semibold text-sky-300 mt-0.5">Task: ${escapeHtml(incident.task_id ? `#${incident.task_id}` : 'No Task')}</div>
+                    <div class="text-[10px] text-emerald-300 mt-0.5">${escapeHtml(`${Math.max(1, Number(incident.events_count || 0))} event${Math.max(1, Number(incident.events_count || 0)) === 1 ? '' : 's'}`)}</div>
                     <div class="text-[10px] text-slate-500 mt-0.5">Plate: ${escapeHtml(incident.vehicle_number || '-')}</div>
                     <div class="text-xs text-slate-400 mt-1">Driver: ${escapeHtml((incident.driver_name || '').trim() || '-')}</div>
                 </td>
@@ -253,6 +492,14 @@ function renderIncidentTable() {
 }
 
 function setupEventListeners() {
+    document.getElementById('btnIncidentMapStyle')?.addEventListener('click', () => {
+        setIncidentMapStyle('dark');
+    });
+
+    document.getElementById('btnIncidentSatStyle')?.addEventListener('click', () => {
+        setIncidentMapStyle('sat');
+    });
+
     document.getElementById('btnActiveView')?.addEventListener('click', async () => {
         currentView = 'active';
         incidentsPagination.page = 1;
@@ -319,6 +566,17 @@ function setupEventListeners() {
         focusIncidentOnMainMap();
     });
 
+    document.getElementById('btnToggleMainMapMarkers')?.addEventListener('click', async () => {
+        mainMapShowEventMarkers = !mainMapShowEventMarkers;
+        syncMainMapMarkerButton();
+        await renderIncidentMarkers();
+    });
+
+    document.getElementById('btnToggleModalMapMarkers')?.addEventListener('click', () => {
+        modalMapShowAllEventMarkers = !modalMapShowAllEventMarkers;
+        renderModalIncidentMap();
+    });
+
     document.getElementById('btnCancelStatusConfirm')?.addEventListener('click', closeStatusConfirmModal);
     document.getElementById('btnConfirmStatusChange')?.addEventListener('click', async () => {
         if (!pendingStatus) {
@@ -326,12 +584,431 @@ function setupEventListeners() {
             return;
         }
 
+        const note = getStatusUpdateNote();
+        if (!note) {
+            setStatusUpdateError('Please add a note before updating the incident status.');
+            return;
+        }
+
         const statusToApply = pendingStatus;
         closeStatusConfirmModal();
-        await handleStatusUpdate(statusToApply);
+        await handleStatusUpdate(statusToApply, note);
+    });
+
+    document.getElementById('btnStatusFlowInfo')?.addEventListener('click', () => {
+        const panel = document.getElementById('statusFlowInfoPanel');
+        const button = document.getElementById('btnStatusFlowInfo');
+        if (!panel || !button) {
+            return;
+        }
+
+        const isHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !isHidden);
+        button.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+    });
+
+    document.getElementById('btnToggleHistoryDetails')?.addEventListener('click', () => {
+        const body = document.getElementById('modalHistorySelectionDetailsBody');
+        const button = document.getElementById('btnToggleHistoryDetails');
+        const label = document.getElementById('btnToggleHistoryDetailsLabel');
+        if (!body || !button || !label) {
+            return;
+        }
+
+        const willExpand = body.classList.contains('hidden');
+        body.classList.toggle('hidden', !willExpand);
+        button.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+        label.textContent = willExpand ? 'Collapse' : 'Expand';
+    });
+
+    document.getElementById('modalHistoryFilter')?.addEventListener('change', (event) => {
+        modalHistoryFilter = String(event.target?.value || 'all').toLowerCase();
+        renderHistoryRows(modalHistoryRows);
+    });
+
+    document.getElementById('modalHistoryTypeFilterBar')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-history-type]');
+        if (!button) {
+            return;
+        }
+
+        modalHistoryTypeFilter = String(button.dataset.historyType || 'all').toLowerCase();
+        renderHistoryRows(modalHistoryRows);
+    });
+
+    document.getElementById('modalHistoryContainer')?.addEventListener('click', (event) => {
+        const rowEl = event.target.closest('[data-history-incident-id]');
+        if (!rowEl) {
+            return;
+        }
+
+        const selectedId = Number(rowEl.dataset.historyIncidentId);
+        if (!Number.isFinite(selectedId) || selectedId <= 0) {
+            return;
+        }
+
+        selectHistoryIncidentRow(selectedId);
+    });
+
+    document.getElementById('btnHistoryScrollTop')?.addEventListener('click', () => {
+        const historyContainer = document.getElementById('modalHistoryContainer');
+        historyContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    document.getElementById('btnHistoryScrollBottom')?.addEventListener('click', () => {
+        const historyContainer = document.getElementById('modalHistoryContainer');
+        if (!historyContainer) return;
+        historyContainer.scrollTo({ top: historyContainer.scrollHeight, behavior: 'smooth' });
     });
 
     setViewButtons();
+    syncMainMapMarkerButton();
+    syncIncidentMapStyleButtons();
+}
+
+function isWithinHistoryFilter(row, filter) {
+    const selected = String(filter || 'all').toLowerCase();
+    if (selected === 'all') {
+        return true;
+    }
+
+    const refDateRaw = row.resolved_at || row.created_at;
+    const refDate = new Date(refDateRaw);
+    if (Number.isNaN(refDate.getTime())) {
+        return false;
+    }
+
+    const now = new Date();
+    if (selected === 'today') {
+        return refDate.getFullYear() === now.getFullYear()
+            && refDate.getMonth() === now.getMonth()
+            && refDate.getDate() === now.getDate();
+    }
+
+    const days = selected === '7d' ? 7 : selected === '30d' ? 30 : null;
+    if (days === null) {
+        return true;
+    }
+
+    const threshold = new Date(now);
+    threshold.setDate(now.getDate() - days);
+    return refDate >= threshold;
+}
+
+function normalizeHistoryIncidentType(type) {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (normalized === 'cargo_loss' || normalized === 'loss') {
+        return 'loss';
+    }
+
+    if (normalized === 'above_reference') {
+        return 'above_reference';
+    }
+
+    if (normalized === 'overload') {
+        return 'overload';
+    }
+
+    return normalized;
+}
+
+function buildHistoryTimeline(rows) {
+    const orderedRows = Array.isArray(rows)
+        ? [...rows].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        : [];
+
+    if (orderedRows.length === 0) {
+        return [];
+    }
+
+    const baselineWeight = Number(orderedRows[0].initial_reference_weight_kg || 0);
+    const timeline = [{
+        recorded_at: orderedRows[0].created_at,
+        weight_kg: baselineWeight,
+        previous_weight_kg: baselineWeight,
+        sourceIncidentId: null,
+        weightImpactKg: null,
+        incident_type: 'baseline',
+        status: 'baseline'
+    }];
+
+    let previousWeight = baselineWeight;
+
+    orderedRows.forEach((row) => {
+        const impact = Number(row.weight_impact_kg);
+        const safeImpact = Number.isFinite(impact) ? impact : 0;
+        const status = String(row.status || '').toLowerCase();
+
+        let currentWeight = previousWeight + safeImpact;
+        if (status === 'resolved' || status === 'false_alarm') {
+            currentWeight = baselineWeight;
+        }
+
+        const pointTime = row.resolved_at && status === 'resolved'
+            ? row.resolved_at
+            : row.created_at;
+
+        timeline.push({
+            recorded_at: pointTime,
+            weight_kg: Math.max(0, currentWeight),
+            previous_weight_kg: Math.max(0, previousWeight),
+            incident_type: row.incident_type,
+            status,
+            sourceIncidentId: Number(row.id),
+            weightImpactKg: Number.isFinite(safeImpact) ? safeImpact : null
+        });
+
+        previousWeight = currentWeight;
+    });
+
+    return timeline;
+}
+
+function getHistoryTypeCounts(rows) {
+    const counts = {
+        all: 0,
+        loss: 0,
+        above_reference: 0,
+        overload: 0
+    };
+
+    rows.forEach((row) => {
+        counts.all += 1;
+        const normalizedType = normalizeHistoryIncidentType(row.incident_type);
+        if (Object.prototype.hasOwnProperty.call(counts, normalizedType)) {
+            counts[normalizedType] += 1;
+        }
+    });
+
+    return counts;
+}
+
+function syncHistoryTypeFilterButtons(rows) {
+    const buttons = document.querySelectorAll('#modalHistoryTypeFilterBar [data-history-type]');
+    if (!buttons.length) {
+        return;
+    }
+
+    const counts = getHistoryTypeCounts(rows);
+
+    buttons.forEach((button) => {
+        const type = String(button.dataset.historyType || 'all').toLowerCase();
+        const count = counts[type] ?? 0;
+        const isActive = type === modalHistoryTypeFilter;
+
+        button.classList.toggle('bg-sky-500/10', isActive);
+        button.classList.toggle('border-sky-500/40', isActive);
+        button.classList.toggle('text-sky-300', isActive);
+        button.classList.toggle('bg-slate-900', !isActive);
+        button.classList.toggle('border-slate-700', !isActive);
+        button.classList.toggle('text-slate-300', !isActive);
+        button.classList.toggle('hover:bg-slate-800', !isActive);
+
+        const badge = button.querySelector('span');
+        if (badge) {
+            badge.textContent = String(count);
+        }
+    });
+}
+
+function renderSelectedHistoryDetails(selectedRow) {
+    const detailsEl = document.getElementById('modalHistorySelectionDetailsBody');
+    if (!detailsEl) {
+        return;
+    }
+
+    if (!selectedRow) {
+        detailsEl.innerHTML = `
+            <p class="text-slate-400">Select an event row to view detailed context.</p>
+        `;
+        return;
+    }
+
+    const incidentId = Number(selectedRow.id);
+    const status = formatStatus(selectedRow.status || 'pending');
+    const incidentType = formatIncidentType(selectedRow.incident_type || 'unknown');
+    const eventTimeRaw = selectedRow.resolved_at && String(selectedRow.status || '').toLowerCase() === 'resolved'
+        ? selectedRow.resolved_at
+        : selectedRow.created_at;
+    const eventTime = formatTimestamp(eventTimeRaw);
+    const locationText = formatCoordinatePair(selectedRow.latitude, selectedRow.longitude);
+    const operatorNote = String(selectedRow.operator_note || '').trim();
+    const managedByName = String(selectedRow.managed_by_name || '').trim();
+
+    const timeline = buildHistoryTimeline(modalHistoryRows);
+    const selectedPoint = timeline.find((point) => Number(point.sourceIncidentId) === Number(selectedRow.id));
+    const previousWeight = selectedPoint && Number.isFinite(selectedPoint.previous_weight_kg)
+        ? Number(selectedPoint.previous_weight_kg)
+        : toFiniteOrNull(selectedRow.initial_reference_weight_kg);
+    const currentWeight = selectedPoint && Number.isFinite(selectedPoint.weight_kg)
+        ? Number(selectedPoint.weight_kg)
+        : toFiniteOrNull(selectedRow.initial_reference_weight_kg);
+    const impact = selectedPoint && Number.isFinite(selectedPoint.weightImpactKg)
+        ? Number(selectedPoint.weightImpactKg)
+        : toFiniteOrNull(selectedRow.weight_impact_kg);
+
+    let cargoNarrative = 'Cargo weight details are not available for this event.';
+    if (previousWeight !== null && currentWeight !== null) {
+        const changeLabel = impact < 0
+            ? `loss ${Math.abs(impact).toFixed(2)} kg`
+            : impact > 0
+                ? `gain +${impact.toFixed(2)} kg`
+                : 'no weight change';
+
+        cargoNarrative = `Cargo changed from ${previousWeight.toFixed(2)} kg to ${currentWeight.toFixed(2)} kg (${changeLabel}).`;
+    }
+
+    detailsEl.innerHTML = `
+        <div class="space-y-1.5 text-[11px] leading-relaxed">
+            <p><span class="text-slate-500">Event:</span> <span class="text-sky-300 font-semibold">${escapeHtml(incidentType)}</span> <span class="text-slate-500">#${Number.isFinite(incidentId) ? incidentId : '-'}</span> <span class="text-amber-300">(${escapeHtml(status)})</span></p>
+            <p><span class="text-slate-500">Time:</span> <span class="text-slate-200">${escapeHtml(eventTime)}</span></p>
+            <p><span class="text-slate-500">Location:</span> <span class="text-slate-200">${escapeHtml(locationText)}</span></p>
+            <p><span class="text-slate-500">Cargo:</span> <span class="text-slate-200">${escapeHtml(cargoNarrative)}</span></p>
+            <p><span class="text-slate-500">Operator Note:</span> <span class="text-slate-200">${escapeHtml(operatorNote || 'No operator note yet.')}</span></p>
+            <p><span class="text-slate-500">Updated By:</span> <span class="text-slate-200">${escapeHtml(managedByName || 'System')}</span></p>
+        </div>
+    `;
+}
+
+function getStatusUpdateNote() {
+    return String(document.getElementById('incidentStatusNote')?.value || '').trim();
+}
+
+function setStatusUpdateMessage(message) {
+    const el = document.getElementById('statusUpdateMessage');
+    if (!el) {
+        return;
+    }
+
+    if (!message) {
+        el.textContent = '';
+        el.classList.add('hidden');
+        return;
+    }
+
+    el.textContent = message;
+    el.classList.remove('hidden');
+}
+
+function setStatusUpdateLoading(isLoading) {
+    statusUpdateBusy = Boolean(isLoading);
+
+    document.querySelectorAll('.status-btn').forEach((button) => {
+        if (statusUpdateBusy) {
+            button.disabled = true;
+        }
+    });
+
+    const noteField = document.getElementById('incidentStatusNote');
+    if (noteField) {
+        noteField.disabled = statusUpdateBusy;
+    }
+
+    const confirmButton = document.getElementById('btnConfirmStatusChange');
+    if (confirmButton) {
+        confirmButton.disabled = statusUpdateBusy;
+        confirmButton.classList.toggle('opacity-50', statusUpdateBusy);
+        confirmButton.classList.toggle('cursor-not-allowed', statusUpdateBusy);
+    }
+
+    if (!statusUpdateBusy) {
+        syncStatusUpdateSectionByStatus(currentIncident?.status || modalDefaultIncidentStatus || 'pending');
+    }
+}
+
+function renderHistoryRows(rows) {
+    const historyContainer = document.getElementById('modalHistoryContainer');
+    if (!historyContainer) {
+        return;
+    }
+
+    const timeFilteredRows = rows.filter((row) => isWithinHistoryFilter(row, modalHistoryFilter));
+    syncHistoryTypeFilterButtons(timeFilteredRows);
+
+    const filteredRows = modalHistoryTypeFilter === 'all'
+        ? timeFilteredRows
+        : timeFilteredRows.filter((row) => normalizeHistoryIncidentType(row.incident_type) === modalHistoryTypeFilter);
+    modalHistoryFilteredRows = filteredRows;
+
+    if (filteredRows.length === 0) {
+        historyContainer.innerHTML = '<p class="text-slate-500">No lifecycle events for this filter.</p>';
+        return;
+    }
+
+    historyContainer.innerHTML = `
+        <div class="history-timeline-list">
+            ${filteredRows.map((row, index) => {
+                const severityClass = getSeverityTextClass(row.severity);
+                const normalizedStatus = String(row.status || '').toLowerCase();
+                const rowIncidentId = Number(row.id);
+                const isSelected = Number.isFinite(rowIncidentId) && Number(rowIncidentId) === Number(selectedHistoryIncidentId);
+                const eventText = (normalizedStatus === 'open' || normalizedStatus === 'pending')
+                    ? 'Opened'
+                    : normalizedStatus === 'resolved'
+                        ? 'Resolved'
+                        : normalizedStatus === 'false_alarm'
+                            ? 'Marked False Alarm'
+                            : formatStatus(row.status);
+                const incidentTypeText = formatIncidentType(row.incident_type || 'unknown');
+                const message = escapeHtml(row.description || 'Incident state updated by the system.');
+                const operatorNotePreview = String(row.operator_note || '').trim();
+                const impactValue = row.weight_impact_kg === null || row.weight_impact_kg === undefined
+                    ? null
+                    : Number(row.weight_impact_kg);
+                const impactText = impactValue === null || Number.isNaN(impactValue)
+                    ? ''
+                    : `${impactValue > 0 ? '+' : ''}${impactValue.toFixed(2)} kg`;
+                const eventTime = normalizedStatus === 'resolved' && row.resolved_at
+                    ? formatTimestamp(row.resolved_at)
+                    : formatTimestamp(row.created_at);
+                const stepNumber = String(index + 1).padStart(2, '0');
+                const nodeClass = normalizedStatus === 'resolved' || normalizedStatus === 'false_alarm'
+                    ? 'history-timeline-node history-timeline-node-complete'
+                    : normalizedStatus === 'investigating'
+                        ? 'history-timeline-node history-timeline-node-active'
+                        : 'history-timeline-node';
+
+                return `
+                    <div class="history-timeline-item">
+                        <div class="history-timeline-rail">
+                            <div class="${nodeClass}">${stepNumber}</div>
+                            ${index === filteredRows.length - 1 ? '' : '<div class="history-timeline-line"></div>'}
+                        </div>
+                        <div class="history-timeline-card ${isSelected ? 'history-timeline-card-selected' : ''}" data-history-incident-id="${Number.isFinite(rowIncidentId) ? rowIncidentId : ''}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-bold">Event ${stepNumber}</p>
+                                    <p class="mt-1 text-[11px] font-bold uppercase tracking-wide ${severityClass}">${escapeHtml(eventText)}</p>
+                                </div>
+                                <p class="text-[10px] font-mono text-slate-500 text-right">${escapeHtml(eventTime)}</p>
+                            </div>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <span class="history-chip history-chip-type">${escapeHtml(incidentTypeText)}</span>
+                                <span class="history-chip history-chip-status">${escapeHtml(formatStatus(row.status))}</span>
+                                ${impactText ? `<span class="history-chip history-chip-impact">${escapeHtml(impactText)}</span>` : ''}
+                            </div>
+                            <p class="mt-2 text-[11px] text-slate-300 leading-relaxed">${message}</p>
+                            <div class="history-note-preview mt-2">
+                                <span class="history-note-label">Note:</span>
+                                <span class="history-note-text">${escapeHtml(operatorNotePreview || 'No operator note yet.')}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    const activeDetailsRow = selectedHistoryIncidentId !== null
+        ? modalHistoryRows.find((row) => Number(row.id) === Number(selectedHistoryIncidentId))
+        : null;
+    renderSelectedHistoryDetails(activeDetailsRow || null);
+
+    renderModalIncidentMap();
+
+    if (currentIncident) {
+        renderWeightChart(currentIncident);
+    }
 }
 
 function setViewButtons() {
@@ -450,8 +1127,36 @@ async function openIncidentDetail(id) {
     }
 
     currentIncident = incident;
+    selectedHistoryIncidentId = Number(incident.id);
+    modalDefaultIncidentId = Number(incident.id);
+    modalDefaultIncidentStatus = String(incident.status || 'pending').toLowerCase();
+    modalHistoryRows = [];
+    modalHistoryFilteredRows = [];
+    modalHistoryFilter = 'all';
+    modalHistoryTypeFilter = 'all';
+    modalMapShowAllEventMarkers = true;
 
     clearStatusUpdateErrors();
+
+    const modalHistoryFilterSelect = document.getElementById('modalHistoryFilter');
+    if (modalHistoryFilterSelect) {
+        modalHistoryFilterSelect.value = 'all';
+    }
+
+    const detailsBody = document.getElementById('modalHistorySelectionDetailsBody');
+    if (detailsBody) {
+        detailsBody.classList.remove('hidden');
+    }
+
+    const detailsToggle = document.getElementById('btnToggleHistoryDetails');
+    const detailsToggleLabel = document.getElementById('btnToggleHistoryDetailsLabel');
+    if (detailsToggle && detailsToggleLabel) {
+        detailsToggle.setAttribute('aria-expanded', 'true');
+        detailsToggleLabel.textContent = 'Collapse';
+    }
+
+    syncHistoryTypeFilterButtons([]);
+    syncModalMapMarkerButton();
 
     // Open modal first so users always get immediate feedback on click.
     modal.classList.remove('hidden');
@@ -488,16 +1193,7 @@ async function openIncidentDetail(id) {
     );
     setText('modalDescription', incident.description || 'No description');
 
-    const statusUpdateSection = document.getElementById('statusUpdateSection');
-    const normalizedStatus = String(incident.status || '').toLowerCase();
-    if (statusUpdateSection) {
-        if (normalizedStatus === 'resolved' || normalizedStatus === 'closed') {
-            statusUpdateSection.classList.add('hidden');
-        } else {
-            statusUpdateSection.classList.remove('hidden');
-            updateStatusActionButtons(normalizedStatus);
-        }
-    }
+    syncStatusUpdateSectionByStatus(incident.status);
 
     await renderIncidentHistory(incident.id);
 
@@ -506,28 +1202,18 @@ async function openIncidentDetail(id) {
             modalMap.remove();
         }
 
+        modalMapMarkerLayer = null;
+
         const lat = Number(incident.latitude) || DEFAULT_CENTER[0];
         const lng = Number(incident.longitude) || DEFAULT_CENTER[1];
         modalMap = L.map('modalMap').setView([lat, lng], 10);
         L.tileLayer(DARK_TILE_URL, DARK_TILE_OPTIONS).addTo(modalMap);
 
-        if (Number.isFinite(Number(incident.latitude)) && Number.isFinite(Number(incident.longitude))) {
-            const icon = L.divIcon({
-                className: 'custom-div-icon',
-                html: `<div class="w-6 h-6 rounded-full border-2 border-white shadow-lg ${getSeverityDotBgClass(incident.severity)}"></div>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-
-            L.marker([lat, lng], { icon }).addTo(modalMap);
-        }
-
         modalMap.invalidateSize();
+        renderModalIncidentMap();
     }, 100);
 
-    renderWeightChart(incident).catch(() => {
-        // Keep modal usable even if timeline chart data fails.
-    });
+    renderWeightChart(incident);
 }
 
 async function renderIncidentHistory(incidentId) {
@@ -541,73 +1227,407 @@ async function renderIncidentHistory(incidentId) {
     try {
         const result = await requestJson(`${API_BASE}/${incidentId}/history`);
         const rows = Array.isArray(result.data) ? result.data : [];
+        modalHistoryRows = rows;
+
+        if (rows.length > 0) {
+            if (selectedHistoryIncidentId !== null) {
+                const hasSelected = rows.some((row) => Number(row.id) === Number(selectedHistoryIncidentId));
+                if (!hasSelected) {
+                    selectedHistoryIncidentId = null;
+                }
+            }
+
+            const targetId = selectedHistoryIncidentId !== null
+                ? Number(selectedHistoryIncidentId)
+                : Number(modalDefaultIncidentId);
+            const targetRow = rows.find((row) => Number(row.id) === targetId);
+
+            if (targetRow) {
+                currentIncidentId = Number(targetRow.id);
+                syncStatusUpdateSectionByStatus(targetRow.status);
+            } else {
+                currentIncidentId = Number.isFinite(Number(modalDefaultIncidentId))
+                    ? Number(modalDefaultIncidentId)
+                    : currentIncidentId;
+                syncStatusUpdateSectionByStatus(modalDefaultIncidentStatus || currentIncident?.status);
+            }
+        }
 
         if (rows.length === 0) {
             historyContainer.innerHTML = '<p class="text-slate-500">No lifecycle events found for this incident.</p>';
             return;
         }
 
-        historyContainer.innerHTML = rows.map((row) => {
-            const severityClass = getSeverityTextClass(row.severity);
-            const eventText = formatStatus(row.status);
-            const message = escapeHtml(row.description || 'Incident state updated by the system.');
-            const weightImpact = row.weight_impact_kg === null || row.weight_impact_kg === undefined
-                ? ''
-                : ` <span class="text-slate-500">(${Number(row.weight_impact_kg).toFixed(2)} kg)</span>`;
-
-            return `
-                <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <p class="text-[11px] font-bold uppercase tracking-wide ${severityClass}">${escapeHtml(eventText)}</p>
-                        <p class="text-[10px] font-mono text-slate-500">${escapeHtml(formatTimestamp(row.created_at))}</p>
-                    </div>
-                    <p class="mt-1 text-slate-300 leading-relaxed">${message}${weightImpact}</p>
-                </div>
-            `;
-        }).join('');
+        renderHistoryRows(rows);
     } catch (error) {
         historyContainer.innerHTML = `<p class="text-rose-300">${escapeHtml(error.message || 'Failed to load history.')}</p>`;
     }
 }
 
-async function renderWeightChart(incident) {
+function syncModalMapMarkerButton() {
+    const button = document.getElementById('btnToggleModalMapMarkers');
+    if (!button) {
+        return;
+    }
+
+    const hasMapRows = modalHistoryRows.some((row) => Number.isFinite(Number(row.latitude)) && Number.isFinite(Number(row.longitude)));
+    const isAllMode = modalMapShowAllEventMarkers;
+
+    button.disabled = !hasMapRows;
+    button.textContent = isAllMode ? 'All Event Markers' : 'Selected Event Only';
+    button.setAttribute('aria-pressed', isAllMode ? 'true' : 'false');
+    button.title = hasMapRows
+        ? 'Toggle between all visible history markers and only the selected event marker.'
+        : 'No event locations are available for this incident.';
+
+    button.classList.toggle('bg-sky-500/10', isAllMode);
+    button.classList.toggle('border-sky-500/30', isAllMode);
+    button.classList.toggle('text-sky-300', isAllMode);
+    button.classList.toggle('bg-slate-900', !isAllMode);
+    button.classList.toggle('border-slate-700', !isAllMode);
+    button.classList.toggle('text-slate-300', !isAllMode);
+    button.classList.toggle('opacity-50', !hasMapRows);
+    button.classList.toggle('cursor-not-allowed', !hasMapRows);
+}
+
+function getModalMapRows() {
+    if (modalMapShowAllEventMarkers) {
+        return modalHistoryFilteredRows.length > 0 ? modalHistoryFilteredRows : modalHistoryRows;
+    }
+
+    const selectedRow = selectedHistoryIncidentId !== null
+        ? modalHistoryRows.find((row) => Number(row.id) === Number(selectedHistoryIncidentId))
+        : null;
+
+    if (selectedRow) {
+        return [selectedRow];
+    }
+
+    const fallbackRow = modalDefaultIncidentId !== null
+        ? modalHistoryRows.find((row) => Number(row.id) === Number(modalDefaultIncidentId))
+        : null;
+
+    return fallbackRow ? [fallbackRow] : [];
+}
+
+function getModalMapMarkerColor(row, isSelected = false) {
+    if (isSelected) {
+        return '#38BDF8';
+    }
+
+    const normalizedSeverity = String(row?.severity || 'normal').toLowerCase();
+    const colors = {
+        high: '#EF4444',
+        medium: '#F59E0B',
+        normal: '#3B82F6'
+    };
+
+    return colors[normalizedSeverity] || colors.normal;
+}
+
+function buildModalMapPopupContent(row, isSelected = false) {
+    const color = getModalMapMarkerColor(row, isSelected);
+    const note = String(row.operator_note || row.description || '').trim();
+    const eventTime = row.resolved_at && String(row.status || '').toLowerCase() === 'resolved'
+        ? row.resolved_at
+        : row.created_at;
+    const weightImpact = Number(row.weight_impact_kg);
+    const impactText = Number.isFinite(weightImpact)
+        ? `${weightImpact > 0 ? '+' : ''}${weightImpact.toFixed(2)} kg`
+        : '-';
+
+    return `
+        <div class="min-w-[220px] rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-3 text-slate-200 shadow-xl">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-xs font-extrabold uppercase tracking-wide" style="color:${color}">${escapeHtml(formatIncidentType(row.incident_type))}</p>
+                <span class="text-[10px] px-2 py-0.5 rounded-md border ${isSelected ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-slate-600 bg-slate-800 text-slate-300'}">${escapeHtml(formatStatus(row.status || 'open'))}</span>
+            </div>
+            <p class="text-xs text-slate-300 font-semibold">${escapeHtml(row.vehicle_number || 'Unknown Vehicle')}</p>
+            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">${escapeHtml(note || 'No note available.')}</p>
+            <div class="mt-2 space-y-1 text-[11px] text-slate-400">
+                <p><span class="text-slate-500">Time:</span> ${escapeHtml(formatTimestamp(eventTime))}</p>
+                <p><span class="text-slate-500">Location:</span> ${escapeHtml(formatCoordinatePair(row.latitude, row.longitude))}</p>
+                <p><span class="text-slate-500">Impact:</span> ${escapeHtml(impactText)}</p>
+            </div>
+        </div>
+    `;
+}
+
+function renderModalIncidentMap() {
+    if (!modalMap) {
+        return;
+    }
+
+    if (!modalMapMarkerLayer) {
+        modalMapMarkerLayer = L.layerGroup().addTo(modalMap);
+    } else {
+        modalMapMarkerLayer.clearLayers();
+    }
+
+    const rows = getModalMapRows().filter((row) => Number.isFinite(Number(row.latitude)) && Number.isFinite(Number(row.longitude)));
+    syncModalMapMarkerButton();
+
+    if (rows.length === 0) {
+        const fallbackLat = Number(currentIncident?.latitude);
+        const fallbackLng = Number(currentIncident?.longitude);
+
+        if (Number.isFinite(fallbackLat) && Number.isFinite(fallbackLng)) {
+            const fallbackIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="w-6 h-6 rounded-full border-2 border-white shadow-lg ${getSeverityDotBgClass(currentIncident?.severity)}"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            L.marker([fallbackLat, fallbackLng], { icon: fallbackIcon }).addTo(modalMapMarkerLayer);
+            modalMap.setView([fallbackLat, fallbackLng], 10);
+        } else {
+            modalMap.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        }
+
+        return;
+    }
+
+    const markers = [];
+    const selectedRowId = Number(selectedHistoryIncidentId);
+
+    rows.forEach((row) => {
+        const lat = Number(row.latitude);
+        const lng = Number(row.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return;
+        }
+
+        const rowId = Number(row.id);
+        const isSelected = Number.isFinite(selectedRowId) && rowId === selectedRowId;
+        const color = getModalMapMarkerColor(row, isSelected);
+
+        const icon = L.divIcon({
+            className: 'custom-div-icon',
+            html: isSelected
+                ? `<div class="relative flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-sky-400/30 animate-ping"></div><div style="background-color:${color};" class="relative w-4 h-4 rounded-full border-2 border-white shadow-lg"></div></div>`
+                : `<div style="background-color:${color};" class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-lg"></div>`,
+            iconSize: isSelected ? [28, 28] : [20, 20],
+            iconAnchor: isSelected ? [14, 14] : [10, 10]
+        });
+
+        const marker = L.marker([lat, lng], { icon });
+        marker.bindPopup(buildModalMapPopupContent(row, isSelected));
+        marker.addTo(modalMapMarkerLayer);
+        markers.push(marker);
+    });
+
+    if (markers.length === 1) {
+        modalMap.setView(markers[0].getLatLng(), 12);
+        return;
+    }
+
+    if (markers.length > 1) {
+        const bounds = L.featureGroup(markers).getBounds();
+        if (bounds.isValid()) {
+            modalMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 13 });
+        }
+    }
+}
+
+function renderWeightChart(incident) {
     if (weightChart) {
         weightChart.destroy();
     }
 
-    let timeline = [];
-    try {
-        const result = await requestJson(`${API_BASE}/${incident.id}/timeline?limit=30`);
-        timeline = Array.isArray(result.data) ? result.data : [];
-    } catch (error) {
-        timeline = [];
+    if (typeof weightChartPanCleanup === 'function') {
+        weightChartPanCleanup();
+        weightChartPanCleanup = null;
     }
+
+    const weightChartContainer = document.getElementById('weightChartContainer');
+    if (!weightChartContainer) {
+        return;
+    }
+
+    const timeline = buildHistoryTimeline(modalHistoryFilteredRows);
 
     if (timeline.length === 0) {
-        const baseWeight = Number(incident.initial_weight_kg || 0);
-        const delta = Number(incident.weight_difference_kg || 0);
-        const normalizedType = String(incident.incident_type || '').toLowerCase();
-        let estimatedIncidentWeight = baseWeight;
-
-        if (normalizedType === 'loss' || normalizedType === 'cargo_loss') {
-            estimatedIncidentWeight = Math.max(0, baseWeight + delta);
-        }
-
-        if (normalizedType === 'overload') {
-            estimatedIncidentWeight = baseWeight;
-        }
-
-        timeline = Array.from({ length: 8 }).map((_, idx) => ({
-            recorded_at: new Date(new Date(incident.created_at).getTime() + idx * 5 * 60000).toISOString(),
-            weight_kg: idx < 4 ? baseWeight : estimatedIncidentWeight
-        }));
+        weightChartContainer.innerHTML = '<p class="text-xs text-slate-500 text-center">No weight events for the selected history filter.</p>';
+        return;
     }
 
-    document.getElementById('weightChartContainer').innerHTML = '<canvas id="weightChart"></canvas>';
-    const chartEl = document.getElementById('weightChart');
+    weightChartContainer.innerHTML = `
+        <div id="weightChartScroller" class="weight-chart-scroller custom-scrollbar">
+            <div id="weightChartInner" class="weight-chart-inner">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-1.5" aria-label="Timeline zoom controls">
+                <button id="btnWeightZoomOut" type="button" class="h-7 min-w-[2rem] px-2 rounded-md border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:bg-slate-800 transition" title="Zoom out timeline">-</button>
+                <button id="btnWeightZoomReset" type="button" class="h-7 px-2.5 rounded-md border border-slate-700 bg-slate-900 text-slate-300 text-[10px] font-bold uppercase tracking-wide hover:bg-slate-800 transition" title="Reset timeline zoom">100%</button>
+                <button id="btnWeightZoomIn" type="button" class="h-7 min-w-[2rem] px-2 rounded-md border border-slate-700 bg-slate-900 text-slate-300 text-xs font-bold hover:bg-slate-800 transition" title="Zoom in timeline">+</button>
+            </div>
+            <p id="weightZoomLevel" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Zoom 100%</p>
+        </div>
+        <div class="weight-chart-legend" aria-label="Weight timeline legend">
+            <span class="weight-chart-legend-item">
+                <span class="weight-chart-legend-swatch weight-chart-legend-swatch-line"></span>
+                Weight (kg)
+            </span>
+            <span class="weight-chart-legend-item">
+                <span class="weight-chart-legend-swatch weight-chart-legend-swatch-dashed"></span>
+                Selected Event Time
+            </span>
+        </div>
+        <p class="weight-chart-hint">Click and drag left/right to pan timeline</p>
+    `;
 
-    const labels = timeline.map((item) => formatTime(item.recorded_at));
+    const chartEl = document.getElementById('weightChart');
+    const chartScroller = document.getElementById('weightChartScroller');
+    const chartInner = document.getElementById('weightChartInner');
+    const zoomOutBtn = document.getElementById('btnWeightZoomOut');
+    const zoomInBtn = document.getElementById('btnWeightZoomIn');
+    const zoomResetBtn = document.getElementById('btnWeightZoomReset');
+    const zoomLevelEl = document.getElementById('weightZoomLevel');
+
+    if (!chartEl || !chartScroller || !chartInner) {
+        return;
+    }
+
+    const labels = timeline.map((item) => formatTimestamp(item.recorded_at));
     const weights = timeline.map((item) => Number(item.weight_kg));
+    const totalPoints = labels.length;
+    const selectedPointIndex = timeline.findIndex((item) => Number(item.sourceIncidentId) === Number(selectedHistoryIncidentId));
+
+    const chartHintEl = weightChartContainer.querySelector('.weight-chart-hint');
+    if (chartHintEl) {
+        chartHintEl.textContent = totalPoints > 80
+            ? 'Dense timeline: zoom +/- then drag left/right or use mouse-wheel'
+            : 'Use +/- to zoom, then drag left/right to pan timeline';
+    }
+
+    const visibleWidth = Math.max(chartScroller.clientWidth, 320);
+    const basePxPerPoint = totalPoints > 200
+        ? 70
+        : totalPoints > 120
+            ? 76
+            : totalPoints > 70
+                ? 84
+                : 92;
+    const densityBoost = totalPoints > 60
+        ? Math.min(1.55, 1 + ((totalPoints - 60) / 220))
+        : 1;
+    const pxPerPoint = Math.round(basePxPerPoint * densityBoost);
+    const minTimelineWidth = visibleWidth;
+    const baseTimelineWidth = Math.max(minTimelineWidth, labels.length * pxPerPoint);
+
+    const zoomConfig = {
+        min: 0.65,
+        max: 3,
+        step: 0.2
+    };
+
+    let timelineZoom = 1;
+
+    const updateZoomUi = () => {
+        const zoomPercent = Math.round(timelineZoom * 100);
+        if (zoomLevelEl) {
+            zoomLevelEl.textContent = `Zoom ${zoomPercent}%`;
+        }
+
+        if (zoomOutBtn) {
+            zoomOutBtn.disabled = timelineZoom <= zoomConfig.min;
+            zoomOutBtn.classList.toggle('opacity-50', zoomOutBtn.disabled);
+            zoomOutBtn.classList.toggle('cursor-not-allowed', zoomOutBtn.disabled);
+        }
+
+        if (zoomInBtn) {
+            zoomInBtn.disabled = timelineZoom >= zoomConfig.max;
+            zoomInBtn.classList.toggle('opacity-50', zoomInBtn.disabled);
+            zoomInBtn.classList.toggle('cursor-not-allowed', zoomInBtn.disabled);
+        }
+    };
+
+    const applyTimelineZoom = (nextZoom, preserveCenter = true) => {
+        const normalizedZoom = Math.max(zoomConfig.min, Math.min(zoomConfig.max, nextZoom));
+        const previousWidth = chartInner.clientWidth || baseTimelineWidth;
+        const viewportWidth = chartScroller.clientWidth || visibleWidth;
+        const previousCenterRatio = preserveCenter && previousWidth > 0
+            ? (chartScroller.scrollLeft + (viewportWidth / 2)) / previousWidth
+            : 1;
+
+        timelineZoom = normalizedZoom;
+
+        const zoomedTimelineWidth = Math.max(minTimelineWidth, Math.round(baseTimelineWidth * timelineZoom));
+        chartInner.style.width = `${zoomedTimelineWidth}px`;
+
+        if (preserveCenter) {
+            const targetCenter = previousCenterRatio * zoomedTimelineWidth;
+            const nextScrollLeft = Math.max(0, Math.min(zoomedTimelineWidth - viewportWidth, targetCenter - (viewportWidth / 2)));
+            chartScroller.scrollLeft = nextScrollLeft;
+        } else {
+            chartScroller.scrollLeft = Math.max(0, zoomedTimelineWidth - viewportWidth);
+        }
+
+        updateZoomUi();
+    };
+
+    applyTimelineZoom(1, false);
+
+    zoomOutBtn?.addEventListener('click', () => {
+        applyTimelineZoom(timelineZoom - zoomConfig.step, true);
+    });
+
+    zoomInBtn?.addEventListener('click', () => {
+        applyTimelineZoom(timelineZoom + zoomConfig.step, true);
+    });
+
+    zoomResetBtn?.addEventListener('click', () => {
+        applyTimelineZoom(1, true);
+    });
+
+    const regularPointRadius = totalPoints > 220
+        ? 0
+        : totalPoints > 120
+            ? 1.5
+            : 3;
+    const regularPointHoverRadius = totalPoints > 220
+        ? 2
+        : totalPoints > 120
+            ? 3.5
+            : 5;
+    const xTickLimit = totalPoints > 220
+        ? 14
+        : totalPoints > 120
+            ? 12
+            : totalPoints > 60
+                ? 10
+                : 8;
+
+    const selectedGuideLinePlugin = {
+        id: 'selectedGuideLinePlugin',
+        afterDatasetsDraw(chart) {
+            if (selectedPointIndex < 0) {
+                return;
+            }
+
+            const meta = chart.getDatasetMeta(0);
+            const point = meta?.data?.[selectedPointIndex];
+            if (!point) {
+                return;
+            }
+
+            const { ctx, chartArea } = chart;
+            const x = point.x;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([6, 6]);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
 
     weightChart = new Chart(chartEl, {
         type: 'line',
@@ -620,13 +1640,19 @@ async function renderWeightChart(incident) {
                     borderColor: '#2DD4BF',
                     backgroundColor: 'rgba(45, 212, 191, 0.12)',
                     fill: true,
-                    tension: 0.35
+                    tension: totalPoints > 120 ? 0.22 : 0.35,
+                    pointRadius: (_, index) => (index === selectedPointIndex ? 6 : regularPointRadius),
+                    pointHoverRadius: (_, index) => (index === selectedPointIndex ? 8 : regularPointHoverRadius),
+                    pointBackgroundColor: (_, index) => (index === selectedPointIndex ? '#38BDF8' : '#2DD4BF'),
+                    pointBorderColor: (_, index) => (index === selectedPointIndex ? '#E2E8F0' : '#0F172A'),
+                    pointBorderWidth: (_, index) => (index === selectedPointIndex ? 2 : 1)
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
             plugins: {
                 legend: {
                     labels: { color: '#9CA3AF' }
@@ -634,7 +1660,12 @@ async function renderWeightChart(incident) {
             },
             scales: {
                 x: {
-                    ticks: { color: '#9CA3AF' },
+                    ticks: {
+                        color: '#9CA3AF',
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: xTickLimit
+                    },
                     grid: { color: '#374151' }
                 },
                 y: {
@@ -642,44 +1673,221 @@ async function renderWeightChart(incident) {
                     grid: { color: '#374151' }
                 }
             }
-        }
+        },
+        plugins: [selectedGuideLinePlugin]
     });
+
+    weightChartPanCleanup = attachDragToScroll(chartScroller);
 }
 
-async function handleStatusUpdate(nextStatus) {
+function attachDragToScroll(scrollerEl) {
+    if (!scrollerEl) {
+        return null;
+    }
+
+    let isDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    const onPointerDown = (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        isDragging = true;
+        startX = event.clientX;
+        startScrollLeft = scrollerEl.scrollLeft;
+        scrollerEl.classList.add('is-grabbing');
+        scrollerEl.setPointerCapture?.(event.pointerId);
+    };
+
+    const onPointerMove = (event) => {
+        if (!isDragging) {
+            return;
+        }
+
+        const deltaX = event.clientX - startX;
+        scrollerEl.scrollLeft = startScrollLeft - deltaX;
+    };
+
+    const stopDragging = () => {
+        if (!isDragging) {
+            return;
+        }
+
+        isDragging = false;
+        scrollerEl.classList.remove('is-grabbing');
+    };
+
+    const onWheel = (event) => {
+        const hasHorizontalOverflow = scrollerEl.scrollWidth > scrollerEl.clientWidth;
+        if (!hasHorizontalOverflow) {
+            return;
+        }
+
+        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+            ? event.deltaX
+            : event.deltaY;
+
+        if (dominantDelta === 0) {
+            return;
+        }
+
+        scrollerEl.scrollLeft += dominantDelta;
+        event.preventDefault();
+    };
+
+    scrollerEl.addEventListener('pointerdown', onPointerDown);
+    scrollerEl.addEventListener('pointermove', onPointerMove);
+    scrollerEl.addEventListener('pointerup', stopDragging);
+    scrollerEl.addEventListener('pointercancel', stopDragging);
+    scrollerEl.addEventListener('pointerleave', stopDragging);
+    scrollerEl.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+        scrollerEl.removeEventListener('pointerdown', onPointerDown);
+        scrollerEl.removeEventListener('pointermove', onPointerMove);
+        scrollerEl.removeEventListener('pointerup', stopDragging);
+        scrollerEl.removeEventListener('pointercancel', stopDragging);
+        scrollerEl.removeEventListener('pointerleave', stopDragging);
+        scrollerEl.removeEventListener('wheel', onWheel);
+    };
+}
+
+async function handleStatusUpdate(nextStatus, noteText = '') {
     if (!currentIncidentId || !nextStatus) {
         return;
     }
 
     clearStatusUpdateErrors();
+    setStatusUpdateMessage('');
+    setStatusUpdateLoading(true);
+
+    const note = String(noteText || getStatusUpdateNote()).trim();
+
+    if (!note) {
+        setStatusUpdateLoading(false);
+        setStatusUpdateError('Please add a note before updating the incident status.');
+        return;
+    }
 
     try {
-        await requestJson(`${API_BASE}/${currentIncidentId}/status`, {
+        const result = await requestJson(`${API_BASE}/${currentIncidentId}/status`, {
             method: 'PATCH',
             body: JSON.stringify({
-                status: nextStatus
+                status: nextStatus,
+                note
             })
         });
 
         const target = allIncidents.find((item) => Number(item.id) === Number(currentIncidentId));
         if (target) {
             target.status = nextStatus;
+            target.description = note;
+            target.managed_by = result?.data?.managed_by ?? target.managed_by;
+            target.resolved_at = result?.data?.resolved_at ?? target.resolved_at;
+        }
+
+        if (currentIncident) {
+            currentIncident.status = nextStatus;
+            currentIncident.description = note;
+            currentIncident.managed_by = result?.data?.managed_by ?? currentIncident.managed_by;
+            currentIncident.resolved_at = result?.data?.resolved_at ?? currentIncident.resolved_at;
         }
 
         renderIncidentTable();
-        renderIncidentMarkers();
+        await renderIncidentMarkers();
         renderStats();
-        closeModal();
+        await renderIncidentHistory(currentIncidentId);
+        syncStatusUpdateSectionByStatus(nextStatus);
+
+        const noteField = document.getElementById('incidentStatusNote');
+        if (noteField) {
+            noteField.value = '';
+        }
+
+        setStatusUpdateMessage('Status updated successfully.');
     } catch (error) {
         const fieldErrors = error.fieldErrors || {};
 
         if (fieldErrors.status || fieldErrors.incidentId) {
             setStatusUpdateError(fieldErrors.status || fieldErrors.incidentId);
+            setStatusUpdateLoading(false);
+            return;
+        }
+
+        if (fieldErrors.note || fieldErrors.session) {
+            setStatusUpdateError(fieldErrors.note || fieldErrors.session);
+            setStatusUpdateLoading(false);
             return;
         }
 
         setStatusUpdateError(error.message || 'Failed to update incident status.');
+    } finally {
+        setStatusUpdateLoading(false);
     }
+}
+
+function syncStatusUpdateSectionByStatus(status) {
+    const statusUpdateSection = document.getElementById('statusUpdateSection');
+    const selectedEventLabel = document.getElementById('statusUpdateSelectedEvent');
+    if (!statusUpdateSection) {
+        return;
+    }
+
+    statusUpdateSection.classList.remove('hidden');
+    const normalizedStatus = String(status || 'pending').toLowerCase();
+    const resolvedTargetId = Number(currentIncidentId);
+
+    if (selectedEventLabel) {
+        const idText = Number.isFinite(resolvedTargetId) && resolvedTargetId > 0
+            ? `#${resolvedTargetId}`
+            : '-';
+        selectedEventLabel.textContent = `Selected event: ${idText} (${formatStatus(normalizedStatus)})`;
+    }
+
+    const noteField = document.getElementById('incidentStatusNote');
+    if (noteField && !statusUpdateBusy) {
+        const placeholders = {
+            pending: 'Add a note before acknowledging this incident...',
+            open: 'Add a note before acknowledging this incident...',
+            acknowledged: 'Add a note before investigating this incident...',
+            investigating: 'Add your investigation, resolution, or false alarm note...',
+            resolved: 'Add a resolution note...',
+            false_alarm: 'Add a false alarm explanation...'
+        };
+
+        noteField.placeholder = placeholders[normalizedStatus] || 'Add a note for this status update...';
+    }
+
+    updateStatusActionButtons(normalizedStatus);
+}
+
+function selectHistoryIncidentRow(incidentId) {
+    if (Number(selectedHistoryIncidentId) === Number(incidentId)) {
+        selectedHistoryIncidentId = null;
+        currentIncidentId = Number.isFinite(Number(modalDefaultIncidentId))
+            ? Number(modalDefaultIncidentId)
+            : currentIncidentId;
+
+        clearStatusUpdateErrors();
+        syncStatusUpdateSectionByStatus(modalDefaultIncidentStatus || currentIncident?.status);
+        renderHistoryRows(modalHistoryRows);
+        return;
+    }
+
+    const selectedRow = modalHistoryRows.find((row) => Number(row.id) === Number(incidentId));
+    if (!selectedRow) {
+        return;
+    }
+
+    selectedHistoryIncidentId = Number(selectedRow.id);
+    currentIncidentId = Number(selectedRow.id);
+
+    clearStatusUpdateErrors();
+    setStatusUpdateMessage('');
+    syncStatusUpdateSectionByStatus(selectedRow.status);
+    renderHistoryRows(modalHistoryRows);
 }
 
 function closeModal() {
@@ -691,10 +1899,68 @@ function closeModal() {
     clearStatusUpdateErrors();
     currentIncidentId = null;
     currentIncident = null;
+    selectedHistoryIncidentId = null;
+    modalDefaultIncidentId = null;
+    modalDefaultIncidentStatus = null;
 
     if (modalMap) {
         modalMap.remove();
         modalMap = null;
+    }
+
+    modalMapMarkerLayer = null;
+    modalMapShowAllEventMarkers = true;
+
+    if (weightChart) {
+        weightChart.destroy();
+        weightChart = null;
+    }
+
+    if (typeof weightChartPanCleanup === 'function') {
+        weightChartPanCleanup();
+        weightChartPanCleanup = null;
+    }
+
+    const selectedEventLabel = document.getElementById('statusUpdateSelectedEvent');
+    if (selectedEventLabel) {
+        selectedEventLabel.textContent = 'Selected event: -';
+    }
+
+    const noteField = document.getElementById('incidentStatusNote');
+    if (noteField) {
+        noteField.value = '';
+    }
+
+    const statusFlowInfoPanel = document.getElementById('statusFlowInfoPanel');
+    if (statusFlowInfoPanel) {
+        statusFlowInfoPanel.classList.add('hidden');
+    }
+
+    const statusFlowInfoButton = document.getElementById('btnStatusFlowInfo');
+    if (statusFlowInfoButton) {
+        statusFlowInfoButton.setAttribute('aria-expanded', 'false');
+    }
+
+    const modalMapMarkerButton = document.getElementById('btnToggleModalMapMarkers');
+    if (modalMapMarkerButton) {
+        modalMapMarkerButton.setAttribute('aria-pressed', 'true');
+        modalMapMarkerButton.textContent = 'All Event Markers';
+        modalMapMarkerButton.disabled = false;
+    }
+
+    setStatusUpdateMessage('');
+    renderSelectedHistoryDetails(null);
+
+    const detailsBody = document.getElementById('modalHistorySelectionDetailsBody');
+    if (detailsBody) {
+        detailsBody.classList.remove('hidden');
+    }
+
+    const detailsToggle = document.getElementById('btnToggleHistoryDetails');
+    const detailsToggleLabel = document.getElementById('btnToggleHistoryDetailsLabel');
+    if (detailsToggle && detailsToggleLabel) {
+        detailsToggle.setAttribute('aria-expanded', 'true');
+        detailsToggleLabel.textContent = 'Collapse';
     }
 }
 
@@ -938,6 +2204,7 @@ function formatIncidentType(type) {
         cargo_loss: 'Cargo Loss',
         loss: 'Cargo Loss',
         overload: 'Overload',
+        above_reference: 'Above Reference',
         route_deviation: 'Route Deviation',
         unauthorized_stop: 'Unauthorized Stop'
     };
@@ -1031,17 +2298,25 @@ function formatCoordinatePair(lat, lng) {
     return `${latNum.toFixed(4)}, ${lngNum.toFixed(4)}`;
 }
 
+function toFiniteOrNull(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+}
+
 function buildDispatchTaskCell(incident) {
-    const taskLabel = incident.task_id ? `#${incident.task_id}` : 'No Task';
+    const taskLabel = incident.task_id ? `Task #${incident.task_id}` : 'No Task';
     const dispatchStatus = formatStatus(incident.dispatch_status || 'pending');
     const pickupLabel = formatCoordinatePair(incident.pickup_lat, incident.pickup_lng);
     const dropoffLabel = formatCoordinatePair(incident.destination_lat, incident.destination_lng);
+    const eventCount = Math.max(1, Number(incident.events_count || 0));
+    const eventCountLabel = `${eventCount} event${eventCount === 1 ? '' : 's'}`;
 
     return `
         <div class="space-y-1.5">
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center rounded-md border border-slate-600/80 bg-slate-800/70 px-2 py-0.5 text-[10px] font-bold text-slate-200">${escapeHtml(taskLabel)}</span>
                 <span class="inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300">${escapeHtml(dispatchStatus)}</span>
+                <span class="inline-flex items-center rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">${escapeHtml(eventCountLabel)}</span>
             </div>
             <div class="text-[10px] leading-relaxed text-slate-400">
                 <div><span class="text-slate-500">Pickup:</span> ${escapeHtml(pickupLabel)}</div>
@@ -1058,6 +2333,9 @@ function getIncidentTypeBadgeClass(type) {
     }
     if (normalized === 'overload') {
         return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold tracking-wide';
+    }
+    if (normalized === 'above_reference') {
+        return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/30 text-[10px] font-bold tracking-wide';
     }
     if (normalized === 'route_deviation') {
         return 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] font-bold tracking-wide';

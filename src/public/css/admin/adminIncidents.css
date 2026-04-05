@@ -25,13 +25,15 @@
         
         /* Dark mode map styling - using CARTO dark tiles, no filter needed */
         #incidentMap {
-            height: 400px;
+            height: 100%;
+            min-height: 100%;
             width: 100%;
             border-radius: 0.75rem;
             z-index: 10;
         }
         #modalMap {
-            height: 250px;
+            height: 100%;
+            min-height: 280px;
             width: 100%;
             border-radius: 0.5rem;
             z-index: 10;
@@ -75,4 +77,258 @@
         }
         .new-incident {
             animation: slideIn 0.3s ease-out;
+        }
+
+        #weightChartContainer {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+
+        .weight-chart-scroller {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            height: 100%;
+            min-height: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border: 1px solid rgba(51, 65, 85, 0.7);
+            border-radius: 0.65rem;
+            background: rgba(2, 6, 23, 0.4);
+            cursor: grab;
+            user-select: none;
+            touch-action: pan-x;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .weight-chart-scroller::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+        }
+
+        .weight-chart-scroller.is-grabbing {
+            cursor: grabbing;
+        }
+
+        .weight-chart-inner {
+            height: 100%;
+            min-height: 0;
+            padding: 0.6rem 0.6rem 0.2rem;
+        }
+
+        .weight-chart-inner canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .weight-chart-hint {
+            margin: 0;
+            text-align: left;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+            color: #64748B;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        @media (max-width: 768px) {
+            .weight-chart-scroller {
+                height: 100%;
+            }
+
+            .weight-chart-inner {
+                min-height: 0;
+            }
+        }
+
+        .weight-chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.75rem;
+            font-size: 10px;
+            color: #94A3B8;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .weight-chart-legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .weight-chart-legend-swatch {
+            display: inline-block;
+            width: 18px;
+            height: 0;
+            border-top: 2px solid;
+            border-radius: 999px;
+        }
+
+        @media (min-width: 1280px) {
+            #modalMap {
+                min-height: 320px;
+            }
+        }
+
+        .weight-chart-legend-swatch-line {
+            border-top-color: #2DD4BF;
+        }
+
+        .weight-chart-legend-swatch-dashed {
+            border-top-color: #38BDF8;
+            border-top-style: dashed;
+        }
+
+        .history-timeline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .history-timeline-item {
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr);
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+
+        .history-timeline-rail {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 0.2rem;
+        }
+
+        .history-timeline-node {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #CBD5E1;
+            border: 1px solid rgba(51, 65, 85, 0.95);
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.45);
+        }
+
+        .history-timeline-node-active {
+            color: #BAE6FD;
+            border-color: rgba(56, 189, 248, 0.65);
+            background: rgba(8, 47, 73, 0.95);
+            box-shadow: 0 0 0 4px rgba(8, 47, 73, 0.35), 0 0 22px rgba(56, 189, 248, 0.15);
+        }
+
+        .history-timeline-node-complete {
+            color: #A7F3D0;
+            border-color: rgba(16, 185, 129, 0.6);
+            background: rgba(6, 78, 59, 0.95);
+            box-shadow: 0 0 0 4px rgba(6, 78, 59, 0.35);
+        }
+
+        .history-timeline-line {
+            width: 2px;
+            flex: 1;
+            min-height: 16px;
+            margin-top: 0.35rem;
+            background: linear-gradient(to bottom, rgba(148, 163, 184, 0.7), rgba(51, 65, 85, 0.15));
+        }
+
+        .history-timeline-card {
+            position: relative;
+            padding: 0.9rem 1rem;
+            border-radius: 0.85rem;
+            border: 1px solid rgba(51, 65, 85, 0.85);
+            background: rgba(15, 23, 42, 0.72);
+            cursor: pointer;
+            transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+        }
+
+        .history-timeline-card:hover {
+            border-color: rgba(71, 85, 105, 0.95);
+            background: rgba(15, 23, 42, 0.9);
+            transform: translateY(-1px);
+        }
+
+        .history-timeline-card-selected {
+            border-color: rgba(56, 189, 248, 0.7);
+            background: rgba(8, 47, 73, 0.24);
+            box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18), 0 10px 30px rgba(2, 132, 199, 0.12);
+        }
+
+        .history-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 0.2rem 0.45rem;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border: 1px solid rgba(51, 65, 85, 0.95);
+            background: rgba(15, 23, 42, 0.9);
+            color: #CBD5E1;
+        }
+
+        .history-chip-type {
+            color: #7DD3FC;
+            border-color: rgba(56, 189, 248, 0.28);
+            background: rgba(8, 47, 73, 0.55);
+        }
+
+        .history-chip-status {
+            color: #FDE68A;
+            border-color: rgba(245, 158, 11, 0.28);
+            background: rgba(69, 26, 3, 0.48);
+        }
+
+        .history-chip-impact {
+            color: #A7F3D0;
+            border-color: rgba(16, 185, 129, 0.28);
+            background: rgba(6, 78, 59, 0.45);
+        }
+
+        .history-note-preview {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.35rem;
+            padding: 0.4rem 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(51, 65, 85, 0.55);
+            background: rgba(15, 23, 42, 0.45);
+            font-size: 10px;
+            line-height: 1.35;
+        }
+
+        .history-note-label {
+            color: #94A3B8;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            flex-shrink: 0;
+        }
+
+        .history-note-text {
+            color: #CBD5E1;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-word;
         }
