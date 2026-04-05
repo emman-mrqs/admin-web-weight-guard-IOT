@@ -29,17 +29,18 @@ class VehicleTelemetryController {
             }
 
             return res.status(200).json({
-                message: 'Telemetry accepted.',
-                telemetryPersisted: result.telemetryPersisted,
+                message: 'Tracking data accepted.',
+                stateUpdated: result.stateUpdated,
                 movementMeters: result.movementMeters,
+                headingDeltaDegrees: result.headingDeltaDegrees,
+                speedDeltaKmh: result.speedDeltaKmh,
                 weightDeltaKg: result.weightDeltaKg,
-                weightDropKg: result.weightDeltaKg,
                 data: result.data
             });
         } catch (error) {
             console.error('[VehicleTelemetryController] ingestFromEsp32 error:', error);
             return res.status(500).json({
-                error: 'An error occurred while ingesting telemetry.'
+                error: 'An error occurred while ingesting tracking data.'
             });
         }
     }
@@ -55,14 +56,14 @@ class VehicleTelemetryController {
             }
 
             return res.status(200).json({
-                message: 'Mock telemetry accepted.',
-                telemetryPersisted: result.telemetryPersisted,
+                message: 'Mock tracking data accepted.',
+                stateUpdated: result.stateUpdated,
                 data: result.data
             });
         } catch (error) {
             console.error('[VehicleTelemetryController] ingestMock error:', error);
             return res.status(500).json({
-                error: 'An error occurred while ingesting mock telemetry.'
+                error: 'An error occurred while ingesting mock tracking data.'
             });
         }
     }

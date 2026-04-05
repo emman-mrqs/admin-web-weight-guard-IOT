@@ -109,7 +109,8 @@ class UserMobileActivityController {
             v.plate_number,
             v.vehicle_type,
             v.max_capacity_kg,
-            last_log.current_weight_kg AS latest_weight_kg,
+            vls.current_weight_kg AS latest_weight_kg,
+            vls.last_ping_at AS latest_weight_recorded_at,
             latest_incident.id AS incident_id,
             latest_incident.incident_type,
             latest_incident.severity AS incident_severity,
@@ -118,13 +119,7 @@ class UserMobileActivityController {
             latest_incident.created_at AS incident_created_at
           FROM dispatch_tasks dt
           INNER JOIN vehicles v ON v.id = dt.vehicle_id
-          LEFT JOIN LATERAL (
-            SELECT tl.current_weight_kg, tl.recorded_at
-            FROM telemetry_logs tl
-            WHERE tl.task_id = dt.id
-            ORDER BY tl.recorded_at DESC, tl.id DESC
-            LIMIT 1
-          ) AS last_log ON TRUE
+          LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
           LEFT JOIN LATERAL (
             SELECT i.id, i.incident_type, i.severity, i.status, i.weight_impact_kg, i.created_at
             FROM incidents i
@@ -169,6 +164,7 @@ class UserMobileActivityController {
                   weightImpactKg: toNumber(row.weight_impact_kg)
                 }
               : null,
+            latestRecordedAt: row.latest_weight_recorded_at,
             vehicle: {
               id: Number(row.vehicle_id),
               plateNumber: String(row.plate_number || '').trim(),

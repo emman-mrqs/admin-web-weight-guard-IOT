@@ -168,7 +168,7 @@ function determineWeightIncident({
     maxCapacityKg,
     currentWeightKg
 }) {
-    if (dispatchStatus !== 'in_transit') {
+    if (!['in_transit', 'active'].includes(dispatchStatus)) {
         return null;
     }
 
@@ -333,7 +333,7 @@ class AdminIncidentsController {
                 FROM dispatch_tasks dt
                 INNER JOIN vehicles v ON v.id = dt.vehicle_id
                 LEFT JOIN vehicle_live_state vls ON vls.vehicle_id = v.id
-                WHERE LOWER(COALESCE(dt.status, 'pending')) = 'in_transit'
+                WHERE LOWER(COALESCE(dt.status, 'pending')) IN ('in_transit', 'active')
             `
         );
 

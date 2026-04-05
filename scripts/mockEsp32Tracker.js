@@ -318,7 +318,7 @@ async function publishPoint(index, totalPoints, point, nextPoint) {
         currentWeightKg
     };
 
-    const response = await fetch(`${baseUrl}/api/realtime/mock/telemetry`, {
+    const response = await fetch(`${baseUrl}/api/realtime/mock/tracking`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

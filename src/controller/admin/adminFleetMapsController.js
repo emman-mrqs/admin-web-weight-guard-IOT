@@ -76,7 +76,7 @@ class AdminFleetMapsController {
                         COALESCE(v.current_state, 'idle') AS current_state,
                         ot.dispatch_status,
                         ot.initial_reference_weight_kg,
-                        tt.latest_current_weight_kg,
+                        vls.current_weight_kg AS latest_current_weight_kg,
                         COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), 'Unassigned') AS driver_name,
                         vls.current_latitude,
                         vls.current_longitude,
@@ -96,18 +96,6 @@ class AdminFleetMapsController {
                         ORDER BY dt.created_at DESC, dt.id DESC
                         LIMIT 1
                     ) ot ON true
-                                        LEFT JOIN LATERAL (
-                                                SELECT tl.current_weight_kg AS latest_current_weight_kg
-                                                FROM telemetry_logs tl
-                                                WHERE tl.vehicle_id = v.id
-                                                    AND (
-                                                        ot.task_id IS NULL
-                                                        OR tl.task_id = ot.task_id
-                                                        OR tl.task_id IS NULL
-                                                    )
-                                                ORDER BY tl.recorded_at DESC, tl.id DESC
-                                                LIMIT 1
-                                        ) tt ON true
                     ORDER BY v.id ASC
                 `
             );

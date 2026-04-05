@@ -1,7 +1,16 @@
 import db from '../database/db.js';
 import { broadcastTrackingUpdate } from './trackingWebSocket.js';
 
-const MOVEMENT_THRESHOLD_METERS = 500;
+function readThreshold(name, fallback) {
+    const parsed = Number(process.env[name]);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+// Default thresholds are tuned for visibly smooth map movement with mock ESP32 updates.
+const MOVEMENT_THRESHOLD_METERS = readThreshold('TRACKING_MOVEMENT_THRESHOLD_METERS', 30);
+const HEADING_THRESHOLD_DEGREES = readThreshold('TRACKING_HEADING_THRESHOLD_DEGREES', 10);
+const SPEED_THRESHOLD_KMH = readThreshold('TRACKING_SPEED_THRESHOLD_KMH', 1);
+const WEIGHT_THRESHOLD_KG = readThreshold('TRACKING_WEIGHT_THRESHOLD_KG', 0.5);
 
 function toFiniteNumber(value) {
     const parsed = Number(value);
@@ -27,6 +36,15 @@ function distanceMeters(aLat, aLng, bLat, bLng) {
 
     const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
     return earthRadius * c;
+}
+
+function headingDeltaDegrees(previousHeading, nextHeading) {
+    if (previousHeading === null || nextHeading === null) {
+        return null;
+    }
+
+    const rawDelta = Math.abs(nextHeading - previousHeading) % 360;
+    return Math.min(rawDelta, 360 - rawDelta);
 }
 
 export async function ingestTelemetry(inputPayload = {}, options = {}) {
@@ -84,6 +102,7 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
                     v.plate_number,
                     v.vehicle_type,
                     v.max_capacity_kg,
+                    v.current_state,
                     v.current_load_status,
                     COALESCE(NULLIF(TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))), ''), 'Unassigned') AS driver_name
                 FROM vehicles v
@@ -123,95 +142,126 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
             ? dispatchTaskStatus
             : 'unassigned';
 
-        const previousLogResult = await client.query(
+        const previousLiveStateResult = await client.query(
             `
-                SELECT latitude, longitude, current_weight_kg
-                FROM telemetry_logs
+                SELECT
+                    current_latitude,
+                    current_longitude,
+                    current_speed_kmh,
+                    current_heading,
+                    current_weight_kg
+                FROM vehicle_live_state
                 WHERE vehicle_id = $1
-                ORDER BY recorded_at DESC, id DESC
                 LIMIT 1
             `,
             [vehicleId]
         );
 
-        await client.query(
-            `
-                INSERT INTO vehicle_live_state (
-                    vehicle_id,
-                    current_latitude,
-                    current_longitude,
-                    current_speed_kmh,
-                    current_heading,
-                    current_weight_kg,
-                    last_ping_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, NOW())
-                ON CONFLICT (vehicle_id)
-                DO UPDATE SET
-                    current_latitude = EXCLUDED.current_latitude,
-                    current_longitude = EXCLUDED.current_longitude,
-                    current_speed_kmh = EXCLUDED.current_speed_kmh,
-                    current_heading = EXCLUDED.current_heading,
-                    current_weight_kg = EXCLUDED.current_weight_kg,
-                    last_ping_at = NOW()
-            `,
-            [vehicleId, latitude, longitude, Math.round(speedKmh), heading === null ? null : Math.round(heading), currentWeightKg]
+        const previousState = previousLiveStateResult.rows[0] || null;
+        const previousLatitude = toFiniteNumber(previousState?.current_latitude);
+        const previousLongitude = toFiniteNumber(previousState?.current_longitude);
+        const previousSpeedKmh = toFiniteNumber(previousState?.current_speed_kmh);
+        const previousHeading = toFiniteNumber(previousState?.current_heading);
+        const previousWeightKg = toFiniteNumber(previousState?.current_weight_kg);
+
+        const movementMeters = previousLatitude !== null && previousLongitude !== null
+            ? distanceMeters(previousLatitude, previousLongitude, latitude, longitude)
+            : null;
+
+        const speedDeltaKmh = previousSpeedKmh === null ? null : Math.abs(speedKmh - previousSpeedKmh);
+        const headingDelta = headingDeltaDegrees(previousHeading, heading);
+        const weightDeltaKg = previousWeightKg === null || currentWeightKg === null
+            ? null
+            : Math.abs(currentWeightKg - previousWeightKg);
+
+        const shouldUpdateLocation = previousState === null
+            || movementMeters === null
+            || movementMeters >= MOVEMENT_THRESHOLD_METERS
+            || (headingDelta !== null && headingDelta >= HEADING_THRESHOLD_DEGREES);
+        const shouldUpdateSpeed = previousState === null
+            || speedDeltaKmh === null
+            || speedDeltaKmh >= SPEED_THRESHOLD_KMH;
+        const shouldUpdateHeading = heading !== null && (
+            previousState === null
+            || previousHeading === null
+            || headingDelta === null
+            || headingDelta >= HEADING_THRESHOLD_DEGREES
+        );
+        const shouldUpdateWeight = currentWeightKg !== null && (
+            previousState === null
+            || previousWeightKg === null
+            || weightDeltaKg === null
+            || weightDeltaKg >= WEIGHT_THRESHOLD_KG
         );
 
+        const shouldUpdateLiveState = shouldUpdateLocation || shouldUpdateSpeed || shouldUpdateHeading || shouldUpdateWeight;
+
+        const nextLatitude = previousState === null || shouldUpdateLocation ? latitude : previousLatitude;
+        const nextLongitude = previousState === null || shouldUpdateLocation ? longitude : previousLongitude;
+        const nextSpeedKmh = Math.round(speedKmh);
+        const nextHeading = heading === null
+            ? (previousHeading === null ? null : Math.round(previousHeading))
+            : Math.round(heading);
+        const nextWeightKg = currentWeightKg !== null
+            ? currentWeightKg
+            : previousWeightKg;
+
         const maxCapacity = toFiniteNumber(vehicle.max_capacity_kg);
-        const nextLoadStatus = currentWeightKg !== null && maxCapacity !== null && currentWeightKg > maxCapacity
+
+        const nextLoadStatus = nextWeightKg !== null && maxCapacity !== null && nextWeightKg > maxCapacity
             ? 'overload'
             : (vehicle.current_load_status || 'normal');
 
-        await client.query(
-            `
-                UPDATE vehicles
-                SET
-                    current_state = $2,
-                    current_load_status = $3
-                WHERE id = $1
-            `,
-            [vehicleId, speedKmh > 0 ? 'in_transit' : 'idle', nextLoadStatus]
-        );
+        const nextCurrentState = speedKmh > 0 || (movementMeters !== null && movementMeters >= MOVEMENT_THRESHOLD_METERS)
+            ? 'in_transit'
+            : 'idle';
 
-        const previous = previousLogResult.rows[0];
-        const previousWeight = previous ? toFiniteNumber(previous.current_weight_kg) : null;
-        const movedMeters = previous
-            ? distanceMeters(
-                Number(previous.latitude),
-                Number(previous.longitude),
-                latitude,
-                longitude
-            )
-            : null;
-
-        const weightDeltaKg = (previousWeight !== null && currentWeightKg !== null)
-            ? currentWeightKg - previousWeight
-            : 0;
-
-        const shouldInsertTelemetry = !previous
-            || (movedMeters !== null && movedMeters >= MOVEMENT_THRESHOLD_METERS)
-            || weightDeltaKg !== 0;
-
-        if (shouldInsertTelemetry) {
+        if (shouldUpdateLiveState) {
             await client.query(
                 `
-                    INSERT INTO telemetry_logs (
+                    INSERT INTO vehicle_live_state (
                         vehicle_id,
-                        task_id,
-                        latitude,
-                        longitude,
-                        speed_kmh,
+                        current_latitude,
+                        current_longitude,
+                        current_speed_kmh,
+                        current_heading,
                         current_weight_kg,
-                        recorded_at
+                        last_ping_at
                     )
                     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                    ON CONFLICT (vehicle_id)
+                    DO UPDATE SET
+                        current_latitude = EXCLUDED.current_latitude,
+                        current_longitude = EXCLUDED.current_longitude,
+                        current_speed_kmh = EXCLUDED.current_speed_kmh,
+                        current_heading = EXCLUDED.current_heading,
+                        current_weight_kg = EXCLUDED.current_weight_kg,
+                        last_ping_at = NOW()
                 `,
-                [vehicleId, taskId, latitude, longitude, Math.round(speedKmh), currentWeightKg]
+                [vehicleId, nextLatitude, nextLongitude, nextSpeedKmh, nextHeading, nextWeightKg]
+            );
+
+            await client.query(
+                `
+                    UPDATE vehicles
+                    SET
+                        current_state = $2,
+                        current_load_status = $3
+                    WHERE id = $1
+                `,
+                [vehicleId, nextCurrentState, nextLoadStatus]
             );
         }
 
         await client.query('COMMIT');
+
+        const resolvedLatitude = shouldUpdateLiveState ? nextLatitude : previousLatitude;
+        const resolvedLongitude = shouldUpdateLiveState ? nextLongitude : previousLongitude;
+        const resolvedSpeedKmh = shouldUpdateLiveState ? nextSpeedKmh : (previousSpeedKmh ?? 0);
+        const resolvedHeading = shouldUpdateLiveState ? nextHeading : previousHeading;
+        const resolvedWeightKg = shouldUpdateLiveState ? nextWeightKg : previousWeightKg;
+        const resolvedCurrentState = shouldUpdateLiveState ? nextCurrentState : String(vehicle.current_state || 'idle');
+        const resolvedLoadStatus = shouldUpdateLiveState ? nextLoadStatus : String(vehicle.current_load_status || 'normal');
 
         const updatePayload = {
             type: 'tracking:update',
@@ -223,25 +273,30 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
                 driverName: String(vehicle.driver_name || 'Unassigned'),
                 vehicleType: String(vehicle.vehicle_type || 'Vehicle'),
                 status: normalizedDispatchTaskStatus,
-                currentState: String(nextLoadStatus || 'normal').toLowerCase(),
-                movementState: speedKmh > 0 ? 'in_transit' : 'idle',
-                latitude,
-                longitude,
-                speedKmh: Math.round(speedKmh),
-                currentWeightKg,
-                telemetryPersisted: shouldInsertTelemetry
+                currentState: String(resolvedLoadStatus || 'normal').toLowerCase(),
+                movementState: String(resolvedCurrentState || 'idle').toLowerCase(),
+                latitude: resolvedLatitude,
+                longitude: resolvedLongitude,
+                speedKmh: resolvedSpeedKmh,
+                heading: resolvedHeading,
+                currentWeightKg: resolvedWeightKg,
+                stateUpdated: shouldUpdateLiveState
             }
         };
 
-        broadcastTrackingUpdate(updatePayload);
+        if (shouldUpdateLiveState) {
+            broadcastTrackingUpdate(updatePayload);
+        }
 
         return {
             ok: true,
             statusCode: 200,
             data: updatePayload.data,
-            telemetryPersisted: shouldInsertTelemetry,
-            movementMeters: movedMeters === null ? null : Number(movedMeters.toFixed(2)),
-            weightDeltaKg: Number(weightDeltaKg.toFixed(2))
+            stateUpdated: shouldUpdateLiveState,
+            movementMeters: movementMeters === null ? null : Number(movementMeters.toFixed(2)),
+            headingDeltaDegrees: headingDelta === null ? null : Number(headingDelta.toFixed(2)),
+            speedDeltaKmh: speedDeltaKmh === null ? null : Number(speedDeltaKmh.toFixed(2)),
+            weightDeltaKg: weightDeltaKg === null ? null : Number(weightDeltaKg.toFixed(2))
         };
     } catch (error) {
         await client.query('ROLLBACK');
