@@ -126,7 +126,10 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
 
         const activeTaskResult = await client.query(
             `
-                                SELECT id, LOWER(COALESCE(status, 'pending')) AS status
+                                SELECT
+                                        id,
+                                        LOWER(COALESCE(status, 'pending')) AS status,
+                                        initial_reference_weight_kg
                 FROM dispatch_tasks
                 WHERE vehicle_id = $1
                   AND LOWER(COALESCE(status, 'pending')) IN ('pending', 'active', 'in_transit')
@@ -141,6 +144,7 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
         const normalizedDispatchTaskStatus = ['pending', 'active', 'in_transit'].includes(dispatchTaskStatus)
             ? dispatchTaskStatus
             : 'unassigned';
+        const initialReferenceWeightKg = toFiniteNumber(activeTaskResult.rows[0]?.initial_reference_weight_kg);
 
         const previousLiveStateResult = await client.query(
             `
@@ -208,9 +212,25 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
 
         const maxCapacity = toFiniteNumber(vehicle.max_capacity_kg);
 
-        const nextLoadStatus = nextWeightKg !== null && maxCapacity !== null && nextWeightKg > maxCapacity
-            ? 'overload'
-            : (vehicle.current_load_status || 'normal');
+        const isOverload = nextWeightKg !== null
+            && maxCapacity !== null
+            && nextWeightKg > maxCapacity;
+        const isAboveReference = nextWeightKg !== null
+            && initialReferenceWeightKg !== null
+            && nextWeightKg > initialReferenceWeightKg
+            && !isOverload;
+        const isLoss = normalizedDispatchTaskStatus === 'in_transit'
+            && nextWeightKg !== null
+            && initialReferenceWeightKg !== null
+            && nextWeightKg < initialReferenceWeightKg;
+
+        const nextLoadStatus = isLoss
+            ? 'loss'
+            : isOverload
+                ? 'overload'
+                : isAboveReference
+                    ? 'above_reference'
+                    : 'normal';
 
         const nextCurrentState = speedKmh > 0 || (movementMeters !== null && movementMeters >= MOVEMENT_THRESHOLD_METERS)
             ? 'in_transit'

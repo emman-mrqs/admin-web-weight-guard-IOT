@@ -163,6 +163,8 @@ function asVehicleViewModel(row) {
     const currentState = String(row.currentState || 'normal').toLowerCase();
     const movementState = String(row.movementState || '').toLowerCase();
 
+    const resolvedWeightKg = row.currentWeightKg ?? row.latestCurrentWeightKg;
+
     return {
         vehicleId: Number(row.vehicleId),
         id: String(row.plateNumber || `V-${row.vehicleId}`),
@@ -173,7 +175,7 @@ function asVehicleViewModel(row) {
         currentState,
         movementState,
         speed: `${speedKmh} km/h`,
-        load: row.currentWeightKg == null ? '--' : `${Number(row.currentWeightKg).toFixed(1)} kg`,
+        load: resolvedWeightKg == null ? '--' : `${Number(resolvedWeightKg).toFixed(1)} kg`,
         location: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
         updated: toRelativeTime(row.lastPingAt || row.timestamp),
         image: DEFAULT_VEHICLE_IMAGE

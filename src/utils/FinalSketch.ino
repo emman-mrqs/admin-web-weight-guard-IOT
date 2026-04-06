@@ -5,6 +5,7 @@
 #include <Adafruit_SSD1306.h>
 #include <TinyGPSPlus.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 
 const int HX711_dout = 4;
@@ -23,12 +24,15 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 // -------------------- WIFI / WEBSITE --------------------
 const char* ssid = "GlobeAtHome_e7a38_2.4";
 const char* password = "pwa4AnGt";
-const char* serverName = "http://192.168.254.105:3000/api/realtime/esp32/tracking";
-const char* esp32ApiKey = ""; // Optional: set this if your backend uses ESP32_SHARED_KEY
+const char* serverName = "https://iot-weigh-guard.online/api/realtime/esp32/tracking";
+const char* esp32ApiKey = ""; // Set this to the same value as ESP32_SHARED_KEY when device auth is enabled.
 const int vehicleId = 1;
 bool enableWebsiteSend = true;
 bool enableRealtimeStream = true;
 const unsigned long realtimeStreamIntervalMs = 800;
+bool allowSendWithoutGpsFix = true;
+const double bootstrapLat = 14.599500;
+const double bootstrapLng = 120.984200;
 
 // -------------------- GPS --------------------
 TinyGPSPlus gps;
@@ -40,6 +44,9 @@ double gpsSpeed = 0.0;
 double gpsAltitude = 0.0;
 double gpsHeading = 0.0;
 int gpsSats = 0;
+double lastKnownGpsLat = 0.0;
+double lastKnownGpsLng = 0.0;
+bool hasLastKnownGps = false;
 
 // -------------------- timing --------------------
 unsigned long lastUpdate = 0;
@@ -256,6 +263,21 @@ void printGPSData() {
   Serial.println("--------------------");
 }
 
+void rememberGPSFix() {
+  if (gps.location.isValid()) {
+    gpsLat = gps.location.lat();
+    gpsLng = gps.location.lng();
+    gpsSpeed = gps.speed.kmph();
+    gpsHeading = gps.course.isValid() ? gps.course.deg() : 0.0;
+    gpsSats = gps.satellites.value();
+    gpsAltitude = gps.altitude.meters();
+
+    lastKnownGpsLat = gpsLat;
+    lastKnownGpsLng = gpsLng;
+    hasLastKnownGps = true;
+  }
+}
+
 void printGPSOnCargoLoss() {
   if (gps.location.isValid()) {
     Serial.print("Location -> Lat: ");
@@ -287,26 +309,88 @@ void connectWiFi() {
   Serial.println(WiFi.localIP());
 }
 
+bool ensureWiFiConnected() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return true;
+  }
+
+  Serial.println("WiFi disconnected. Reconnecting...");
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.begin(ssid, password);
+
+  const unsigned long start = millis();
+  const unsigned long timeoutMs = 12000;
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
+    delay(300);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi reconnect failed.");
+    return false;
+  }
+
+  Serial.println("WiFi reconnected.");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  return true;
+}
+
 void sendDataToWebsite(String status) {
   if (!enableWebsiteSend) {
     Serial.println("Website sending disabled for now.");
     return;
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected");
+  if (!ensureWiFiConnected()) {
+    Serial.println("WiFi not connected. Skip telemetry send.");
     return;
   }
 
-  if (!gps.location.isValid()) {
-    Serial.println("GPS not valid yet. Skip telemetry send.");
+  bool gpsIsValidNow = gps.location.isValid();
+  String gpsSource = "live";
+  double telemetryLat = 0.0;
+  double telemetryLng = 0.0;
+
+  if (gpsIsValidNow) {
+    telemetryLat = gps.location.lat();
+    telemetryLng = gps.location.lng();
+    gpsSource = "live";
+  } else if (hasLastKnownGps) {
+    telemetryLat = lastKnownGpsLat;
+    telemetryLng = lastKnownGpsLng;
+    gpsSource = "last_known";
+  } else if (allowSendWithoutGpsFix) {
+    telemetryLat = bootstrapLat;
+    telemetryLng = bootstrapLng;
+    gpsSource = "bootstrap";
+    Serial.println("GPS has no fix yet. Sending bootstrap location so weight telemetry can still reach server.");
+  } else {
+    Serial.println("GPS not valid yet and no last known fix exists. Skip telemetry send.");
+    Serial.print("GPS age (ms): ");
+    Serial.println(gps.location.age());
     return;
+  }
+
+  if (!gpsIsValidNow) {
+    Serial.print("GPS fallback source: ");
+    Serial.println(gpsSource);
+    Serial.print("GPS age (ms): ");
+    Serial.println(gps.location.age());
   }
 
   float currentWeightKg = currentWeight / 1000.0;
 
+  WiFiClientSecure client;
+  client.setInsecure();
+
   HTTPClient http;
-  http.begin(serverName);
+  if (!http.begin(client, serverName)) {
+    Serial.println("Failed to initialize HTTPS connection");
+    return;
+  }
   http.addHeader("Content-Type", "application/json");
   if (String(esp32ApiKey).length() > 0) {
     http.addHeader("x-esp32-key", esp32ApiKey);
@@ -314,19 +398,33 @@ void sendDataToWebsite(String status) {
 
   String jsonData = "{";
   jsonData += "\"vehicleId\":" + String(vehicleId) + ",";
-  jsonData += "\"latitude\":" + String(gpsLat, 6) + ",";
-  jsonData += "\"longitude\":" + String(gpsLng, 6) + ",";
+  jsonData += "\"latitude\":" + String(telemetryLat, 6) + ",";
+  jsonData += "\"longitude\":" + String(telemetryLng, 6) + ",";
   jsonData += "\"speedKmh\":" + String(gpsSpeed, 2) + ",";
   jsonData += "\"heading\":" + String(gpsHeading, 2) + ",";
   jsonData += "\"currentWeightKg\":" + String(currentWeightKg, 3) + ",";
+  jsonData += "\"gpsValid\":" + String(gpsIsValidNow ? "true" : "false") + ",";
+  jsonData += "\"gpsSource\":\"" + gpsSource + "\",";
   jsonData += "\"status\":\"" + status + "\"";
   jsonData += "}";
+
+  Serial.print("POST -> ");
+  Serial.println(serverName);
+  Serial.print("Payload: ");
+  Serial.println(jsonData);
 
   int httpResponseCode = http.POST(jsonData);
   String responseBody = http.getString();
 
   Serial.print("HTTP Response: ");
   Serial.println(httpResponseCode);
+  if (httpResponseCode == 401) {
+    Serial.println("Unauthorized device key. Check esp32ApiKey vs ESP32_SHARED_KEY.");
+  } else if (httpResponseCode <= 0) {
+    Serial.println("HTTPS request failed before the server returned a response.");
+    Serial.print("HTTP error detail: ");
+    Serial.println(http.errorToString(httpResponseCode));
+  }
   Serial.print("Response Body: ");
   Serial.println(responseBody);
 
@@ -405,13 +503,7 @@ void loop() {
   }
 
   if (gps.location.isUpdated()) {
-    gpsLat = gps.location.lat();
-    gpsLng = gps.location.lng();
-    gpsSpeed = gps.speed.kmph();
-    gpsHeading = gps.course.isValid() ? gps.course.deg() : 0.0;
-    gpsSats = gps.satellites.value();
-    gpsAltitude = gps.altitude.meters();
-
+    rememberGPSFix();
     printGPSData();
   }
 
