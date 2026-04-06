@@ -88,16 +88,16 @@ CREATE TABLE incidents (
 );
 
 -- 5. TELEMETRY LOGS
-CREATE TABLE telemetry_logs (
-    id BIGSERIAL PRIMARY KEY,
-    vehicle_id BIGINT REFERENCES vehicles(id) ON DELETE CASCADE,
-    task_id BIGINT REFERENCES dispatch_tasks(id) ON DELETE CASCADE,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(11, 8),
-    speed_kmh BIGINT,
-    current_weight_kg DECIMAL(10, 2),
-    recorded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE telemetry_logs (
+--     id BIGSERIAL PRIMARY KEY,
+--     vehicle_id BIGINT REFERENCES vehicles(id) ON DELETE CASCADE,
+--     task_id BIGINT REFERENCES dispatch_tasks(id) ON DELETE CASCADE,
+--     latitude DECIMAL(10, 8),
+--     longitude DECIMAL(11, 8),
+--     speed_kmh BIGINT,
+--     current_weight_kg DECIMAL(10, 2),
+--     recorded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+-- );
 
 -- 6. NOTIFICATIONS
 CREATE TABLE notification (

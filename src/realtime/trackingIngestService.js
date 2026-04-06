@@ -10,7 +10,7 @@ function readThreshold(name, fallback) {
 const MOVEMENT_THRESHOLD_METERS = readThreshold('TRACKING_MOVEMENT_THRESHOLD_METERS', 30);
 const HEADING_THRESHOLD_DEGREES = readThreshold('TRACKING_HEADING_THRESHOLD_DEGREES', 10);
 const SPEED_THRESHOLD_KMH = readThreshold('TRACKING_SPEED_THRESHOLD_KMH', 1);
-const WEIGHT_THRESHOLD_KG = readThreshold('TRACKING_WEIGHT_THRESHOLD_KG', 0.5);
+const WEIGHT_THRESHOLD_KG = readThreshold('TRACKING_WEIGHT_THRESHOLD_KG', 0.02);
 
 function toFiniteNumber(value) {
     const parsed = Number(value);
