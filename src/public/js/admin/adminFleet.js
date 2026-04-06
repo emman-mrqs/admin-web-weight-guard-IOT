@@ -281,11 +281,11 @@ function getCurrentLoadKg(vehicle) {
     const dispatchWeightKg = Number(vehicle.initial_reference_weight_kg);
     const numericFromStatus = Number((loadStatusText.match(/\d+(\.\d+)?/) || [])[0] || 0);
 
-    if (Number.isFinite(liveCurrentWeightKg) && liveCurrentWeightKg >= 0) {
+    if (Number.isFinite(liveCurrentWeightKg)) {
         return liveCurrentWeightKg;
     }
 
-    if (Number.isFinite(latestTelemetryWeightKg) && latestTelemetryWeightKg >= 0) {
+    if (Number.isFinite(latestTelemetryWeightKg)) {
         return latestTelemetryWeightKg;
     }
 
