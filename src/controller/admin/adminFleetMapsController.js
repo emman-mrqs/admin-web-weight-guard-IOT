@@ -112,6 +112,7 @@ class AdminFleetMapsController {
                         : 'unassigned',
                     currentState: AdminFleetMapsController.deriveVehicleCurrentState(row),
                     movementState: String(row.current_state || 'idle').toLowerCase(),
+                    initialReferenceWeightKg: AdminFleetMapsController.toFiniteNumber(row.initial_reference_weight_kg),
                     latestCurrentWeightKg: AdminFleetMapsController.toFiniteNumber(row.latest_current_weight_kg),
                     latitude: Number(row.current_latitude),
                     longitude: Number(row.current_longitude),

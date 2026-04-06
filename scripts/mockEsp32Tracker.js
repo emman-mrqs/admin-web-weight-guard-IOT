@@ -12,6 +12,9 @@ const trackOffsetMeters = Number(process.env.MOCK_TRACK_OFFSET_METERS || 0);
 const detourMeters = Number(process.env.MOCK_ROUTE_DETOUR_METERS || 0);
 const detourRatio = Number(process.env.MOCK_ROUTE_DETOUR_RATIO || 0.55);
 const detourMode = String(process.env.MOCK_ROUTE_DETOUR_MODE || 'routed').trim().toLowerCase();
+const pickupGatePollMs = Number(process.env.MOCK_PICKUP_GATE_POLL_MS || 3000);
+const pickupGateTimeoutMs = Number(process.env.MOCK_PICKUP_GATE_TIMEOUT_MS || 0);
+const stagedWeightProfileEnabled = String(process.env.MOCK_STAGED_WEIGHT_PROFILE || 'true').trim().toLowerCase() !== 'false';
 
 function wait(ms) {
     return new Promise((resolve) => {
@@ -257,9 +260,11 @@ async function loadActiveTaskForVehicle(targetVehicleId) {
                 dt.pickup_lng,
                 dt.destination_lat,
                 dt.destination_lng,
+                dt.initial_reference_weight_kg,
                 dt.status,
                 v.plate_number,
-                v.vehicle_type
+                v.vehicle_type,
+                v.max_capacity_kg
             FROM dispatch_tasks dt
             INNER JOIN vehicles v ON v.id = dt.vehicle_id
             WHERE dt.vehicle_id = $1
@@ -279,6 +284,123 @@ async function loadActiveTaskForVehicle(targetVehicleId) {
     );
 
     return result.rows[0] || null;
+}
+
+function hasInitialReferenceWeight(task) {
+    const value = Number(task?.initial_reference_weight_kg);
+    return Number.isFinite(value) && value > 0;
+}
+
+function isPickupGateReady(task) {
+    const status = String(task?.status || '').trim().toLowerCase();
+    return status === 'in_transit' && hasInitialReferenceWeight(task);
+}
+
+function buildDispatchWeightProfile(task) {
+    const initialReferenceWeightKg = Number(task?.initial_reference_weight_kg);
+    const maxCapacityKg = Number(task?.max_capacity_kg);
+
+    const safeInitialRef = Number.isFinite(initialReferenceWeightKg) && initialReferenceWeightKg > 0
+        ? initialReferenceWeightKg
+        : Math.max(1, weightStartKg);
+
+    const overloadKg = Number.isFinite(maxCapacityKg) && maxCapacityKg > 0
+        ? Math.max(maxCapacityKg + 35, safeInitialRef + 20)
+        : Math.max(safeInitialRef * 1.2, safeInitialRef + 20);
+
+    let aboveReferenceKg;
+    if (Number.isFinite(maxCapacityKg) && maxCapacityKg > safeInitialRef) {
+        aboveReferenceKg = Math.min(maxCapacityKg - 5, safeInitialRef + Math.max(10, safeInitialRef * 0.06));
+    } else {
+        aboveReferenceKg = safeInitialRef + Math.max(10, safeInitialRef * 0.06);
+    }
+
+    aboveReferenceKg = Math.max(safeInitialRef + 1, Math.min(aboveReferenceKg, overloadKg - 1));
+
+    const lossKg = Math.max(0, Math.min(safeInitialRef * 0.85, safeInitialRef - 10));
+
+    return {
+        initialReferenceWeightKg: safeInitialRef,
+        overloadKg,
+        aboveReferenceKg,
+        lossKg
+    };
+}
+
+function resolveStagedWeightKg(index, totalPoints, profile) {
+    if (!profile || totalPoints <= 0) {
+        return Math.max(0, weightStartKg);
+    }
+
+    const progress = totalPoints <= 1 ? 1 : (index / (totalPoints - 1));
+
+    if (progress < 0.34) {
+        return profile.overloadKg;
+    }
+
+    if (progress < 0.67) {
+        return profile.aboveReferenceKg;
+    }
+
+    return profile.lossKg;
+}
+
+async function waitForPickupGate(targetVehicleId, taskId) {
+    let activeTaskId = Number(taskId);
+    const startedAt = Date.now();
+
+    while (true) {
+        const latestTask = await loadActiveTaskForVehicle(targetVehicleId);
+
+        if (!latestTask) {
+            throw new Error(`No active dispatch task found while waiting at pickup for vehicle ${targetVehicleId}.`);
+        }
+
+        if (Number(latestTask.task_id) !== activeTaskId) {
+            console.log(`[MockESP32] Active task changed from #${activeTaskId} to #${latestTask.task_id}. Switching pickup gate tracking to the latest task.`);
+            activeTaskId = Number(latestTask.task_id);
+        }
+
+        if (isPickupGateReady(latestTask)) {
+            console.log(`[MockESP32] Pickup gate cleared for task #${latestTask.task_id}. Continuing to destination.`);
+            return latestTask;
+        }
+
+        const latestStatus = String(latestTask.status || 'pending').toLowerCase();
+        const latestInitialWeight = Number(latestTask.initial_reference_weight_kg);
+        const weightText = Number.isFinite(latestInitialWeight)
+            ? latestInitialWeight.toFixed(2)
+            : 'not set';
+        const waitSeconds = Math.max(1, Math.round(pickupGatePollMs / 1000));
+        console.log(`[MockESP32] Holding at pickup for task #${activeTaskId}: waiting for status=in_transit and initial_reference_weight_kg>0 (current status=${latestStatus}, weight=${weightText}). Rechecking in ${waitSeconds}s...`);
+
+        if (pickupGateTimeoutMs > 0 && (Date.now() - startedAt) >= pickupGateTimeoutMs) {
+            throw new Error(`Pickup gate timeout reached (${pickupGateTimeoutMs} ms) for task #${activeTaskId}.`);
+        }
+
+        await wait(Math.max(500, pickupGatePollMs));
+    }
+}
+
+async function publishRoute(routePoints, phaseLabel, options = {}) {
+    if (!Array.isArray(routePoints) || routePoints.length === 0) {
+        return;
+    }
+
+    console.log(`[MockESP32] ${phaseLabel}: ${routePoints.length} points.`);
+
+    for (let index = 0; index < routePoints.length; index += 1) {
+        const point = routePoints[index];
+        const nextPoint = index + 1 < routePoints.length ? routePoints[index + 1] : null;
+        const resolvedWeightKg = Number.isFinite(options.fixedWeightKg)
+            ? Number(options.fixedWeightKg)
+            : (options.weightProfile
+                ? resolveStagedWeightKg(index, routePoints.length, options.weightProfile)
+                : Math.max(0, weightStartKg));
+
+        await publishPoint(index, routePoints.length, point, nextPoint, resolvedWeightKg);
+        await wait(intervalMs);
+    }
 }
 
 async function fetchRouteGeometry(pickup, destination) {
@@ -304,9 +426,8 @@ async function fetchRouteGeometry(pickup, destination) {
     return coordinates.map(([lng, lat]) => ({ lat, lng }));
 }
 
-async function publishPoint(index, totalPoints, point, nextPoint) {
+async function publishPoint(index, totalPoints, point, nextPoint, currentWeightKg) {
     const speedKmh = index >= totalPoints - 1 ? 0 : 34;
-    const currentWeightKg = Math.max(0, weightStartKg - (index * 1.5));
     const heading = nextPoint ? headingDegrees(point, nextPoint) : 0;
 
     const payload = {
@@ -336,7 +457,7 @@ async function publishPoint(index, totalPoints, point, nextPoint) {
 }
 
 async function run() {
-    const activeTask = await loadActiveTaskForVehicle(vehicleId);
+    let activeTask = await loadActiveTaskForVehicle(vehicleId);
 
     if (!activeTask) {
         throw new Error(`No active dispatch task found for vehicle ${vehicleId}.`);
@@ -358,35 +479,71 @@ async function run() {
 
     // Keep simulated path slightly off the exact task points to mimic real road offset and avoid static overlap.
     const simulatedPickup = offsetPointByMeters(pickup, -trackOffsetMeters, trackOffsetMeters * 0.35);
-    const simulatedDestination = offsetPointByMeters(destination, trackOffsetMeters * 0.45, -trackOffsetMeters * 0.25);
+    let simulatedDestination = offsetPointByMeters(destination, trackOffsetMeters * 0.45, -trackOffsetMeters * 0.25);
 
     const startPoint = resolveStartPoint(simulatedPickup);
     const approachSegment = await resolveRouteSegment(startPoint, simulatedPickup);
-    const taskSegment = await resolveRouteSegment(simulatedPickup, simulatedDestination);
-    const baseRoute = mergeRouteSegments(approachSegment, taskSegment);
-    const routeWithOptionalDetour = await injectDetourIfRequested(baseRoute);
-    const simulationRoute = dedupeRoutePoints(buildDenseRoute(routeWithOptionalDetour, stepMeters));
+    const pickupRoute = dedupeRoutePoints(buildDenseRoute(approachSegment, stepMeters));
 
     console.log(`[MockESP32] Starting route simulation for task #${activeTask.task_id}: ${String(activeTask.plate_number || `V-${vehicleId}`)} (${String(activeTask.vehicle_type || 'Vehicle')})`);
     console.log(`[MockESP32] Target vehicle ID: ${vehicleId}`);
     console.log(`[MockESP32] Task status: ${String(activeTask.status || 'pending')}`);
+    console.log(`[MockESP32] Initial reference weight: ${activeTask.initial_reference_weight_kg == null ? 'not set' : `${Number(activeTask.initial_reference_weight_kg).toFixed(2)} kg`}`);
     console.log(`[MockESP32] Track offset: ${trackOffsetMeters}m`);
     console.log(`[MockESP32] Start: ${startPoint.lat.toFixed(8)}, ${startPoint.lng.toFixed(8)}`);
     console.log(`[MockESP32] Pickup (task): ${pickup.lat.toFixed(8)}, ${pickup.lng.toFixed(8)}`);
     console.log(`[MockESP32] Pickup (sim): ${simulatedPickup.lat.toFixed(8)}, ${simulatedPickup.lng.toFixed(8)}`);
-    console.log(`[MockESP32] Destination (task): ${destination.lat.toFixed(8)}, ${destination.lng.toFixed(8)}`);
-    console.log(`[MockESP32] Destination (sim): ${simulatedDestination.lat.toFixed(8)}, ${simulatedDestination.lng.toFixed(8)}`);
-    console.log(`[MockESP32] Detour: ${Number.isFinite(detourMeters) && detourMeters > 0 ? `${Math.round(detourMeters)}m (${detourMode === 'direct' ? 'direct' : 'routed'})` : 'disabled'}`);
-    console.log(`[MockESP32] Smooth points: ${simulationRoute.length} (step ~${stepMeters}m)`);
     console.log(`[MockESP32] Interval: ${intervalMs}ms`);
 
-    for (let index = 0; index < simulationRoute.length; index += 1) {
-        const point = simulationRoute[index];
-        const nextPoint = index + 1 < simulationRoute.length ? simulationRoute[index + 1] : null;
+    const pickupInitialReferenceWeightKg = Number(activeTask.initial_reference_weight_kg);
+    const pickupPhaseWeightKg = Number.isFinite(pickupInitialReferenceWeightKg) && pickupInitialReferenceWeightKg > 0
+        ? pickupInitialReferenceWeightKg
+        : Math.max(0, weightStartKg);
 
-        await publishPoint(index, simulationRoute.length, point, nextPoint);
-        await wait(intervalMs);
+    await publishRoute(pickupRoute, 'Phase 1/2 -> moving to pickup', {
+        fixedWeightKg: pickupPhaseWeightKg
+    });
+
+    const latestTaskAtPickup = await loadActiveTaskForVehicle(vehicleId);
+    if (!latestTaskAtPickup) {
+        throw new Error(`No active dispatch task found after reaching pickup for vehicle ${vehicleId}.`);
     }
+    activeTask = latestTaskAtPickup;
+
+    console.log(`[MockESP32] At pickup check -> task #${activeTask.task_id}, status=${String(activeTask.status || 'pending')}, initial_reference_weight_kg=${activeTask.initial_reference_weight_kg == null ? 'not set' : Number(activeTask.initial_reference_weight_kg).toFixed(2)}`);
+
+    activeTask = await waitForPickupGate(vehicleId, activeTask.task_id);
+
+    const refreshedDestination = {
+        lat: Number(activeTask.destination_lat),
+        lng: Number(activeTask.destination_lng)
+    };
+
+    if (!Number.isFinite(refreshedDestination.lat) || !Number.isFinite(refreshedDestination.lng)) {
+        throw new Error(`Task #${activeTask.task_id} has invalid destination after pickup gate check.`);
+    }
+
+    simulatedDestination = offsetPointByMeters(refreshedDestination, trackOffsetMeters * 0.45, -trackOffsetMeters * 0.25);
+    console.log(`[MockESP32] Destination (task): ${refreshedDestination.lat.toFixed(8)}, ${refreshedDestination.lng.toFixed(8)}`);
+    console.log(`[MockESP32] Destination (sim): ${simulatedDestination.lat.toFixed(8)}, ${simulatedDestination.lng.toFixed(8)}`);
+
+    const stagedWeightProfile = buildDispatchWeightProfile(activeTask);
+    if (stagedWeightProfileEnabled) {
+        console.log('[MockESP32] Staged weight profile enabled (3 levels):');
+        console.log(`  - overload: ${stagedWeightProfile.overloadKg.toFixed(2)} kg`);
+        console.log(`  - above_reference: ${stagedWeightProfile.aboveReferenceKg.toFixed(2)} kg`);
+        console.log(`  - loss: ${stagedWeightProfile.lossKg.toFixed(2)} kg`);
+    }
+
+    const taskSegment = await resolveRouteSegment(simulatedPickup, simulatedDestination);
+    const destinationRouteBase = mergeRouteSegments([simulatedPickup], taskSegment);
+    const destinationRouteWithDetour = await injectDetourIfRequested(destinationRouteBase);
+    const destinationRoute = dedupeRoutePoints(buildDenseRoute(destinationRouteWithDetour, stepMeters));
+
+    console.log(`[MockESP32] Detour: ${Number.isFinite(detourMeters) && detourMeters > 0 ? `${Math.round(detourMeters)}m (${detourMode === 'direct' ? 'direct' : 'routed'})` : 'disabled'}`);
+    await publishRoute(destinationRoute, 'Phase 2/2 -> moving to destination', stagedWeightProfileEnabled
+        ? { weightProfile: stagedWeightProfile }
+        : { fixedWeightKg: Math.max(0, weightStartKg) });
 
     console.log('[MockESP32] Route simulation complete.');
 }

@@ -162,6 +162,9 @@ function asVehicleViewModel(row) {
     const status = String(row.status || 'unassigned').toLowerCase();
     const currentState = String(row.currentState || 'normal').toLowerCase();
     const movementState = String(row.movementState || '').toLowerCase();
+    const initialReferenceWeightKg = row.initialReferenceWeightKg == null
+        ? null
+        : Number(row.initialReferenceWeightKg);
 
     const resolvedWeightKg = row.currentWeightKg ?? row.latestCurrentWeightKg;
 
@@ -174,6 +177,7 @@ function asVehicleViewModel(row) {
         status,
         currentState,
         movementState,
+        initialReferenceWeightKg,
         speed: `${speedKmh} km/h`,
         load: resolvedWeightKg == null ? '--' : `${Number(resolvedWeightKg).toFixed(1)} kg`,
         location: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
@@ -752,6 +756,9 @@ function generateDetailedPopup(v) {
     const safeUpdated = escapeHtml(v.updated);
     const safeSpeed = escapeHtml(v.speed);
     const safeLoad = escapeHtml(v.load);
+    const safeInitialReferenceWeight = v.initialReferenceWeightKg == null
+        ? '--'
+        : `${Number(v.initialReferenceWeightKg).toFixed(1)} kg`;
 
     return `
         <div class="w-full bg-slate-950 text-slate-200">
@@ -805,6 +812,7 @@ function generateDetailedPopup(v) {
                     <p class="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Current State</p>
                     <p class="mt-1 text-xs font-bold ${stateTextClass} flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full ${stateDot}"></span>${stateLabel}</p>
                     <p class="mt-1 text-[10px] font-semibold font-mono text-slate-400">Load: ${safeLoad}</p>
+                    <p class="mt-1 text-[10px] font-semibold font-mono text-slate-500">Initial Ref: ${safeInitialReferenceWeight}</p>
                 </div>
 
                 <button onclick="window.location.href='/admin/fleet'" class="w-full mt-1 rounded-lg border border-blue-500/40 bg-blue-500/20 py-2 text-[10px] font-extrabold uppercase tracking-widest text-blue-100 hover:bg-blue-500/30 transition">

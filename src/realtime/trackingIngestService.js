@@ -299,6 +299,7 @@ export async function ingestTelemetry(inputPayload = {}, options = {}) {
                 longitude: resolvedLongitude,
                 speedKmh: resolvedSpeedKmh,
                 heading: resolvedHeading,
+                initialReferenceWeightKg,
                 currentWeightKg: resolvedWeightKg,
                 stateUpdated: shouldUpdateLiveState
             }
