@@ -14,6 +14,7 @@ import AdminNotificationController from '../../controller/admin/adminNotificatio
 import AdminSettingsController from '../../controller/admin/adminSettingsController.js';
 import AdminAuditLogsController from '../../controller/admin/adminAuditLogsController.js';
 import authMiddleware from '../../middleware/auth.js';
+import MockTrackerController from '../../controller/admin/mockTrackerController.js';
 
 const router = express.Router();
 
@@ -153,5 +154,13 @@ router.post('/api/admin/settings/password-change', AdminSettingsController.chang
 // Admin Audit Logs Routes
 router.get("/admin/audit-logs", AdminAuditLogsController.getAuditLogs);
 router.get('/api/admin/audit-logs', AdminAuditLogsController.getAuditLogsData);
+
+// Mock GPS Tracker Routes
+router.get('/api/admin/mock-tracker/precheck', MockTrackerController.precheckMockTracker);
+router.post('/api/admin/mock-tracker/start', MockTrackerController.startMockTracker);
+router.post('/api/admin/mock-tracker/stop', MockTrackerController.stopMockTracker);
+router.get('/api/admin/mock-tracker/status', MockTrackerController.getMockTrackerStatus);
+router.post('/api/admin/mock-tracker/initial-weight', MockTrackerController.submitInitialWeight);
+router.post('/api/admin/mock-tracker/stop-all', MockTrackerController.stopAllMockTrackers);
 
 export default router;

@@ -43,7 +43,9 @@ const DESTINATION_REACHED_THRESHOLD_METERS = 20;
 const ROUTE_SNAP_THRESHOLD_METERS = 45;
 const ROUTE_REROUTE_THRESHOLD_METERS = 120;
 const ROUTE_REROUTE_COOLDOWN_MS = 15000;
-const ENABLE_ROUTE_SNAP = false;
+const ENABLE_ROUTE_SNAP = true;
+
+let markersRefreshTimer = null;
 
 const pickupPointIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -121,7 +123,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Filter Listeners
     document.getElementById('truckClassFilter').addEventListener('change', handleTruckClassChange);
     document.getElementById('assignedTaskFilter').addEventListener('change', handleAssignedTaskChange);
-    document.getElementById('vehicleSearch').addEventListener('input', applyFilters);
+    document.getElementById('vehicleSearch').addEventListener('input', scheduleApplyFilters);
+
+    // Mock GPS Tracker Listeners
+    const btnMockStart = document.getElementById('btnMockStart');
+    const btnMockStop = document.getElementById('btnMockStop');
+    if (btnMockStart) btnMockStart.addEventListener('click', handleMockTrackerStart);
+    if (btnMockStop) btnMockStop.addEventListener('click', handleMockTrackerStop);
+    document.getElementById('btnMockPanelCollapse')?.addEventListener('click', toggleMockPanelCollapse);
+    document.getElementById('btnMockTestingPopup')?.addEventListener('click', () => openMockWeightModal(null, true));
+    document.getElementById('btnCloseMockWeightModal')?.addEventListener('click', closeMockWeightModal);
+    document.getElementById('mockPickupWeightModal')?.addEventListener('click', (event) => {
+        if (event.target?.id === 'mockPickupWeightModal') {
+            closeMockWeightModal();
+        }
+    });
 
     await loadLiveFleetBootstrap();
     connectTrackingWebSocket();
@@ -153,6 +169,17 @@ function toRelativeTime(value) {
 
     const diffHours = Math.floor(diffMinutes / 60);
     return `${diffHours} hr ago`;
+}
+
+function scheduleApplyFilters() {
+    if (markersRefreshTimer) {
+        window.clearTimeout(markersRefreshTimer);
+    }
+
+    markersRefreshTimer = window.setTimeout(() => {
+        markersRefreshTimer = null;
+        applyFilters();
+    }, 80);
 }
 
 function asVehicleViewModel(row) {
@@ -547,13 +574,13 @@ function renderAssignedTaskOptions(vehicleType, tasks) {
 async function loadAssignedTasks(vehicleType) {
     if (!vehicleType) {
         renderAssignedTaskOptions(vehicleType, []);
-        applyFilters();
+        scheduleApplyFilters();
         return;
     }
 
     if (assignedTaskOptionsCache.has(vehicleType)) {
         renderAssignedTaskOptions(vehicleType, assignedTaskOptionsCache.get(vehicleType));
-        applyFilters();
+        scheduleApplyFilters();
         return;
     }
 
@@ -588,7 +615,7 @@ async function loadAssignedTasks(vehicleType) {
         renderTaskDetail(null);
     }
 
-    applyFilters();
+    scheduleApplyFilters();
 }
 
 async function handleTruckClassChange() {
@@ -601,7 +628,7 @@ function handleAssignedTaskChange() {
     const selectedTask = assignedTaskOptions.find((item) => String(item.assignmentId) === String(taskValue)) || null;
 
     renderTaskDetail(selectedTask);
-    applyFilters();
+    scheduleApplyFilters();
 
     if (selectedTask) {
         focusVehicleById(selectedTask.vehicleId);
@@ -627,7 +654,7 @@ async function loadLiveFleetBootstrap() {
         const rows = Array.isArray(payload.data) ? payload.data : [];
         rows.forEach(upsertVehicle);
 
-        applyFilters();
+        scheduleApplyFilters();
     } catch (error) {
         console.error('[FleetMap] Failed to load live bootstrap:', error);
         renderMarkers([]);
@@ -649,7 +676,7 @@ function connectTrackingWebSocket() {
             }
 
             upsertVehicle(payload.data);
-            applyFilters();
+            scheduleApplyFilters();
         } catch (error) {
             console.error('[FleetMap] Invalid websocket payload:', error);
         }
@@ -1203,5 +1230,264 @@ function toggleZones() {
         map.addLayer(zoneLayerGroup);
     } else {
         map.removeLayer(zoneLayerGroup);
+    }
+}
+/* ==========================================================================
+   MOCK GPS TRACKER CONTROL PANEL
+   ========================================================================== */
+
+let mockTrackerProcessId = null;
+let mockActiveVehicleId = null;
+let mockTrackerStatusPollTimer = null;
+let mockPanelCollapsed = false;
+let mockWeightModalOpen = false;
+
+async function handleMockTrackerStart() {
+    const vehicleIdInput = document.getElementById('mockVehicleId');
+    const stagedProfileCheckbox = document.getElementById('mockStagedProfile');
+    const btnStart = document.getElementById('btnMockStart');
+    const btnStop = document.getElementById('btnMockStop');
+    const statusBadge = document.getElementById('mockStatusBadge');
+    const statusMessage = document.getElementById('mockStatusMessage');
+
+    if (!vehicleIdInput || !stagedProfileCheckbox || !btnStart || !btnStop || !statusBadge || !statusMessage) {
+        console.error('Mock tracker UI elements not found');
+        return;
+    }
+
+    const vehicleId = parseInt(vehicleIdInput.value, 10);
+    if (isNaN(vehicleId) || vehicleId < 1) {
+        showMockTrackerMessage('Please enter a valid Vehicle ID (min 1)', 'error');
+        return;
+    }
+
+    const useStagedProfile = stagedProfileCheckbox.checked;
+
+    try {
+        const precheckResponse = await fetch(`/api/admin/mock-tracker/precheck?vehicleId=${encodeURIComponent(vehicleId)}`);
+        const precheckData = await precheckResponse.json();
+        if (!precheckResponse.ok || !precheckData.success || precheckData.canStart === false) {
+            throw new Error(precheckData.message || `Vehicle ID ${vehicleId} has no active task. Assign a task first.`);
+        }
+
+        btnStart.disabled = true;
+        statusBadge.textContent = 'Starting...';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-900/30 px-2 py-1 rounded-full border border-amber-700/40';
+
+        const response = await fetch('/api/admin/mock-tracker/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                vehicleId,
+                useStagedProfile
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to start mock tracker');
+        }
+
+        mockTrackerProcessId = data.processId;
+        mockActiveVehicleId = vehicleId;
+        statusBadge.textContent = 'Running';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-900/30 px-2 py-1 rounded-full border border-emerald-700/40';
+        showMockTrackerMessage(`Mock tracker started for Vehicle ID ${vehicleId}. Going to pickup first.`, 'success');
+        
+        btnStop.disabled = false;
+        vehicleIdInput.disabled = true;
+        stagedProfileCheckbox.disabled = true;
+        startMockTrackerStatusPolling();
+    } catch (error) {
+        console.error('Error starting mock tracker:', error);
+        statusBadge.textContent = 'Error';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-900/30 px-2 py-1 rounded-full border border-red-700/40';
+        showMockTrackerMessage(error.message, 'error');
+        btnStart.disabled = false;
+    }
+}
+
+async function handleMockTrackerStop() {
+    const btnStart = document.getElementById('btnMockStart');
+    const btnStop = document.getElementById('btnMockStop');
+    const statusBadge = document.getElementById('mockStatusBadge');
+    const statusMessage = document.getElementById('mockStatusMessage');
+    const vehicleIdInput = document.getElementById('mockVehicleId');
+    const stagedProfileCheckbox = document.getElementById('mockStagedProfile');
+
+    if (!btnStart || !btnStop || !statusBadge || !statusMessage) {
+        console.error('Mock tracker UI elements not found');
+        return;
+    }
+
+    try {
+        stopMockTrackerStatusPolling();
+        btnStop.disabled = true;
+        statusBadge.textContent = 'Stopping...';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-900/30 px-2 py-1 rounded-full border border-amber-700/40';
+
+        const response = await fetch('/api/admin/mock-tracker/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                processId: mockTrackerProcessId
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to stop mock tracker');
+        }
+
+        mockTrackerProcessId = null;
+    mockActiveVehicleId = null;
+        statusBadge.textContent = 'Idle';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-700/30 px-2 py-1 rounded-full border border-slate-600/40';
+        showMockTrackerMessage('Mock tracker stopped successfully.', 'success');
+        
+        btnStart.disabled = false;
+        vehicleIdInput.disabled = false;
+        stagedProfileCheckbox.disabled = false;
+        closeMockWeightModal();
+    } catch (error) {
+        console.error('Error stopping mock tracker:', error);
+        statusBadge.textContent = 'Error';
+        statusBadge.className = 'text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-900/30 px-2 py-1 rounded-full border border-red-700/40';
+        showMockTrackerMessage(error.message, 'error');
+        btnStop.disabled = false;
+    }
+}
+
+function toggleMockPanelCollapse() {
+    const body = document.getElementById('mockPanelBody');
+    const chevron = document.getElementById('mockPanelChevron');
+    if (!body || !chevron) {
+        return;
+    }
+
+    mockPanelCollapsed = !mockPanelCollapsed;
+    body.classList.toggle('hidden', mockPanelCollapsed);
+    chevron.classList.toggle('rotate-180', !mockPanelCollapsed);
+}
+
+function startMockTrackerStatusPolling() {
+    stopMockTrackerStatusPolling();
+    mockTrackerStatusPollTimer = window.setInterval(() => {
+        syncMockTrackerFlowStatus().catch((error) => {
+            console.warn('Mock status polling error:', error?.message || error);
+        });
+    }, 2200);
+
+    syncMockTrackerFlowStatus().catch((error) => {
+        console.warn('Mock status initial sync failed:', error?.message || error);
+    });
+}
+
+function stopMockTrackerStatusPolling() {
+    if (mockTrackerStatusPollTimer) {
+        window.clearInterval(mockTrackerStatusPollTimer);
+        mockTrackerStatusPollTimer = null;
+    }
+}
+
+async function syncMockTrackerFlowStatus() {
+    if (!mockActiveVehicleId) {
+        return;
+    }
+
+    const response = await fetch(`/api/admin/mock-tracker/status?vehicleId=${encodeURIComponent(mockActiveVehicleId)}`);
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Unable to sync mock tracker status.');
+    }
+
+    const task = data.task;
+    if (!task) {
+        return;
+    }
+
+    const status = String(task.status || '').toLowerCase();
+
+    if (task.requiresInitialWeightPrompt) {
+        showMockTrackerMessage('Pickup reached. Confirm current live weight to continue.', 'info');
+
+        openMockWeightModal(task, false);
+        return;
+    }
+
+    if (status === 'in_transit') {
+        showMockTrackerMessage('Initial weight saved. Tracker is now moving to destination.', 'success');
+        closeMockWeightModal();
+    }
+}
+
+function openMockWeightModal(task, isTestingMode) {
+    const modal = document.getElementById('mockPickupWeightModal');
+    const vehicleLabel = document.getElementById('mockModalVehicleLabel');
+    const taskLabel = document.getElementById('mockModalTaskLabel');
+    const initialWeightLabel = document.getElementById('mockModalInitialWeightLabel');
+    const modalMessage = document.getElementById('mockModalMessage');
+
+    if (!modal || !vehicleLabel || !taskLabel || !initialWeightLabel || !modalMessage) {
+        return;
+    }
+
+    const vehicleId = mockActiveVehicleId || Number(document.getElementById('mockVehicleId')?.value || 0);
+    const vehicleText = task?.vehicle?.plateNumber
+        ? `${task.vehicle.plateNumber} (${task.vehicle.vehicleType || 'Vehicle'})`
+        : (Number.isFinite(vehicleId) && vehicleId > 0 ? `Vehicle ID ${vehicleId}` : '--');
+    const taskText = task?.taskId ? `#${task.taskId}` : (isTestingMode ? 'Testing Mode' : '--');
+    const initialWeightKg = Number(task?.initialReferenceWeightKg);
+    const initialWeightText = Number.isFinite(initialWeightKg) && initialWeightKg > 0
+        ? `${initialWeightKg.toFixed(2)} kg`
+        : 'Not set yet';
+
+    vehicleLabel.textContent = vehicleText;
+    taskLabel.textContent = taskText;
+    initialWeightLabel.textContent = initialWeightText;
+    modalMessage.classList.add('hidden');
+    modalMessage.textContent = '';
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    mockWeightModalOpen = true;
+}
+
+function closeMockWeightModal() {
+    const modal = document.getElementById('mockPickupWeightModal');
+    const modalMessage = document.getElementById('mockModalMessage');
+    if (!modal || !modalMessage) {
+        return;
+    }
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modalMessage.classList.add('hidden');
+    modalMessage.textContent = '';
+    mockWeightModalOpen = false;
+}
+
+function showMockTrackerMessage(message, type = 'info') {
+    const statusMessage = document.getElementById('mockStatusMessage');
+    if (!statusMessage) return;
+
+    statusMessage.textContent = message;
+    statusMessage.classList.remove('hidden', 'bg-blue-950/60', 'text-blue-300', 'border-blue-700/40', 'bg-emerald-950/60', 'text-emerald-300', 'border-emerald-700/40', 'bg-red-950/60', 'text-red-300', 'border-red-700/40');
+
+    switch (type) {
+        case 'success':
+            statusMessage.classList.add('bg-emerald-950/60', 'text-emerald-300', 'border', 'border-emerald-700/40');
+            break;
+        case 'error':
+            statusMessage.classList.add('bg-red-950/60', 'text-red-300', 'border', 'border-red-700/40');
+            break;
+        default:
+            statusMessage.classList.add('bg-blue-950/60', 'text-blue-300', 'border', 'border-blue-700/40');
     }
 }

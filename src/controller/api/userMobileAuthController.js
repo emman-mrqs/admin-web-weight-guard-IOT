@@ -29,7 +29,7 @@ class UserMobileAuthController {
       }
 
       const query = `
-        SELECT id, first_name, last_name, email, password, status, is_verified, deleted_at
+        SELECT id, first_name, last_name, email, password, status, is_verified, must_change_password, deleted_at
         FROM users
         WHERE LOWER(email) = $1
         LIMIT 1;
@@ -100,7 +100,8 @@ class UserMobileAuthController {
           firstName: user.first_name,
           lastName: user.last_name,
           email: user.email,
-          status: user.status
+          status: user.status,
+          mustChangePassword: user.must_change_password === true
         }
       });
     } catch (error) {
@@ -335,7 +336,7 @@ class UserMobileAuthController {
       }
 
       const query = `
-        SELECT id, first_name, last_name, email, status, is_verified, deleted_at
+        SELECT id, first_name, last_name, email, status, is_verified, must_change_password, deleted_at
         FROM users
         WHERE id = $1
         LIMIT 1;
@@ -366,7 +367,8 @@ class UserMobileAuthController {
           firstName: user.first_name,
           lastName: user.last_name,
           email: user.email,
-          status: user.status
+          status: user.status,
+          mustChangePassword: user.must_change_password === true
         }
       });
     } catch (error) {
@@ -459,6 +461,7 @@ class UserMobileAuthController {
         `
           UPDATE users
           SET password = $1,
+              must_change_password = FALSE,
               updated_at = NOW()
           WHERE id = $2;
         `,

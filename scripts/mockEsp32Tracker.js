@@ -2,7 +2,7 @@ import db from '../src/database/db.js';
 
 const baseUrl = process.env.MOCK_TRACKING_BASE_URL || 'http://localhost:3000';
 const vehicleId = Number(process.env.MOCK_VEHICLE_ID || 1);
-const intervalMs = Number(process.env.MOCK_TRACKING_INTERVAL_MS || 800);
+const intervalMs = Number(process.env.MOCK_TRACKING_INTERVAL_MS || 300);
 const stepMeters = Number(process.env.MOCK_ROUTE_STEP_METERS || 20);
 const weightStartKg = Number(process.env.MOCK_START_WEIGHT_KG || 920);
 const routeServiceUrl = process.env.MOCK_ROUTE_SERVICE_URL || 'https://router.project-osrm.org/route/v1/driving';
@@ -12,7 +12,7 @@ const trackOffsetMeters = Number(process.env.MOCK_TRACK_OFFSET_METERS || 0);
 const detourMeters = Number(process.env.MOCK_ROUTE_DETOUR_METERS || 0);
 const detourRatio = Number(process.env.MOCK_ROUTE_DETOUR_RATIO || 0.55);
 const detourMode = String(process.env.MOCK_ROUTE_DETOUR_MODE || 'routed').trim().toLowerCase();
-const pickupGatePollMs = Number(process.env.MOCK_PICKUP_GATE_POLL_MS || 3000);
+const pickupGatePollMs = Number(process.env.MOCK_PICKUP_GATE_POLL_MS || 1000);
 const pickupGateTimeoutMs = Number(process.env.MOCK_PICKUP_GATE_TIMEOUT_MS || 0);
 const stagedWeightProfileEnabled = String(process.env.MOCK_STAGED_WEIGHT_PROFILE || 'true').trim().toLowerCase() !== 'false';
 
@@ -292,8 +292,7 @@ function hasInitialReferenceWeight(task) {
 }
 
 function isPickupGateReady(task) {
-    const status = String(task?.status || '').trim().toLowerCase();
-    return status === 'in_transit' && hasInitialReferenceWeight(task);
+    return hasInitialReferenceWeight(task);
 }
 
 function buildDispatchWeightProfile(task) {
@@ -362,7 +361,7 @@ async function waitForPickupGate(targetVehicleId, taskId) {
         }
 
         if (isPickupGateReady(latestTask)) {
-            console.log(`[MockESP32] Pickup gate cleared for task #${latestTask.task_id}. Continuing to destination.`);
+            console.log(`[MockESP32] Pickup gate cleared for task #${latestTask.task_id}. Initial reference weight is already set. Continuing to destination.`);
             return latestTask;
         }
 
@@ -372,7 +371,7 @@ async function waitForPickupGate(targetVehicleId, taskId) {
             ? latestInitialWeight.toFixed(2)
             : 'not set';
         const waitSeconds = Math.max(1, Math.round(pickupGatePollMs / 1000));
-        console.log(`[MockESP32] Holding at pickup for task #${activeTaskId}: waiting for status=in_transit and initial_reference_weight_kg>0 (current status=${latestStatus}, weight=${weightText}). Rechecking in ${waitSeconds}s...`);
+        console.log(`[MockESP32] Holding at pickup for task #${activeTaskId}: waiting for initial_reference_weight_kg>0 (current status=${latestStatus}, weight=${weightText}). Rechecking in ${waitSeconds}s...`);
 
         if (pickupGateTimeoutMs > 0 && (Date.now() - startedAt) >= pickupGateTimeoutMs) {
             throw new Error(`Pickup gate timeout reached (${pickupGateTimeoutMs} ms) for task #${activeTaskId}.`);

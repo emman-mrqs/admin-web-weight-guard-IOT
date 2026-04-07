@@ -13,6 +13,7 @@ router.get('/notifications', MobileJwtAuth.verify, UserMobileNotificationControl
 router.patch('/notifications/read-all', MobileJwtAuth.verify, UserMobileNotificationController.markAllAsRead);
 router.get('/tasks/current', MobileJwtAuth.verify, UserMobileTaskController.getCurrentTask);
 router.patch('/tasks/current/start', MobileJwtAuth.verify, UserMobileTaskController.startCurrentTask);
+router.patch('/tasks/current/complete', MobileJwtAuth.verify, UserMobileTaskController.completeCurrentTask);
 router.get('/activities', MobileJwtAuth.verify, UserMobileActivityController.getActivities);
 
 
